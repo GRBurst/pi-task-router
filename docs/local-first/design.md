@@ -1,13 +1,17 @@
-# Local-first pi: design (revision 3, 2026-11-13)
+# Local-first pi: design (revision 4, 2026-11-13)
 
 Status: design, not a plan. It records what the owner decided (§11), places it
-in the router as built (§7) and names what is left open (§9). No
-implementation plan; the builder writes one from §5–§8.
+in the router as built (§7) and names what is left open (§9). The orchestrator's
+calls, for the owner to check, are listed in §12. No implementation plan; the
+builder writes one from §5–§8.
 
 Labels: `[K n.m]` = row n.m of `docs/local-first/knowledge.md` (source and
 confidence there); `[Dec]` = an owner decision (§11); **Own call** = the
 author's call where the decisions are silent, open to change. Every number is
 a starting value or an experiment level unless the text says it is fixed.
+**(orchestrator's call)** = a minor call made by the orchestrator in r4 where
+the owner's decisions are silent (all listed in §12); the owner may overrule
+it. Older **Own call** marks stay the author's.
 
 Terms. *Local model*: the model behind pi's `llama` provider (today
 `llama/qwen3.8`, router member `qwen-local`). *Main*: the foreground pi
@@ -22,6 +26,14 @@ baseline). *Cloud-first*: today's default mode.
 
 ## Changelog
 
+- **r4 (2026-11-13)**: the builder check's questions and open points O1–O12
+  settled (§12 lists the orchestrator's calls, marked inline); the owner's
+  answers added (§11 items 19–23): a node's agent only splits, the main starts
+  the children; the split is mandatory only at package start; the local main
+  drafts the top-level plan (Opus-writes is an arm, E16); the router reads quota
+  headers itself. New: §5.9 (composable strategies as a future direction and a
+  design constraint), passive measurement instead of live tests (§5.7), staging
+  of the experiments (§6). Open: O13 only.
 - **r3 (2026-11-13)**: every r2 question answered (§11); moved from
   pi-economics' working notes into the router (`docs/local-first/`). New:
   hierarchical divide and conquer on worktree branches (§5.2), size tiers
@@ -76,12 +88,14 @@ Non-goals: latency; local-only or cloud-only *profiles* (two profiles only)
 one (a "virtual main" is a later experiment) [Dec]; experiments on the server
 or coupling to the host that runs llama-server [Dec]; complexity measures
 beyond changed lines, before our own experiment [Dec]; a learned classifier
-(LM-design N2).
+(LM-design N2); a user-definable strategy language (a future direction, §5.9).
+Agents never run live tests against the local server (§5.7).
 
 Anti-goals (must not happen):
 
-- size hints that block, or a size limit that refuses work outright (§5.3)
-  [Dec];
+- size hints that block, or a size limit that refuses work mid-work or at the
+  merge; the one size refusal is at package start and says how to split
+  (§5.2, §5.3) [Dec];
 - a local self-review or a local reviewer in front of the cloud [Dec; K 3.6,
   3.7];
 - a spot-check whose verdict the reviewed parent judges [K 2.9];
@@ -114,7 +128,7 @@ Anti-goals (must not happen):
 | E. One gate size cap that refuses (built: 150 lines / 6 files) | replaced by tiers + hints + reviewer escalation | the cap refused real work [K 1.6]; splitting multiplies the fixed review cost [K 1.7] |
 | F. Review by risk class only, or by size only | replaced by the stronger of both | [Dec]; lines correlate with review recall, blast radius is the class's job |
 | G. Local self-review / local reviewer in front of the cloud | rejected | [Dec; K 3.6, 3.7] |
-| H. Local drafts the plan, cloud audits | not the default (open point O4) | anchoring and unverifiable checks [K 4.2] |
+| H. Local drafts the plan, cloud audits | **decided** for the top-level plan (§5.2); Opus authors as an arm (E16) | [Dec]; anchoring and unverifiable checks [K 4.2] are what E16 tests |
 | I. Quota thresholds in the router (q5h 80 %) | fallback only | the owner prefers waiting at exhaustion by a separate extension [Dec] |
 | J. Server-side levers (`-np 2`, `--kv-unified`, `cache-ram` as an arm, host-declared serving) | rejected | location independence; `cache-ram` is already on [Dec; K 6.9] |
 | K. A router-picked main ("virtual main") | later experiment | [Dec] |
@@ -157,12 +171,20 @@ Anti-goals (must not happen):
   main branch [Dec].
 - **Shape:** split as needed, at most 5 children per node, depth cap 3 at the
   start; depth and fan-out are logged; flat vs recursive is a factor (§6)
-  [Dec]. **Own call:** depth counts node levels below the main's request
-  (milestone → task → subtask = 3).
-- **Do or split** is the node agent's choice, except that a split is
-  mandatory when the node's size estimate exceeds its tier (§5.3), a breaker
-  trips, or a check fails [Dec]. How a mandatory split relates to the
-  escalation ladder is open point O2.
+  [Dec]. The main's request is level 0 and the tree goes up to 3 node levels
+  below it (milestone → task → subtask) (orchestrator's call).
+- **Who starts the children.** A node's agent decides do-or-split. On a split
+  it commits a split plan (its children's packages) to its branch and ends;
+  the coordinating main reads the plan and starts the children. There are no
+  nested sessions (one local slot), and the whole tree's state lives in the
+  main's session [Dec].
+- **Do or split** is the node agent's choice. A split is mandatory only at
+  start: `start_branch` refuses when the stated size estimate exceeds the
+  session's tier, and the refusal says how to split. After a breaker trip or a
+  failed check, a split is the first escalation step, then the cloud ladder
+  (§5.5); a node that cannot split any further (depth or fan-out cap) goes
+  straight to the ladder. Crossings during the work stay hints plus the next
+  tier's reviewer (§5.3) [Dec].
 - **Budgets per work kind** [Dec]: a plan/spec node by its number of children
   (≤ 5) and its text length (~150 plan lines per node); an implementation leaf
   by changed code lines (its tier). The values are factors (§6).
@@ -173,6 +195,8 @@ Anti-goals (must not happen):
 - **Budgets at session start:** the router writes the session's tier and plan
   budgets into the coordinator section and every package child's brief, and
   prefers smaller packages [Dec].
+- **Top-level plan:** the local main drafts it and bounded cloud contacts
+  review it (§5.5); Opus writing the plan is an experiment arm (E16) [Dec].
 
 ### 5.3 Size: tiers, hints, crossings
 
@@ -185,10 +209,10 @@ Anti-goals (must not happen):
 
 - The session's target tier is drawn at random (a factor, §6) [Dec].
 - Lines are the measure because they correlate with review recall; blast
-  radius is the risk class's job [Dec]. **Own call:** "changed lines" keeps
-  the router's present measure (added + deleted from `git diff --numstat`
-  against the base, untracked files counted) and the tiers carry no file
-  limit; whether "net" means added − deleted is open point O1.
+  radius is the risk class's job [Dec]. "Changed lines" is added + deleted
+  from `git diff --numstat` against the base, untracked files counted, as
+  `core/local/merge.ts` computes it today; the tiers carry no file limit
+  (orchestrator's call).
 - **Hints at 80 % and at 100 % of the budget, never a block** [Dec]. They come
   from the deterministic size monitor the router already has
   (`core/local/install.ts:365–380`, `core/local/tripwires.ts:170–181`) [K 1.10],
@@ -197,9 +221,18 @@ Anti-goals (must not happen):
   reviewer; above `large` an Opus review [Dec]. Every crossing is logged: when
   (turn, call, time), by how much, the estimate against the actual, the work
   kind, the tier, the class and the node's depth, to find root causes [Dec].
+- **Start refusal** (§5.2): `start_branch` takes the package's stated size
+  estimate and refuses when it exceeds the session's tier; the refusal says
+  how to split. It is the only place size blocks [Dec].
+- **The reviewer follows the actual size, not the drawn tier**: the stronger
+  of the class's reviewer and the reviewer of the tier the *actual* changed
+  lines fall into (§5.4). The drawn tier only sets the budget and the hints;
+  each crossing is logged against the drawn tier (orchestrator's call).
 - The merge gate stops refusing on size (today `size` in
-  `core/local/merge.ts:44, 341`); what the reviewer receives for a diff far
-  above `large` is open point O3.
+  `core/local/merge.ts:44, 341`). For a diff far above `large` (11-11: 1148
+  lines of docs, a 13299-line CI migration [K 1.6]) the Opus reviewer gets the
+  numstat, the check output and the hunks of the riskiest files, logged as an
+  over-cap review; inert diffs pass without review (orchestrator's call).
 
 ### 5.4 Risk classes and the reviewer
 
@@ -213,12 +246,13 @@ branch, a mixed diff taking its highest file class, and errors failing closed
 | standard | everything else |
 | elevated | `riskGlobs` (auth, crypt, migrations, secrets), CI/infra, gate configuration, multi-component configuration, weakened tests, ≥ 3 coupled files, public API; the ">400 lines → elevated" rule is dropped [Dec] |
 
-**Reviewer = the stronger of the class's and the tier's** [Dec]:
+**Reviewer = the stronger of the class's and the actual-size tier's** [Dec;
+§5.3]:
 
 | Tier or class | Reviewer |
 |---|---|
 | inert | none; the 10 % spot-check sample audits it (§5.5) |
-| small | Sonnet (Haiku, advisory, when the package is inert-like: open point O8) |
+| small | Sonnet (Haiku, advisory, when the package is inert-like: every file of inert class, or tests/docs only, and no code; orchestrator's call) |
 | standard | Sonnet or Opus, randomized per review (§6) |
 | large, and above `large` | Opus |
 | elevated | Opus in a fresh session plus an orthogonal deterministic check (tests, static analysis, red run); never a second identical LLM [K 3.5] |
@@ -251,7 +285,8 @@ than one child or is elevated); the integration of a node whose combined diff
 exceeds 150 lines or is elevated; leaves per class and tier (§5.4); a plan
 review at every level.
 
-**Escalation ladder** [Dec]: breaker → one bounded corrective card (Sonnet for
+**Escalation ladder** [Dec]: breaker or failed check → a split first (§5.2)
+→ one bounded corrective card (Sonnet for
 standard, Opus for elevated: the cloud gets goal, check, last failures and the
 focal diff and returns a root cause and a revised package card, which a fresh
 local child runs) → hand-off one tier up (an open-ended agent contact) → stop
@@ -269,9 +304,10 @@ today's parent-spawned review children, whose verdicts carried no information
 **Batching** [Dec]: consecutive small or inert packages are reviewed together
 up to a cap (default the standard tier, 150 lines); elevated packages never.
 Batching on/off and the cap are factors. Research rejects packing independent
-diffs into one review prompt [K 3.6]; the factor tests it. **Own call:** a
-batch is the parent branch's accumulated diff of those packages, reviewed once
-before the parent merges up (open point O6).
+diffs into one review prompt [K 3.6]; the factor tests it. Mechanism
+(orchestrator's call): consecutive small or inert leaves merge into their
+parent's branch with their checks only; the parent's accumulated diff of those
+leaves is reviewed once, up to the cap, before the parent merges up.
 
 Expected contacts per package, local-first, from measured contact costs
 [K 2.1–2.5] (**own estimate**):
@@ -291,17 +327,20 @@ contacts stay exceptions.
 
 ### 5.6 Quota
 
-- The router keeps **no quota thresholds** [Dec]. A separate extension,
+- The router keeps **no quota thresholds of its own as the main mechanism**
+  [Dec]; it reads quota state itself from the rate-limit headers of provider
+  responses [Dec]. A separate extension,
   *quota-wait* (own small repository, provided through pi-setup), notices an
   exhausted window, waits for its reset and resumes the waiting sessions,
   with one coordinator per process (one probe and timer per provider and
   window); it emits `quota-wait:*` events that pi-economics meters [Dec;
-  K 2.13]. Design and plan of quota-wait come after this document.
-- The router listens to those events (a waiting child is not stuck; no
-  hand-off or parent alarm while it waits) and logs the waits it sees.
-  **Own call:** the router reads quota state from quota-wait's events and
-  does not parse rate-limit headers itself while quota-wait is loaded; its
-  absence is reported once and switches the fallback on.
+  K 2.13]. Design and plan of quota-wait come after this document; for the
+  router's plan quota-wait is only a consumed contract (its events), not a
+  deliverable (orchestrator's call).
+- The events complement the headers [Dec]: the router listens to them (a
+  waiting child is not stuck; no hand-off or parent alarm while it waits) and
+  logs the waits it sees. Its absence is reported once and switches the
+  fallback on (**own call**).
 - **Fallback** without quota-wait [Dec]: at most 2 concurrent cloud contacts;
   above q5h 80 % no open-ended contacts except elevated reviews and `t2`
   cards; at exhaustion an elevated review waits and a standard one drops a
@@ -317,9 +356,12 @@ contacts stay exceptions.
   response, not the context [K 6.13]. pi 1.4 sends `thinkingBudgets` in the
   field `compat.thinkingTokenBudgetField` names (`thinking_budget_tokens` for
   llama.cpp) [K 6.11]; llama.cpp takes it from the body when no
-  `--reasoning-budget` is set [K 6.12]. Verify on our build first; how a
-  child gets its own level is open point O7. LD1 stays (the main's effort is
-  no importance source).
+  `--reasoning-budget` is set [K 6.12]. Verify on our build first, from its
+  version and the llama.cpp docs and source, not by a live run (below). A
+  child gets its own level because the router sets `thinking_budget_tokens` in
+  the request payload per session, in `before_provider_request`, once the
+  build is verified (orchestrator's call). LD1 stays (the main's effort is no
+  importance source).
 - **Context** [Dec]: soft hint at 96k (today 32k, noise on a 262k model
   [K 5.7]); the coordinating main folds only at package boundaries or at
   ≥ 200k (a fold rewrites the local prefix: minutes of prefill [K 6.2]); a
@@ -336,6 +378,16 @@ contacts stay exceptions.
   uncached main requests after another session's request [K 2.8]) is
   **pre-cache-ram**; it is re-measured, split before/after the change (E1,
   §6), and is not relied on until then.
+- **Verification without live tests** (orchestrator's call; the owner may
+  object): no agent runs smoke tests against the local server. The checks use
+  fakes. Liveness and configuration come from llama-server's endpoints
+  (`/health`, `/props` for the build and `n_ctx`, `/slots`). Support for the
+  per-request `thinking_budget_tokens` is read from the build version and the
+  llama.cpp docs and source. The re-prefill cost with `cache-ram` 16384 is
+  measured passively from the meter (llama-server's `timings` → `promptMs`,
+  `genMs`, meter v2) during normal use. Only if the docs stay ambiguous: an
+  owner-run scripted `curl` probe from a runbook (no agent, no session), never
+  agent-initiated.
 
 ### 5.8 Measurement
 
@@ -344,16 +396,32 @@ contacts stay exceptions.
   q7d) is the budget and a calibration check [Dec].
 - Quality: router-recorded verdicts (gate reviews, spot-checks), check
   results, reverts within 7 days; never the parent's `task_verdict` alone
-  [K 2.9].
+  [K 2.9]. The router cannot see a revert a week later: pi-economics' analyser
+  computes it from the router's merge log, so every merge line carries sha,
+  branch and repository (orchestrator's call).
 - The router randomizes its own levers and records each unit's arm on its
   log lines; pi-economics analyses them as extension-owned levers and builds
   the curves [Dec].
-- New log content (names left to the builder): contact (kind, shape, member,
+- New log content (names left to the builder): merge (sha, branch,
+  repository), contact (kind, shape, member,
   class, tier, round, duration), size crossing (§5.3), node (depth, fan-out,
   parent, kind, outcome), split (reason: estimate, breaker, failed check,
   choice), profile switch, local-queue wait, quota wait, arm per factor.
   `docs/outcome-log.md` governs versions; pi-economics' consumer copy follows
   at its next router bump.
+
+### 5.9 Future direction: composable routing strategies
+
+Owner's FYI, **not in scope now**: routing strategies should later become
+fully composable and user-definable, in the way pi-workflows composes
+workflows [Dec]. This build ships two fixed profiles (§5.1). The constraint
+on the builder is to keep the seams clean, so that a later strategy layer can
+replace the parts without rewriting the tools: e.g. the profile, the size
+tiers and hints, the class and reviewer choice, the contact points and their
+budgets, the escalation ladder, the batching rule and the arm drawing each as
+a separate function or table behind a narrow interface, not hard-wired in
+tool handlers. Gap 24's wish for user-defined delegation rules (§7) belongs
+to the same direction.
 
 ## 6. Experiment register
 
@@ -366,12 +434,12 @@ per arm; review escapes ≈ 1000 per arm live, or a shadow replay of 129–243
 defect-bearing changes [K 3.9]; the 10× cost target itself needs only tens.
 Session-level units need a design effect for clustering (from E0). At our
 volume (one busy day had 15 merge requests [K 7.3]) few factors can run at
-once; the order is open point O12.
+once; the staging is in the note after the table (orchestrator's call).
 
 | # | Factor | Levels | Unit | Outcomes | n |
 |---|---|---|---|---|---|
-| E0 | baseline, no factor | local-first and cloud-first as used; cloud-only reference (O5) | — | all; σ and clustering for the n above | 2 weeks |
-| E1 | re-measure local re-prefill | before vs after `cache-ram` (by date), with the router's queue on | request | uncached tokens and prefill time after another session's request | a few hundred requests per side |
+| E0 | baseline, no factor | local-first and cloud-first as used; cloud-only reference = the bench plus a minority arm of cloud-first sessions with local members off (orchestrator's call) | — | all; σ and clustering for the n above | 2 weeks |
+| E1 | re-measure local re-prefill | before vs after `cache-ram` (by date), with the router's queue on; passive, from the meter's `timings` in normal use (§5.7) | request | uncached tokens and prefill time after another session's request | a few hundred requests per side |
 | E2 | target size tier | small / standard / large | session | cost, acceptance, reverts, crossings, review rounds | ≈ 200/arm (acceptance) |
 | E3 | standard-class reviewer | Sonnet / Opus | review | cost; escapes by shadow replay and spot-checks | cost ≈ 190; escapes by replay |
 | E4 | batching | off / on | session | cost per accepted package, rounds, escapes | ≈ 200/arm |
@@ -386,9 +454,17 @@ once; the order is open point O12.
 | E13 | medium-arm budget | 16k / 32k / unbounded | package child (medium arm) | as E12 | ≈ 200/level |
 | E14 | context values | soft hint 96k, fold 200k, breaker 64k, each against a second level | session | wall time, breaker trips, acceptance | ≈ 200/arm |
 | E15 | plan budgets | children (≤ 5) and plan lines (~150) against other levels | session | splits, crossings, acceptance | ≈ 200/arm |
+| E16 | top-level plan author | local main drafts + bounded cloud review (default) / Opus authors | request | cost, acceptance, amendments | ≈ 200/arm |
 
 Not factors: the profile (the user's choice, a stratum), the spot-check rate
 (the instrument), the size-hint stages (80 %/100 %), the quota fallback.
+
+**Staging** (orchestrator's call): the build ships the randomizer framework
+and a first subset; the other factors follow. First: E0 and E1 (measurements),
+then the randomized levers in the order size tiers (E2, with the reviewer E3),
+children's thinking (E12, E13), batching (E4, E5). The tree and review-point
+factors (E6–E10) wait until the tree exists; flat vs recursive (E6) only then.
+E11, E14–E16 later.
 
 ## 7. What changes in the router (gap list against the built local mode)
 
@@ -399,27 +475,27 @@ Paths are under `packages/task-router/`.
 | 1 | Mode | one global `settings.mode` (`core/settings.ts:88`, `core/local/mode.ts` `isLocal`); no per-session mode (LM-lim) | per-session profile: default from settings, switch command, session entry, status line, log line |
 | 2 | Main model | the router never sets the main (LM-design N1) | set the local start model at `session_start` unless the user chose |
 | 3 | Section | `localSection` "do most of the work yourself" (`core/prompt.ts:67–77`) | coordinator section with the session's budgets, one child per package, do-or-split rule, tree limits |
-| 4 | Who uses the local tools | `start_branch`, `request_merge`, `plan_request`, `amend_plan` and the hint engine serve the main only (`core/local/install.ts`, `isChild` guards at 272–444) | node agents (package children) use them for their own subtree |
+| 4 | Who uses the local tools | `start_branch`, `request_merge`, `plan_request`, `amend_plan` and the hint engine serve the main only (`core/local/install.ts`, `isChild` guards at 272–444) | the main's tools drive nodes at any depth: `start_branch` takes the parent node and a size estimate (refused above the tier, with how to split), `request_merge` merges into the parent node; a node's agent only commits a split plan and ends, the main starts its children (§5.2); children keep the `isChild` guards [Dec] |
 | 5 | Branch base and merge target | branches start at the main branch's tip (`core/local/worktree.ts:107–169`); merges go into `mergeGate.mainBranches` only (`core/local/merge.ts`); the git guard protects main branches (`core/local/gitcmd.ts`) | branch off the parent node's branch, merge into it through the gate; the guard also protects parent branches (**own call**) |
-| 6 | Size monitor | main only, one stage (100 %), budget `sizeBudget` = `plans.splitLines`/`splitFiles` 100/3 (`core/local/tripwires.ts:170–181`, `core/local/install.ts:365–380`, text `core/local/hints.ts:14`) | tiers 60/150/300/inert, stages 80 % and 100 %, package children, crossing → next tier's reviewer, crossing log |
-| 7 | Gate size step | refuses `size` above 150 lines / 6 files (`core/local/merge.ts:44, 341`); the review input fails closed above 8 × (lines + files) (`core/local/merge.ts:117`) | no size refusal; reviewer by tier; an input for diffs far above `large` (O3) |
+| 6 | Size monitor | main only, one stage (100 %), budget `sizeBudget` = `plans.splitLines`/`splitFiles` 100/3 (`core/local/tripwires.ts:170–181`, `core/local/install.ts:365–380`, text `core/local/hints.ts:14`) | tiers 60/150/300/inert, stages 80 % and 100 %, package children, the start refusal on the estimate, reviewer by actual size, crossing log |
+| 7 | Gate size step | refuses `size` above 150 lines / 6 files (`core/local/merge.ts:44, 341`); the review input fails closed above 8 × (lines + files) (`core/local/merge.ts:117`) | no size refusal; reviewer by actual-size tier; for diffs far above `large` the numstat, check output and riskiest hunks (§5.3) |
 | 8 | Risk class | none; `riskGlobs` only marks paths (`core/settings.ts:63`) | the inert/standard/elevated classifier (MGS §2.1, unbuilt) with base-branch policy |
 | 9 | Reviewer choice | `overseer.member` Opus, fallback Sonnet (`core/local/overseer.ts:128–134`) | stronger of class and tier; standard randomized; Haiku advisory; orthogonal check for elevated |
 | 10 | Rounds | `rejectionsBeforeFixer` 2 → a Sonnet fixer, `fixerRounds` 1 → `blocked` (task-router.md, L6) | ≤ 2 rounds per leaf with diff-only re-review, then the escalation ladder (the fixer becomes its hand-off step) |
 | 11 | Provider errors in reviews | any `error` event ends the attempt, a transient 429 fails closed (`core/local/overseer.ts:194`; LM-lim) | wait or retry; quota waits via quota-wait |
 | 12 | Cheap refusals first | main-dirty only at the merge step (MGS §1) | main-dirty before the review [K 7.4] |
 | 13 | Contact budget | 15 Opus overseer spawns and 3 steers per session branch (`overseer.budget`, `steerBudget`) | per-node budgets (§5.5); no session cap beyond the quota fallback |
-| 14 | Escalation | persistent trip → Opus steer (on by default) or the fixed "spawn a debug-design card" (`core/local/hints.ts:22`, `core/local/steer.ts`) | breakers → corrective card (a new bounded role) → hand-off → stop and report; steer as an arm |
+| 14 | Escalation | persistent trip → Opus steer (on by default) or the fixed "spawn a debug-design card" (`core/local/hints.ts:22`, `core/local/steer.ts`) | breaker or failed check → split → corrective card (a new bounded role) → hand-off → stop and report; steer as an arm |
 | 15 | Child trips | `identical-call` and `alternation` only, from calls without results (`core/local/childtrips.ts`) | the full trip set and the breakers for package children (they need child tool results: actor API, pi-setup) |
 | 16 | Spot-checks | the parent spawns a review card and judges it (`core/spotcheck.ts`) | bounded, router-judged tickets on the three samples (§5.5) |
 | 17 | Batching | none | §5.5, as factors |
-| 18 | Plans | one level: Opus authors a skeleton, ≤ 5 tasks per milestone, 900 s timeout (`core/local/planflow.ts`, `core/local/plan.ts`); records live in their session (LM-lim) | plan nodes with children/text budgets, local splitting, cloud plan reviews at the chosen points; authorship O4; a tree lives within one coordinating session (**own call**) |
+| 18 | Plans | one level: Opus authors a skeleton, ≤ 5 tasks per milestone, 900 s timeout (`core/local/planflow.ts`, `core/local/plan.ts`); records live in their session (LM-lim) | plan nodes with children/text budgets, local splitting, cloud plan reviews at the chosen points; the local main drafts the top-level plan (E16); the tree lives within one coordinating session, the main starting every node's children (§5.2) [Dec] |
 | 19 | Context | `contextSoftTokens` 32000 (`core/settings.ts:95`); no fold policy; no uncached breaker | 96k hint; fold the main only at package boundaries or ≥ 200k (through the folding extension's per-model settings or a hint); the 64k uncached breaker |
-| 20 | Thinking | `qwen-local` `efforts: ["xhigh"]` (`core/settings.ts:31`) | `medium` too; child effort and budget arms (O7) |
+| 20 | Thinking | `qwen-local` `efforts: ["xhigh"]` (`core/settings.ts:31`) | `medium` too; child effort and budget arms through the per-session payload hook (§5.7) |
 | 21 | Model facts | members copy `contextWindow` etc. (`core/settings.ts:30–33`); the registry is read only for `/force` (`core/forceinstall.ts:22–29`) | read model facts from pi's registry |
 | 22 | Local queue | `slots: 1` serialises local children; the main is not counted (LM-design N4, OQ19) | one local stream at a time, main included; queue waits logged |
-| 23 | Quota | provider blocks after errors (`core/failover.ts`); OpenRouter free cap (`core/freecap.ts`, likely dead [K 2.14]) | quota-wait events; the fallback rule (§5.6) |
-| 24 | Randomization | `randomize` (level-up share, `core/randomize.ts`), spot-check share; arms read from `__piExperimentsApi_v1` (`core/shell.ts:56–83`) | one router-owned randomizer for E2–E15 with the arm on each line; the experiments read leaves; shipping defaults per profile and user-defined delegation rules are the owner's wish (backlog) |
+| 23 | Quota | provider blocks after errors (`core/failover.ts`); OpenRouter free cap (`core/freecap.ts`, likely dead [K 2.14]) | the router reads rate-limit headers itself; quota-wait events complement; the fallback rule (§5.6) |
+| 24 | Randomization | `randomize` (level-up share, `core/randomize.ts`), spot-check share; arms read from `__piExperimentsApi_v1` (`core/shell.ts:56–83`) | one router-owned randomizer for E2–E16 with the arm on each line, staged (§6); the experiments read leaves; shipping defaults per profile and user-defined delegation rules are the owner's wish (backlog) |
 | 25 | Logs | `hint`, `review`, `merge`, `plan`, `gatebypass`, `spawn` (`core/outcome.ts`, `docs/outcome-log.md`) | §5.8 content; pi-economics' `log-contract` and consumer copy follow |
 | 26 | Cloud-first | default mode | unchanged; `router-golden` not re-recorded |
 
@@ -429,8 +505,13 @@ Paths are under `packages/task-router/`.
   module options in `modules/task-router.nix` and their assertions (each with
   a negative case).
 - Where the code lives (`core/local/` or a sibling) and how child sessions
-  get the router's tools, guards and trip results — including any change to
-  pi-setup's patched actor (the `iface-*` checks follow).
+  get the router's guards and trip results. Changes to pi-setup's patched
+  actor API that this needs are cross-repository milestones of the plan, like
+  the router extraction (orchestrator's call; the `iface-*` checks follow).
+- The format of a split plan committed to a node's branch and how the router
+  validates it; how an estimate states inert work (tier `inert` is unlimited);
+  which rate-limit headers each provider gives and what the router does when
+  they are absent.
 - The queue mechanism (spawn policy, a pause of the main's next request, or
   both) and its interaction with `queueMaxSec`.
 - Where a package's size estimate comes from (a card or split field the agent
@@ -438,68 +519,31 @@ Paths are under `packages/task-router/`.
 - The fit-check brief, the corrective-card and spot-check payloads, the batch
   review's input.
 - The randomizer (seeding, recording, how arms combine) and the staging of
-  factors once O12 is answered.
-- Tests first, per `AGENTS.md`; the manual runbooks of local mode (G1–G10 in
-  `docs/local-mode/limitations.md`) before any live arm.
+  factors, per the staging in §6.
+- Tests first, per `AGENTS.md`. Done means fakes in the checks (§5.7: no
+  agent-run live tests); the manual runbooks of local mode (G1–G10 in
+  `docs/local-mode/limitations.md`) are owner-run, before any live arm.
 
 ## 9. Open points
 
-Each carries the author's recommendation; none blocks writing a plan for the
-parts in §5 that do not depend on it.
+O1–O12 and the builder check's questions are settled in r4 (the owner's
+answers in §11, the orchestrator's calls in §12; each is placed where it
+applies). One point is left; it blocks no part of §5.
 
-- **O1 "net lines".** Added + deleted (today's measure) or added − deleted?
-  *Rec:* added + deleted (a rewrite is work to review).
-- **O2 Split vs ladder.** A breaker or failed check makes a split mandatory
-  and also starts the escalation ladder. *Rec:* split first while the node
-  can (depth < 3, < 5 children, estimate above `small`); otherwise the ladder.
-- **O3 Diffs far above `large`** (11-11: 1148 lines of docs, a 13299-line CI
-  migration [K 1.6]). Inert ones pass without review; for code the Opus
-  reviewer cannot read the whole diff. *Rec:* numstat, the checks and the
-  orthogonal check plus the hunks of the riskiest files, logged as an
-  over-cap review; or MGS §2.2's atomic milestone.
-- **O4 Who authors the top-level plan.** Built: Opus authors, local executes
-  [K 4.1]; the hierarchy decision lets local agents split and the cloud
-  review. *Rec:* Opus authors at the top level by default; local draft +
-  cloud review as an arm of E7.
-- **O5 The cloud-only baseline.** Neither profile is cloud-only (cloud-first
-  routes level-0 work to the local model). *Rec:* the bench plus a minority
-  arm of cloud-first sessions with local members off.
-- **O6 Batching.** Review the accumulated diff of consecutive small/inert
-  packages in the parent branch before it merges up (they merge into the
-  parent with checks only), or hold the branches unmerged? *Rec:* the
-  former.
-- **O7 Per-child thinking budget.** pi's `thinkingBudgets` is one global
-  value per level [K 6.11]: per-child levels need a per-session setting from
-  the actor, or a `before_provider_request` hook in the child. And our
-  llama.cpp build must honour `thinking_budget_tokens` [K 6.12]. *Rec:*
-  verify the build first; until a per-child path exists, switch the budget
-  level by day.
-- **O8 "Inert-like" small packages** for the Haiku advisory reviewer: no
-  definition yet. *Rec:* inert except for the `extraChecks` requirement, or
-  comment/whitespace-only code changes.
-- **O9 Depth.** Is the main's request level 0 (three node levels below it)?
-  *Rec:* yes.
-- **O10 Quota source.** quota-wait events only, or also the router's own
-  header reading? *Rec:* events; headers only in the fallback.
-- **O11 Cross-repository work.** Child tools and child trip results probably
-  need the patched actor's API (pi-setup) to grow. *Rec:* scope it in the
-  plan's first milestone.
-- **O12 Factor order.** Fifteen factors exceed our volume. *Rec:* E0 and E1
-  first; then E12/E13 (local only, cheap), E3 (cost by live arm, quality by
-  replay) and E2; the tree and review-point factors (E6–E10) after the tree
-  works.
-- **O13 The cache-ram date.** E1 needs the day `cache-ram` went on.
+- **O13 The cache-ram date.** E1 needs the day `cache-ram` went on. The owner
+  may give it; otherwise it is detected from the first-request uncached sizes
+  of local sessions in the meter, and E1 is passive (§5.7).
 
 ## 10. Components and owners
 
 | Component | Owns | Repository |
 |---|---|---|
 | task-router | profiles, packages and the tree, size, classes, reviewers, contacts, breakers, the local queue, the randomizer, the outcome log | this one |
-| actor-subagents (patched) | child sessions, the spawn-policy API the router builds on | pi-setup |
-| quota-wait | waiting at an exhausted quota window, its events | its own (via pi-setup) |
+| actor-subagents (patched) | child sessions, the spawn-policy API the router builds on; the API changes the plan needs are cross-repository milestones | pi-setup |
+| quota-wait | waiting at an exhausted quota window, its events; for this plan only the consumed contract | its own (via pi-setup) |
 | pi's `models.json` | the model list (optionally written by pi-setup) | the user's agent dir |
 | llama-server | serving, wherever it runs | the owner's host |
-| pi-economics | measurement, cost units, curves, the bench | pi-economics |
+| pi-economics | measurement, cost units, curves, the bench, revert detection from the router's merge log | pi-economics |
 
 ## 11. Decisions (owner, 2026-11-13)
 
@@ -578,3 +622,59 @@ record is kept with the author's configuration.
     calibration check; result as per-factor trade-off curves and a final
     cost-vs-quality curve, optionally one number at a configurable rate. The
     router randomizes its own levers.
+
+### r4 answers (owner, 2026-11-13)
+
+19. **Node children:** a node's agent decides do-or-split; on a split it
+    commits a split plan to its branch and ends, and the coordinating main
+    starts the children. No nested sessions (single slot) (§5.2).
+20. **Mandatory split:** binding only at start: `start_branch` refuses when the
+    stated estimate exceeds the tier, and the refusal says how to split. After
+    a breaker trip or a failed check, a split is the first escalation step,
+    then the cloud ladder. Crossings during the work stay hints plus the next
+    tier's reviewer (§5.2, §5.3, §5.5).
+21. **Top-level plan:** the local main drafts it, bounded cloud contacts
+    review it; Opus writing the plan is an experiment arm (E16) (§5.2).
+22. **Quota source:** the router reads the rate-limit headers itself;
+    quota-wait's events complement (§5.6).
+23. **FYI, not now:** routing strategies should become composable and
+    user-definable, like pi-workflows; a design constraint on the seams
+    (§5.9).
+
+## 12. Orchestrator's calls (r4), for the owner to check
+
+Minor calls made where the decisions were silent; each is marked inline. The
+owner may overrule any of them.
+
+1. The reviewer is chosen by the *actual* changed lines (the stronger of the
+   class's reviewer and the actual-size tier's); the drawn tier only sets the
+   budget and the hints; a crossing is logged against the drawn tier (§5.3,
+   §5.4).
+2. The plan includes pi-setup's actor API changes as cross-repository
+   milestones, like the router extraction; quota-wait is only a consumed
+   contract (§5.6, §8, §10).
+3. The experiments are staged: the randomizer framework and a first subset
+   (E0, E1, then E2/E3, E12/E13, E4/E5); the tree and review-point factors
+   after the tree exists, E6 only then (§6).
+4. Reverts within 7 days are computed by pi-economics' analyser from the
+   router's merge log (sha, branch, repository per merge) (§5.8).
+5. Done means fakes in the checks; no agent-run live tests. Liveness and
+   configuration through llama-server's `/health`, `/props`, `/slots`; the
+   `thinking_budget_tokens` support read from the build version and the
+   docs/source; re-prefill cost measured passively from the meter's
+   `timings`; an owner-run `curl` probe only if the docs stay ambiguous
+   (§5.7, §6 E1, §8).
+6. O1: changed lines = added + deleted, as `merge.ts` computes (§5.3).
+7. O3: for a diff far above `large` the Opus reviewer gets the numstat, the
+   check output and the riskiest hunks, logged as an over-cap review (§5.3).
+8. O5: the cloud-only baseline = the bench plus a minority arm of cloud-first
+   sessions with local members off (§6 E0).
+9. O6: batching = consecutive small/inert leaves merge into their parent's
+   branch with checks; one review of the accumulated parent diff, up to the
+   cap (§5.5).
+10. O7: the router sets `thinking_budget_tokens` in the request payload per
+    session in `before_provider_request`, after verifying the build (§5.7).
+11. O8: "inert-like" = every file of inert class, or tests/docs only, no code
+    (§5.4).
+12. O9: the request node is level 0, up to 3 levels below (§5.2).
+13. O12: factor order — size tiers, children's thinking, batching (§6).
