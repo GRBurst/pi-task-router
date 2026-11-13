@@ -15,7 +15,8 @@ with its history.
 
 Every option, its default and its effect, local mode and the scout gate:
 [`docs/task-router.md`](docs/task-router.md). The outcome log's format:
-[`docs/outcome-log.md`](docs/outcome-log.md).
+[`docs/outcome-log.md`](docs/outcome-log.md). The local-first design (not built):
+[`docs/local-first/design.md`](docs/local-first/design.md).
 
 ## Use
 

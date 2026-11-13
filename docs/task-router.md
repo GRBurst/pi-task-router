@@ -56,7 +56,8 @@ out) is read by the package's settings test and by the `module-eval` case
 ## Local mode
 
 The milestones L1–L7 below, then a reference (switch, settings, tools, session
-entries, events, failure modes) after the plans.
+entries, events, failure modes) after the plans. The local-first design that
+builds on it (revision 3, not built): `docs/local-first/design.md`.
 
 **Local mode (milestone L1).** For a main session driven by a local model
 (Qwen). The settings key `mode` is `"default"` (the default) or `"local"`;
