@@ -1,0 +1,38 @@
+{
+  "1": {
+    "latex": "k = 5"
+  },
+  "2": {
+    "latex": "k"
+  },
+  "3": {
+    "latex": "N - 4"
+  },
+  "4": {
+    "latex": "N"
+  },
+  "5": {
+    "latex": "H_t = \\mathrm{SHA256}(\\text{Tool} \\parallel \\text{Args}_t)"
+  },
+  "6": {
+    "latex": "H_t = H_{t-1} = H_{t-2}"
+  },
+  "7": {
+    "latex": "\\Delta_{\\text{tree}} = \\mathrm{Hash}(\\text{Tree}_t) \\oplus \\mathrm{Hash}(\\text{Tree}_{t-1})"
+  },
+  "8": {
+    "latex": "A \\rightarrow B \\rightarrow A \\rightarrow B"
+  },
+  "9": {
+    "latex": "W_{10}"
+  },
+  "10": {
+    "latex": "\\mathrm{Sim}(\\text{stderr}_t, \\text{stderr}_{t-1}) \\geq 0.92"
+  },
+  "11": {
+    "latex": "> 85\\%"
+  },
+  "12": {
+    "latex": "\\geq 25"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "1": {
+    "latex": "> 1.0\\times"
+  },
+  "2": {
+    "latex": "0.8\\times-1.0\\times"
+  },
+  "3": {
+    "latex": "0.4\\times-0.7\\times"
+  },
+  "4": {
+    "latex": "\\geq"
+  },
+  "5": {
+    "latex": "<0.3\\times"
+  },
+  "6": {
+    "latex": "<0.030"
+  },
+  "7": {
+    "latex": "p_{\\text{success}}"
+  },
+  "8": {
+    "latex": "t"
+  },
+  "9": {
+    "latex": "h_{\\text{agent}}"
+  },
+  "10": {
+    "latex": "\\beta"
+  },
+  "11": {
+    "latex": "p_{\\text{success}}(\\text{agent}, t) = \\sigma(\\beta(\\log h_{\\text{agent}} - \\log t))"
+  },
+  "12": {
+    "latex": "4\\times"
+  },
+  "13": {
+    "latex": "6\\times"
+  },
+  "14": {
+    "latex": "2.2\\times"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "1": {
+    "latex": "P(\\text{correct}) \\in [0,1]"
+  },
+  "2": {
+    "latex": "N > 2"
+  },
+  "3": {
+    "latex": "\\text{Complexity} = 0.35\\,s_{\\text{creativity}} - 0.25\\,s_{\\text{reasoning}} + 0.15\\,s_{\\text{constraints}} + 0.15\\,s_{\\text{domain}} - 0.05\\,s_{\\text{context}} + 0.05\\,s_{\\text{few\\_shot}}"
+  },
+  "4": {
+    "latex": "N \\geq 2"
+  },
+  "5": {
+    "latex": "P(\\text{Strong} \\succ \\text{Weak}) \\in [0,1]"
+  },
+  "6": {
+    "latex": "\\tau"
+  },
+  "7": {
+    "latex": "N = 2"
+  },
+  "8": {
+    "latex": "d"
+  },
+  "9": {
+    "latex": "T"
+  },
+  "10": {
+    "latex": "\\alpha"
+  },
+  "11": {
+    "latex": "P(\\text{strong} \\succ \\text{weak})"
+  },
+  "12": {
+    "latex": "< 0.1\\,\\text{ms}"
+  },
+  "13": {
+    "latex": "s_{\\text{reasoning}} > 0.75"
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "1": {
+    "latex": "\\mathrm{CDS} = \\mathrm{conf}(r_5 \\mid C_1) - \\mathrm{conf}(r_1 \\mid C_0)"
+  },
+  "2": {
+    "latex": "\\mathrm{CDS} \\approx 0"
+  },
+  "3": {
+    "latex": "\\text{KV bytes/token (BF16)} = 2\\,(\\mathrm{K}, \\mathrm{V}) \\times 16\\ \\text{layers} \\times 4\\ \\text{KV heads} \\times 256\\ \\text{dim} \\times 2\\ \\text{bytes} = 65{,}536\\ \\mathrm{B} = 64.0\\ \\mathrm{KiB/tok}"
+  },
+  "4": {
+    "latex": "\\rho = 0.80"
+  },
+  "5": {
+    "latex": "\\rho = 1.02\\text{–}1.55"
+  },
+  "6": {
+    "latex": "\\rho = 1.64\\text{–}3.60"
+  },
+  "7": {
+    "latex": "C_{\\mathrm{comp}}"
+  },
+  "8": {
+    "latex": "E[\\mathrm{Cost}] = C_{\\mathrm{comp}} + p_d(1 - R)\\,C_{\\mathrm{miss}} + \\mathrm{FP}_{\\mathrm{PR}} \\cdot C_{\\mathrm{triage}}"
+  },
+  "9": {
+    "latex": "p_d"
+  },
+  "10": {
+    "latex": "R"
+  },
+  "11": {
+    "latex": "C_{\\mathrm{miss}}"
+  },
+  "12": {
+    "latex": "\\mathrm{FP}_{\\mathrm{PR}}"
+  },
+  "13": {
+    "latex": "P"
+  },
+  "14": {
+    "latex": "p_d R(1 - P)/P"
+  },
+  "15": {
+    "latex": "C_{\\mathrm{triage}}"
+  },
+  "16": {
+    "latex": "R_F = 0.618"
+  },
+  "17": {
+    "latex": "P_F = 0.581"
+  },
+  "18": {
+    "latex": "F1 = 0.598"
+  },
+  "19": {
+    "latex": "C_{\\mathrm{API}} = \\$0.105"
+  },
+  "20": {
+    "latex": "C_{\\mathrm{slot}}"
+  },
+  "21": {
+    "latex": "p_d = 0.05"
+  },
+  "22": {
+    "latex": "C_{\\mathrm{miss}} = \\$50"
+  },
+  "23": {
+    "latex": "C_{\\mathrm{triage}} = \\$10"
+  },
+  "24": {
+    "latex": "P = 0.581"
+  },
+  "25": {
+    "latex": "p_d = 0.12"
+  },
+  "26": {
+    "latex": "C_{\\mathrm{miss}} = \\$300"
+  },
+  "27": {
+    "latex": "C_{\\mathrm{triage}} = \\$15"
+  },
+  "28": {
+    "latex": "P = 0.500"
+  },
+  "29": {
+    "latex": "0.581"
+  },
+  "30": {
+    "latex": "p_d = 0.25"
+  },
+  "31": {
+    "latex": "C_{\\mathrm{miss}} = \\$3{,}000"
+  },
+  "32": {
+    "latex": "C_{\\mathrm{triage}} = \\$25"
+  },
+  "33": {
+    "latex": "P = 0.400"
+  },
+  "34": {
+    "latex": "R_{\\mathrm{local}} \\geq R_{\\mathrm{frontier}}"
+  },
+  "35": {
+    "latex": "p_d = 0.30"
+  },
+  "36": {
+    "latex": "C_{\\mathrm{miss}} = \\$15{,}000"
+  },
+  "37": {
+    "latex": "C_{\\mathrm{triage}} = \\$30"
+  },
+  "38": {
+    "latex": "R_F = 0.337"
+  },
+  "39": {
+    "latex": "C_{\\mathrm{slot}} = \\$0.05"
+  },
+  "40": {
+    "latex": "(0.105 - 0.05)/0.105 = 52.4\\%"
+  },
+  "41": {
+    "latex": "C_{\\mathrm{slot}} = \\$0.10"
+  }
+}

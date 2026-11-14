@@ -1,0 +1,50 @@
+{
+  "1": {
+    "latex": "\\le 30"
+  },
+  "2": {
+    "latex": "\\le 2{,}000"
+  },
+  "3": {
+    "text": "\\$0.10 Input / \\$0.50 Output ($\\le 100k$"
+  },
+  "4": {
+    "latex": "\\le 50"
+  },
+  "5": {
+    "latex": "C^*_{\\mathrm{merge}}"
+  },
+  "6": {
+    "latex": "S"
+  },
+  "7": {
+    "latex": "L"
+  },
+  "8": {
+    "latex": "F"
+  },
+  "9": {
+    "latex": "C^*_{\\mathrm{merge}}(S) = C^*_{\\mathrm{exec}}(S) + P_{\\mathrm{reject}}(L, F)\\cdot\\big[R(S)\\cdot C_{\\mathrm{review}}(S) + C_{\\mathrm{fix}}(S)\\cdot(1 - P_{\\mathrm{correct}})\\big] + D_{\\mathrm{revert}}\\cdot C_{\\mathrm{review}}(S)"
+  },
+  "10": {
+    "latex": "C^*_{\\mathrm{exec}}"
+  },
+  "11": {
+    "latex": "R(S)"
+  },
+  "12": {
+    "latex": "C_{\\mathrm{review}}"
+  },
+  "13": {
+    "latex": "P_{\\mathrm{reject}}"
+  },
+  "14": {
+    "latex": "C_{\\mathrm{fix}}"
+  },
+  "15": {
+    "latex": "P_{\\mathrm{correct}}"
+  },
+  "16": {
+    "latex": "D_{\\mathrm{revert}}"
+  }
+}

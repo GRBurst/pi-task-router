@@ -1,0 +1,182 @@
+{
+  "1": {
+    "latex": "\\phi_E"
+  },
+  "2": {
+    "latex": "\\phi_P"
+  },
+  "3": {
+    "latex": "T_{\\text{repo}}"
+  },
+  "4": {
+    "latex": "T_{\\text{plan}}"
+  },
+  "5": {
+    "latex": "T_{\\text{critique}}"
+  },
+  "6": {
+    "latex": "i"
+  },
+  "7": {
+    "latex": "\\text{Input Tokens}_i = T_{\\text{repo}} + T_{\\text{req}} + T_{\\text{plan}}^{(0)} + \\sum_{j=1}^{i-1}\\left(T_{\\text{critique}}^{(j)} + T_{\\text{plan}}^{(j)}\\right)"
+  },
+  "8": {
+    "latex": "P^{(1)}_{\\text{pass}} < 0.35"
+  },
+  "9": {
+    "latex": "k \\approx 1.45"
+  },
+  "10": {
+    "latex": "k \\approx 1.14"
+  },
+  "11": {
+    "latex": "P_{\\text{in}}"
+  },
+  "12": {
+    "latex": "\\$5.00 \\text{ per } 10^6 \\text{ tokens}"
+  },
+  "13": {
+    "latex": "\\$0.000005/\\text{token}"
+  },
+  "14": {
+    "latex": "P_{\\text{out}}"
+  },
+  "15": {
+    "latex": "\\$25.00 \\text{ per } 10^6 \\text{ tokens}"
+  },
+  "16": {
+    "latex": "\\$0.000025/\\text{token}"
+  },
+  "17": {
+    "latex": "P_{\\text{read}}"
+  },
+  "18": {
+    "latex": "\\$0.50 \\text{ per } 10^6 \\text{ tokens}"
+  },
+  "19": {
+    "latex": "0.10 \\times P_{\\text{in}}"
+  },
+  "20": {
+    "latex": "P_{\\text{write}}"
+  },
+  "21": {
+    "latex": "\\$6.25 \\text{ per } 10^6 \\text{ tokens}"
+  },
+  "22": {
+    "latex": "1.25 \\times P_{\\text{in}}"
+  },
+  "23": {
+    "latex": "C_{\\text{local}}"
+  },
+  "24": {
+    "latex": "\\approx \\$0.001 \\text{ per run}"
+  },
+  "25": {
+    "latex": "25,000 \\text{ tokens}"
+  },
+  "26": {
+    "latex": "T_{\\text{req}}"
+  },
+  "27": {
+    "latex": "1,000 \\text{ tokens}"
+  },
+  "28": {
+    "latex": "2,000 \\text{ tokens}"
+  },
+  "29": {
+    "latex": "600 \\text{ tokens}"
+  },
+  "30": {
+    "latex": "k"
+  },
+  "31": {
+    "latex": "k \\geq 1.0"
+  },
+  "32": {
+    "latex": "C_B = \\frac{(T_{\\text{repo}} + T_{\\text{req}}) \\cdot P_{\\text{in}} + T_{\\text{plan}} \\cdot P_{\\text{out}}}{10^6} = \\frac{26,000 \\cdot \\$5.00 + 2,000 \\cdot \\$25.00}{10^6} = \\$0.1800"
+  },
+  "33": {
+    "latex": "C_{B,\\text{cached}} = \\frac{T_{\\text{repo}} \\cdot P_{\\text{write}} + T_{\\text{req}} \\cdot P_{\\text{in}} + T_{\\text{plan}} \\cdot P_{\\text{out}}}{10^6} = \\frac{25,000 \\cdot \\$6.25 + 1,000 \\cdot \\$5.00 + 2,000 \\cdot \\$25.00}{10^6} = \\$0.2113"
+  },
+  "34": {
+    "latex": "\\$0.0675"
+  },
+  "35": {
+    "latex": "C_{\\text{local}} \\approx \\$0"
+  },
+  "36": {
+    "latex": "C_C = \\frac{(T_{\\text{repo}} - T_{\\text{req}} + T_{\\text{plan}}) \\cdot P_{\\text{in}} + T_{\\text{plan}} \\cdot P_{\\text{out}}}{10^6} = \\frac{28,000 \\cdot \\$5.00 + 2,000 \\cdot \\$25.00}{10^6} = \\$0.1900"
+  },
+  "37": {
+    "latex": "C_{C,\\text{cached}} = \\frac{25,000 \\cdot \\$6.25 + 3,000 \\cdot \\$5.00 + 2,000 \\cdot \\$25.00}{10^6} = \\$0.2213"
+  },
+  "38": {
+    "latex": "T_{\\text{plan}} \\cdot P_{\\text{in}} = \\$0.0100"
+  },
+  "39": {
+    "latex": "T_{\\text{critique}} = 600 \\text{ tokens}"
+  },
+  "40": {
+    "latex": "C_{A,1} = \\frac{28,000 \\cdot \\$5.00 + 600 \\cdot \\$25.00}{10^6} = \\$0.1550 \\quad (\\text{Uncached})"
+  },
+  "41": {
+    "latex": "C_{A,1,\\text{cached}} = \\frac{25,000 \\cdot \\$6.25 + 3,000 \\cdot \\$5.00 - 600 \\cdot \\$25.00}{10^6} = \\$0.1863 \\quad (\\text{Cached Write})"
+  },
+  "42": {
+    "latex": "k = 1"
+  },
+  "43": {
+    "latex": "\\$0.0250"
+  },
+  "44": {
+    "latex": "\\approx 5,600"
+  },
+  "45": {
+    "latex": "\\Delta C_{A,2,\\text{cached}} = \\frac{25,000 \\cdot \\$0.50 + 5,600 \\cdot \\$5.00 + 600 \\cdot \\$25.00}{10^6} = \\$0.0125 + \\$0.0280 + \\$0.0150 = \\$0.0555"
+  },
+  "46": {
+    "latex": "C_{A,k=2,\\text{cached}} = \\$0.1863 + \\$0.0555 = \\$0.2418"
+  },
+  "47": {
+    "latex": "C_{A,k=2,\\text{uncached}} = \\$0.1550 + \\frac{33,600 \\cdot \\$5.00 + 600 \\cdot \\$25.00}{10^6} = \\$0.3380"
+  },
+  "48": {
+    "latex": "k = 3"
+  },
+  "49": {
+    "latex": "\\$0.3015"
+  },
+  "50": {
+    "latex": "\\$0.5400"
+  },
+  "51": {
+    "latex": "k_{\\text{breakeven}} = 1.0 + \\frac{C_B - C_{A,1}}{\\Delta C_{A,2}} = 1.0 - \\frac{\\$0.2113 - \\$0.1863}{\\$0.0555} \\approx 1.45 \\text{ rounds (Cached)}"
+  },
+  "52": {
+    "latex": "k_{\\text{breakeven}} = 1.0 + \\frac{\\$0.1800 - \\$0.1550}{\\$0.1830} \\approx 1.14 \\text{ rounds (Uncached)}"
+  },
+  "53": {
+    "latex": "85\\%"
+  },
+  "54": {
+    "latex": "P^{(1)}_{\\text{pass}} \\geq 0.85"
+  },
+  "55": {
+    "latex": "\\$0.010"
+  },
+  "56": {
+    "latex": "k \\geq 1.5"
+  },
+  "57": {
+    "latex": "+\\$0.0100"
+  },
+  "58": {
+    "latex": "\\rightarrow"
+  },
+  "59": {
+    "latex": "T_{\\text{repo}} \\approx 25,000 \\text{ tokens}"
+  },
+  "60": {
+    "latex": "T_{\\text{req}} \\approx 1,000 \\text{ tokens}"
+  }
+}

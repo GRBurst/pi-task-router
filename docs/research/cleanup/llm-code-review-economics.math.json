@@ -1,0 +1,227 @@
+{
+  "1": {
+    "latex": "F"
+  },
+  "2": {
+    "latex": "v"
+  },
+  "3": {
+    "latex": "F_{\\mathrm{LLM}}"
+  },
+  "4": {
+    "latex": "\\times"
+  },
+  "5": {
+    "latex": "F_{\\mathrm{total}}"
+  },
+  "6": {
+    "latex": "F_{\\mathrm{total}} \\approx \\$0.1160"
+  },
+  "7": {
+    "latex": "150 \\times \\$0.000032 = \\$0.0048"
+  },
+  "8": {
+    "latex": "F_{\\mathrm{total}} = \\$0.1160"
+  },
+  "9": {
+    "latex": "v = \\$0.000032/\\mathrm{line}"
+  },
+  "10": {
+    "latex": "\\rho = -0.03, p = 0.54"
+  },
+  "11": {
+    "latex": "< 10"
+  },
+  "12": {
+    "latex": "> 150"
+  },
+  "13": {
+    "latex": "F_1"
+  },
+  "14": {
+    "latex": "C_{\\mathrm{effective}} = C_{\\mathrm{pipeline}} + P_{\\mathrm{leak}} \\times K_{\\mathrm{cleanup}}"
+  },
+  "15": {
+    "latex": "P_{\\mathrm{leak}} = 1 - \\mathrm{Recall}"
+  },
+  "16": {
+    "latex": "K_{\\mathrm{cleanup}}"
+  },
+  "17": {
+    "latex": "P_{\\mathrm{leak}} \\approx 0.90"
+  },
+  "18": {
+    "latex": "0.5 \\times 0.90 = 0.45"
+  },
+  "19": {
+    "latex": "K_{\\mathrm{cleanup}} = \\$100"
+  },
+  "20": {
+    "latex": "45.00"
+  },
+  "21": {
+    "latex": "P_{\\mathrm{leak}} \\approx 0.75"
+  },
+  "22": {
+    "latex": "0.5 \\times 0.75 = 0.375"
+  },
+  "23": {
+    "latex": "37.50"
+  },
+  "24": {
+    "latex": "P_{\\mathrm{leak}} \\approx 0.50"
+  },
+  "25": {
+    "latex": "0.5 \\times 0.50 = 0.25"
+  },
+  "26": {
+    "latex": "25.00"
+  },
+  "27": {
+    "latex": "T_{\\mathrm{fixed}} \\approx 6{,}500"
+  },
+  "28": {
+    "text": "\\$5.00/MTok on Opus 5.5) or 2.0"
+  },
+  "29": {
+    "text": "\\$0.50/MTok on Opus 4.6/5.0; \\$0.30/MTok on Sonnet 4.6) and **0.05$\\times$"
+  },
+  "30": {
+    "latex": "6{,}500 \\times \\$0.000004 = \\$0.0260"
+  },
+  "31": {
+    "latex": "6{,}500 \\times \\$0.0000002 = \\$0.00130"
+  },
+  "32": {
+    "latex": "k"
+  },
+  "33": {
+    "latex": "1 \\ldots k - 1"
+  },
+  "34": {
+    "latex": "W"
+  },
+  "35": {
+    "latex": "n = \\lceil W/s \\rceil"
+  },
+  "36": {
+    "latex": "s"
+  },
+  "37": {
+    "latex": "C_{\\mathrm{nominal}}(s) = n \\cdot F_{\\mathrm{total}} + W \\cdot v = \\left(\\frac{W}{s}\\right)(C_{\\mathrm{CI}} + T_{\\mathrm{fixed}} \\cdot p_{\\mathrm{in}} + T_{\\mathrm{out}} \\cdot p_{\\mathrm{out}}) + W \\cdot (\\tau_{\\mathrm{line}} \\cdot p_{\\mathrm{in}})"
+  },
+  "38": {
+    "latex": "C_{\\mathrm{effective}}(s) = C_{\\mathrm{nominal}}(s) + \\lambda \\cdot W \\cdot P_{\\mathrm{leak}}(s) \\cdot K_{\\mathrm{cleanup}}"
+  },
+  "39": {
+    "latex": "\\lambda"
+  },
+  "40": {
+    "latex": "P_{\\mathrm{leak}}(s)"
+  },
+  "41": {
+    "latex": "P_{\\mathrm{leak}}(s) = 1 - \\mathrm{Recall}(s)"
+  },
+  "42": {
+    "latex": "\\mathrm{Recall}(s) = \\dfrac{R_0}{1 + \\left(\\dfrac{s}{s_0}\\right)^{\\gamma}}"
+  },
+  "43": {
+    "latex": "R_0 = 0.70"
+  },
+  "44": {
+    "latex": "s_0 = 85\\ \\mathrm{LOC}"
+  },
+  "45": {
+    "latex": "\\gamma = 2.2"
+  },
+  "46": {
+    "latex": "C_{\\mathrm{CI}}"
+  },
+  "47": {
+    "latex": "T_{\\mathrm{fixed}}"
+  },
+  "48": {
+    "latex": "p_{\\mathrm{in},\\,\\mathrm{cold}}"
+  },
+  "49": {
+    "latex": "4.00/10^6"
+  },
+  "50": {
+    "latex": "p_{\\mathrm{in},\\,\\mathrm{cached}}"
+  },
+  "51": {
+    "latex": "0.20/10^6"
+  },
+  "52": {
+    "latex": "T_{\\mathrm{out}}"
+  },
+  "53": {
+    "latex": "p_{\\mathrm{out}}"
+  },
+  "54": {
+    "latex": "20.00/10^6"
+  },
+  "55": {
+    "latex": "\\tau_{\\mathrm{line}}"
+  },
+  "56": {
+    "latex": "F_{\\mathrm{cold}}"
+  },
+  "57": {
+    "latex": "C_{\\mathrm{CI}} + F_{\\mathrm{LLM},\\,\\mathrm{cold}}"
+  },
+  "58": {
+    "latex": "F_{\\mathrm{cached}}"
+  },
+  "59": {
+    "latex": "C_{\\mathrm{CI}} + F_{\\mathrm{LLM},\\,\\mathrm{cached}}"
+  },
+  "60": {
+    "latex": "v_{\\mathrm{cold}}"
+  },
+  "61": {
+    "latex": "v_{\\mathrm{cached}}"
+  },
+  "62": {
+    "latex": "W = 300\\ \\mathrm{LOC}"
+  },
+  "63": {
+    "latex": "s \\in \\{50, 100, 150, 300\\}"
+  },
+  "64": {
+    "latex": "s \\leq 150\\ \\mathrm{LOC}"
+  },
+  "65": {
+    "latex": "K_{\\mathrm{cleanup}} \\to 0"
+  },
+  "66": {
+    "latex": "\\lambda \\to 0"
+  },
+  "67": {
+    "latex": "C_{\\mathrm{effective}}(s) \\approx C_{\\mathrm{nominal}}(s) = \\left(\\frac{W}{s}\\right)F + W \\cdot v"
+  },
+  "68": {
+    "latex": "F \\gg v"
+  },
+  "69": {
+    "latex": "C_{\\mathrm{nominal}}(s)"
+  },
+  "70": {
+    "latex": "s^{*}_{\\mathrm{low\\ risk}} = s_{\\mathrm{cap}} = 150\\ \\mathrm{LOC}\\ \\text{(and up to 6 files)}"
+  },
+  "71": {
+    "latex": "K_{\\mathrm{cleanup}} \\geq \\$100"
+  },
+  "72": {
+    "latex": "s^{*}_{\\mathrm{high\\ risk}} \\approx 40 \\text{ to } 75\\ \\mathrm{LOC}"
+  },
+  "73": {
+    "latex": "n = 14"
+  },
+  "74": {
+    "latex": "K_{\\mathrm{cleanup}} = \\$250"
+  },
+  "75": {
+    "latex": "C_{\\mathrm{CI}} = \\$0.0840"
+  }
+}

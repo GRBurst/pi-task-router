@@ -1,0 +1,68 @@
+{
+  "1": {
+    "latex": "C_1(L) = F + vL"
+  },
+  "2": {
+    "latex": "F"
+  },
+  "3": {
+    "latex": "v"
+  },
+  "4": {
+    "latex": "L = 150"
+  },
+  "5": {
+    "latex": "s(150) = F/(F + 150v) \\in [0.73, 0.96]"
+  },
+  "6": {
+    "latex": "F/v = 150 \\cdot s/(1 - s) \\in [405.6, 3600]"
+  },
+  "7": {
+    "latex": "C_{\\mathrm{batch}}(k, L) = \\frac{F}{k} + vL = C_1(L)\\left[\\frac{s(L)}{k} + (1 - s(L))\\right], \\quad s(L) = \\frac{F/v}{F/v + L}"
+  },
+  "8": {
+    "latex": "C_{\\mathrm{batch}}/R_k \\leq C_1/R_1"
+  },
+  "9": {
+    "latex": "\\delta_k = 1 - R_k/R_1"
+  },
+  "10": {
+    "latex": "\\delta_{\\mathrm{max,review}}(k, L) = s(L)(1 - 1/k)"
+  },
+  "11": {
+    "latex": "D_{\\mathrm{esc}}"
+  },
+  "12": {
+    "latex": "p_d"
+  },
+  "13": {
+    "latex": "C_{\\mathrm{total}}(k, L) = C_{\\mathrm{batch}}(k, L) + p_d(1 - R_k)D_{\\mathrm{esc}}"
+  },
+  "14": {
+    "latex": "F\\left(1 - \\frac{1}{k}\\right) > p_d R_1 \\delta_k D_{\\mathrm{esc}} \\iff \\delta_k < \\frac{F(1 - 1/k)}{p_d R_1 D_{\\mathrm{esc}}}"
+  },
+  "15": {
+    "latex": "R_1 \\approx 0.25"
+  },
+  "16": {
+    "latex": "p_d R_1 = 0.05"
+  },
+  "17": {
+    "latex": "F = \\$0.10"
+  },
+  "18": {
+    "latex": "D_{\\mathrm{esc}} = \\$300"
+  },
+  "19": {
+    "latex": "p_d R_1 D_{\\mathrm{esc}}/F = 150"
+  },
+  "20": {
+    "latex": "p_d R_1 D_{\\mathrm{esc}}/F = 10"
+  },
+  "21": {
+    "latex": "2/(2 - s(150)) ="
+  },
+  "22": {
+    "latex": "1 + 2s(150) ="
+  }
+}

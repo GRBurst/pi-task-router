@@ -1,0 +1,8 @@
+{
+  "calibrated from sources6)": "calibrated from sources[^6])",
+  " base input (\\$0.20/MTok on Opus 5.5;": " base input** (\\$0.20/MTok on Opus 5.5;",
+  "\\\\times\\$ the base input rate for a 1-hour": "$\\times$ the base input rate for a 1-hour",
+  "Evaluated Sample (nnn)": "Evaluated Sample ($n$)",
+  "Harmonic Mean (F1F_1F1​ Score)": "Harmonic Mean ($F_1$ Score)",
+  "Defect Leak (Pleak​)": "Defect Leak ($P_{\\mathrm{leak}}$)"
+}

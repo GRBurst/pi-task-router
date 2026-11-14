@@ -1,0 +1,29 @@
+{
+  "1": {
+    "latex": "D_r = D \\times (1 - R_T)"
+  },
+  "2": {
+    "latex": "D"
+  },
+  "3": {
+    "latex": "R_T"
+  },
+  "4": {
+    "latex": "1.0\\times"
+  },
+  "5": {
+    "latex": "3.5\\times-6.0\\times"
+  },
+  "6": {
+    "latex": "10.0\\times-15.0\\times"
+  },
+  "7": {
+    "latex": "25.0\\times-40.0\\times"
+  },
+  "8": {
+    "latex": "60.0\\times-100.0\\times+"
+  },
+  "9": {
+    "latex": "p = 0.915"
+  }
+}
