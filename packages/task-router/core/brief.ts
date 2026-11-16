@@ -12,11 +12,11 @@ const REPORT = {
 
 /**
  * `skills` is the already rendered `<skill>` blocks (skillBlocks); empty for profiles without skills.
- * `handoff` is the delegation lever: off → no "start immediately" line, the child does its handshake.
+ * `handoff` is the delegation lever: off → no waiver line, the child backbriefs (actor-subagents 7ace3f2) and waits for a go-ahead.
  */
 export function briefAppend(c: Card, p: Plan, complete: boolean, profile: Profile, skills = "", handoff = true): string {
   const lines: string[] = [];
-  if (complete && handoff) lines.push("Start immediately; no understanding/questions reply.");
+  if (complete && handoff) lines.push("The backbrief is waived: start immediately.");
   if (profile.tools === "read-only") lines.push("Read-only task: do not modify any file.");
   if (profile.tools === "read-only+files") lines.push(`Read-only task except these files, which you may write: ${c.files.join(", ")}.`);
   lines.push("Report in ≤ 300 words plus file paths; put details in a file.");

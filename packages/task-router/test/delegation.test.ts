@@ -123,21 +123,21 @@ test("a turn without tool results does not nudge; routing off drops the card ste
 });
 
 // ---- the handoff lever ----
-const HANDSHAKE = "Start immediately; no understanding/questions reply.";
+const HANDSHAKE = "The backbrief is waived: start immediately.";
 
-test("brief: handoff=false drops the no-handshake line, the rest stays", () => {
+test("brief: handoff=false keeps the backbrief, the rest stays", () => {
   const s = defaults();
   const c = card();
   const p = planFor("qwen", "normal", "implement");
   const prof: import("../core/types.ts").Profile = { tools: "all", skills: [], report: "default" };
   assert.ok(briefAppend(c, p, true, prof, "", true).includes(HANDSHAKE));
   const b = briefAppend(c, p, true, prof, "", false);
-  assert.ok(!b.includes("Start immediately"));
+  assert.ok(!b.includes("backbrief"));
   assert.ok(b.includes("Report in ≤ 300 words"));
   assert.ok(s.delegation.nudge === "on");
 });
 
-test("policy: delegation off → the child brief has no no-handshake line; on → it has", async () => {
+test("policy: delegation off → the child brief keeps the backbrief; on → it waives it", async () => {
   const offH = harness({ settings: { delegation: { ...D, nudge: "off" } } });
   const off = accepted(await offH.a.spawn({ name: "k1", task: card() })) as { briefAppend: string };
   assert.ok(!off.briefAppend.includes(HANDSHAKE));

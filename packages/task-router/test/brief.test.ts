@@ -18,7 +18,7 @@ const prof = (k: string): Profile => {
 };
 const plan = (base: TierPlan["base"] = "qwen", i: TierPlan["importance"] = "normal", kind = "implement"): Plan => planFor(base, i, kind);
 
-const HANDSHAKE = "Start immediately; no understanding/questions reply.";
+const HANDSHAKE = "The backbrief is waived: start immediately.";
 const LIMIT = "Report in ≤ 300 words plus file paths; put details in a file.";
 const GATE =
   "Skill approval gates: your parent stands in for the human. Return open questions to your parent and stop; do not wait for the human.";
@@ -27,9 +27,9 @@ test("default profile, complete card: exact text (agent-facing text is the crite
   assert.equal(briefAppend(card(), plan(), true, prof("implement")), `${HANDSHAKE}\n${LIMIT}`);
 });
 
-test("incomplete card: no handshake skip", () => {
+test("incomplete card: the backbrief is not waived", () => {
   const b = briefAppend(card(), plan(), false, prof("implement"));
-  assert.ok(!b.includes("Start immediately"));
+  assert.ok(!b.includes("backbrief"));
   assert.ok(b.includes(LIMIT));
 });
 

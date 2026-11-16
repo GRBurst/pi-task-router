@@ -36,12 +36,12 @@ test("invalid card and unknown kind → reject naming the problem", async () => 
   assert.match(unk.reject, /unknown kind "nope"/);
 });
 
-test("all-T0 card → free cloud Qwen at xhigh, brief skips the handshake", async () => {
+test("all-T0 card → free cloud Qwen at xhigh, brief waives the backbrief", async () => {
   const h = harness({ base: "today" });
   const r = accepted(await h.a.spawn({ name: "q1", task: card() }));
   assert.equal((r as any).model, CLOUD);
   assert.equal((r as any).thinkingLevel, "xhigh");
-  assert.match((r as any).briefAppend, /Start immediately/);
+  assert.match((r as any).briefAppend, /backbrief is waived/);
 });
 
 test("card that is not T0 → Sonnet high; T2 trigger → Opus high", async () => {

@@ -93,7 +93,7 @@ export type RouterSettings = {
   t2Keywords: Partial<Record<T2, string[]>>;
   pathRules: { glob: string; level: Importance }[];
   profiles: Record<string, Profile>;
-  /** nudge "off" also switches the handoff lever off (no "start immediately" line in child briefs). */
+  /** nudge "off" also switches the handoff lever off (no backbrief waiver in child briefs). */
   /** rule "on" adds the orchestrator rule to the main session's card section (flag `delegationRule`). */
   delegation: { nudge: string; afterCalls: number; tools: string[]; rule: string };
   routing: boolean;
