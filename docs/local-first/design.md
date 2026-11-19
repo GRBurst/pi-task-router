@@ -26,6 +26,11 @@ baseline). *Cloud-first*: today's default mode.
 
 ## Changelog
 
+- **r5 (2026-11-16)**: O13 closed: `cache-ram` went on 2026-11-13, and
+  qwen3.8 has not run in pi with it yet, so E1's "before" side is every local
+  request before that day and its "after" side starts with the next local
+  session. Per-request `thinking_budget_tokens` verified for build
+  b10964 (§5.7). Open: none.
 - **r4 (2026-11-13)**: the builder check's questions and open points O1–O12
   settled (§12 lists the orchestrator's calls, marked inline); the owner's
   answers added (§11 items 19–23): a node's agent only splits, the main starts
@@ -383,7 +388,18 @@ contacts stay exceptions.
   fakes. Liveness and configuration come from llama-server's endpoints
   (`/health`, `/props` for the build and `n_ctx`, `/slots`). Support for the
   per-request `thinking_budget_tokens` is read from the build version and the
-  llama.cpp docs and source. The re-prefill cost with `cache-ram` 16384 is
+  llama.cpp docs and source. For build b10964 (b29c606) the source settles it,
+  and two requests confirmed it (2026-11-16, server on at the owner's word): the
+  server reads `reasoning_budget_tokens`, else `thinking_budget_tokens`, else
+  its `--reasoning-budget` (default −1, unlimited)
+  (`tools/server/server-common.cpp` 1388–1391). It applies only when the chat
+  template yields a thinking end tag (the autoparser path, `common/chat.cpp`
+  1341–1346; qwen3.8's `<think>` template does; specialised templates such as
+  gpt-oss, Mistral or Kimi ignore the field silently). Router mode forwards the
+  body unchanged to the model's server (`tools/server/server-models.cpp`
+  1539–1575). On qwen3.8 a budget of 32 cut the reasoning from 534 to 106
+  characters (438 to 264 completion tokens). A router check of the build
+  therefore needs the template's end tag too, not only the version. The re-prefill cost with `cache-ram` 16384 is
   measured passively from the meter (llama-server's `timings` → `promptMs`,
   `genMs`, meter v2) during normal use. Only if the docs stay ambiguous: an
   owner-run scripted `curl` probe from a runbook (no agent, no session), never
@@ -528,11 +544,9 @@ Paths are under `packages/task-router/`.
 
 O1–O12 and the builder check's questions are settled in r4 (the owner's
 answers in §11, the orchestrator's calls in §12; each is placed where it
-applies). One point is left; it blocks no part of §5.
-
-- **O13 The cache-ram date.** E1 needs the day `cache-ram` went on. The owner
-  may give it; otherwise it is detected from the first-request uncached sizes
-  of local sessions in the meter, and E1 is passive (§5.7).
+applies). O13 is closed in r5: `cache-ram` went on 2026-11-13 (the owner),
+and no local pi session has run with it yet, so E1 splits the meter by that
+day (§6). No point is open.
 
 ## 10. Components and owners
 
