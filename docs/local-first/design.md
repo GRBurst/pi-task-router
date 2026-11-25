@@ -9,7 +9,7 @@ Labels: `[K n.m]` = row n.m of `docs/local-first/knowledge.md` (source and
 confidence there); `[Dec]` = an owner decision (§11); **Own call** = the
 author's call where the decisions are silent, open to change. Every number is
 a starting value or an experiment level unless the text says it is fixed.
-**(orchestrator's call)** = a minor call made by the orchestrator in r4 where
+**(orchestrator's call)** = a minor call made by the orchestrator in r4 or r6 where
 the owner's decisions are silent (all listed in §12); the owner may overrule
 it. Older **Own call** marks stay the author's.
 
@@ -26,19 +26,26 @@ baseline). *Cloud-first*: today's default mode.
 
 ## Changelog
 
-- **r6 (2026-11-17)**: the owner's additions (§11 "r6 answers", items 24–29).
-  Merge-back per level states that no size check runs at merge and which
-  checks do (§5.2); a merge queue serialises merges into one parent branch in
-  the router's merge gate (§5.2, §7 gap 27); qwen3.8 reviews small and
-  inert-like packages as an arm against Sonnet, in a fresh session, covered by
-  the spot-check sample (§5.4, §5.5, E17); from the new single-repo research
-  (`docs/research/originals/Local LLM Single-Repo Architecture.md`, key R-single
-  in the knowledge base): local children's soft context hint 64k with a 32k arm
-  (§5.7, E14), lean local children as a factor (§5.7, E18, gap 28), a
-  medium-effort child retries once at xhigh before the split (§5.2, §5.5,
-  orchestrator's call), and a list of follow-ups, not in scope now (§5.9). §5.9
-  names the owner's development loop as the first workflow a strategy layer
-  must express. Open: none.
+- **r6 (2026-11-17)**: the owner's additions (§11 "r6 answers", items 24–30);
+  open: none. Review fixes of the same day (orchestrator's calls, §12
+  items 14–17).
+  - Merge-back per level: no size check runs at merge; the deterministic
+    checks do; the fit check is advisory and a miss opens a fix package
+    (§5.2).
+  - A merge queue serialises merges into one parent branch in the router's
+    merge gate, one lock from rebase to fast-forward (§5.2, §7 gap 27).
+  - qwen3.8 reviews small and inert-like packages as an arm (E17), in a fresh
+    session, covered by the spot-check sample (§5.4, §5.5, §6).
+  - From the single-repo research (`docs/research/originals/Local LLM
+    Single-Repo Architecture.md`, key R-single in the knowledge base):
+    children's soft context hint 64k with a 32k arm (§5.7, E14); lean local
+    children as a factor (§5.7, E18, gap 28); follow-ups, not in scope now
+    (§5.9).
+  - A medium-effort child retries once at xhigh before the split (§5.2,
+    §5.5).
+  - §5.9 names the owner's development loop as the first workflow a
+    strategy layer must express.
+  - §11 items 5, 7 and 16 are marked superseded by r6 items 24–27.
 - **r5 (2026-11-16)**: O13 closed: `cache-ram` went on 2026-11-13, and
   qwen3.8 has not run in pi with it yet, so E1's "before" side is every local
   request before that day and its "after" side starts with the next local
@@ -96,8 +103,8 @@ Goals:
   choice are computed by the router from diffs and checks, never from the
   model's claim [K 3.1, 5.1].
 - **G6 Measurable.** Every contact, size crossing, split, node, queue wait
-  (local queue and merge queue), rebase conflict and arm is logged; per factor a trade-off curve and at the end a cost-vs-quality
-  frontier, plus an optional single number at a configurable rate [Dec].
+  (local queue and merge queue), rebase conflict and arm is logged; per
+  factor a trade-off curve and at the end a cost-vs-quality frontier, plus an optional single number at a configurable rate [Dec].
 - **G7 Cloud-first unchanged.** Today's default mode stays byte-identical
   (`router-golden`, the section, the log lines; LM-design A5, G6).
 
@@ -115,9 +122,10 @@ Anti-goals (must not happen):
   merge; the one size refusal is at package start and says how to split
   (§5.2, §5.3) [Dec];
 - a local self-review or a local reviewer in front of the cloud [Dec; K 3.6,
-  3.7]; the one exception is the E17 arm, where qwen3.8 reviews small and
-  inert-like packages in a fresh session instead of Sonnet and the spot-checks
-  cover its reviews (§5.4) [Dec, r6];
+  3.7]; the one exception is the E17 arm (§5.4): qwen3.8 reviews small and
+  inert-like packages only, in a fresh session, instead of Sonnet or Haiku,
+  never decides whether the cloud is called, falls back to the cloud
+  reviewer when unavailable, and is covered by the spot-checks [Dec, r6];
 - a spot-check whose verdict the reviewed parent judges [K 2.9];
 - reading the model's self-assessed confidence (LM-design A1);
 - switching the main model back after a user's in-session change [Dec];
@@ -202,8 +210,8 @@ Anti-goals (must not happen):
   start: `start_branch` refuses when the stated size estimate exceeds the
   session's tier, and the refusal says how to split. After a breaker trip or a
   failed check, a split is the first escalation step (a child at medium effort
-  first gets one retry at xhigh, a local step; orchestrator's call), then the
-  cloud ladder (§5.5); a node that cannot split any further (depth or fan-out cap) goes
+  first gets one retry at xhigh, a local step that a child already at xhigh
+  skips [Dec, r6]), then the cloud ladder (§5.5); a node that cannot split any further (depth or fan-out cap) goes
   straight to the ladder. Crossings during the work stay hints plus the next
   tier's reviewer (§5.3) [Dec].
 - **Budgets per work kind** [Dec]: a plan/spec node by its number of children
@@ -214,16 +222,29 @@ Anti-goals (must not happen):
   deterministic checks (the parent's check plus every merged child's check)
   run on the combined result. The local fit check is advisory: the parent's
   local agent compares the combined result with the parent's goal; it is no
-  review verdict and gates nothing on its own, and a miss enters the
-  escalation of §5.5 (split first, then the cloud ladder) [Dec].
+  review verdict and blocks no merge (the deterministic checks stay the only
+  merge gate). A miss creates one fix package on the parent node: a fresh
+  local child on the parent's branch, through the normal gate. If that fails,
+  the ladder of §5.5 is entered at its first step. "Split" applies only to an
+  unmerged package, never to children that have already merged
+  (orchestrator's call) [Dec].
 - **Merge queue** [Dec]: merges into one parent branch are serialised in the
-  router's merge gate (`core/local/merge.ts`): the child is rebased onto the
-  parent's current tip, the deterministic checks rerun, then it merges. A
-  conflict or a red check sends the child back for one bounded fix, then the
-  escalation ladder (§5.5). Its state lives in the main's tree state; no extra
-  process. It is not the local request queue (§5.7, spawn policy), which
-  orders local model requests, not merges. Merge-queue waits and rebase
-  conflicts are logged (§5.8).
+  router's merge gate (`core/local/merge.ts`). Per parent branch one lock is
+  held from the rebase to the merge, in this order (orchestrator's call):
+  acquire the lock → rebase the child onto the parent's current tip →
+  deterministic checks → review (approval reuse stays keyed on commit and
+  tree, so a tree changed by a rebase is re-reviewed) → fast-forward-only
+  merge → release. The merged tree stays the reviewed tree (LD7). Contention
+  is low, since the local slot already serialises the children's work. A
+  rebase conflict or a red check releases the lock; a fresh local child then
+  gets one bounded fix on the child's branch (no cloud contact). If that fails,
+  the ladder is entered at its first step (§5.5: the xhigh retry for a medium
+  child, then the split, then the cloud). Lock waits and re-reviews are
+  logged (§5.8). The queue lives in the main's tree state, which is a session
+  entry like the plan records, so it survives a fold or a resume; no extra
+  process (persistence of the tree state is required of the builder, §8). It
+  is not the local request queue (§5.7, spawn policy), which orders local
+  model requests, not merges.
 - **Budgets at session start:** the router writes the session's tier and plan
   budgets into the coordinator section and every package child's brief, and
   prefers smaller packages [Dec].
@@ -284,29 +305,49 @@ branch, a mixed diff taking its highest file class, and errors failing closed
 | Tier or class | Reviewer |
 |---|---|
 | inert | none; the 10 % spot-check sample audits it (§5.5) |
-| small | Sonnet or qwen3.8, 50/50 (E17); Haiku, advisory, when the package is inert-like: every file of inert class, or tests/docs only, and no code (orchestrator's call), also in the E17 arm instead of Sonnet |
+| small | Sonnet (binding) or qwen3.8 (E17); Haiku (advisory) or qwen3.8 (E17) when the package is inert-like: every file of inert class, or tests/docs only, and no code (orchestrator's call) |
 | standard | Sonnet or Opus, randomized per review (§6) |
 | large, and above `large` | Opus |
 | elevated | Opus in a fresh session plus an orthogonal deterministic check (tests, static analysis, red run); never a second identical LLM [K 3.5] |
 
 Order of strength: none < Haiku advisory < Sonnet < Sonnet|Opus (randomized)
 < Opus < Opus + orthogonal check (qwen3.8 stands in for Sonnet or Haiku
-only in the E17 arm, below).
-
-**qwen3.8 as reviewer, an arm (E17)** [Dec, r6]: for small and inert-like
-packages the reviewer is qwen3.8 or Sonnet, 50/50 (the inert class itself
-stays without a review and in the audit sample; orchestrator's call). The
-qwen review runs in a fresh session, never the author's, with the bounded
-triad payload and a harness-computed verdict like any review. The 10 %
-spot-check sample (§5.5) also covers qwen-reviewed packages, so its misses
-are measurable. It uses the single local slot (the local queue, §5.7) and
-costs time (EUR), not $; it is no cloud contact. A larger class or tier keeps
-its cloud reviewer. A review is bounded: the triad payload
+only in the E17 arm, below). A review is bounded: the triad payload
 (goal, check output with the red run, numstat and diff), read-only, a
 verdict computed by the harness, a fresh session (built: LM-design §3.2;
 [K 3.3, 3.8]). Cheap refusals run before any contact (main-dirty included)
 [K 7.4]; a transient provider error is waited out or retried, never a closed
 gate [K 5.8].
+
+**qwen3.8 as reviewer, an arm (E17)** [Dec, r6]: for the two strata of
+cheap packages the reviewer is drawn 50/50 inside each stratum:
+
+- *small* (binding at the gate): qwen3.8 or Sonnet;
+- *inert-like* (the Haiku-advisory case; advisory, gates nothing): qwen3.8 or
+  Haiku. The inert class itself stays without a review in the audit sample.
+
+Limits, which are the exception to the anti-goal of §2 and nothing more
+(orchestrator's call):
+
+- In the small stratum qwen's verdict is binding like Sonnet's: the arm trades
+  Sonnet's binding review for qwen's, and the shadow review measures what
+  that costs in escapes. Both reviewers get the bounded triad payload and a
+  harness-computed verdict, in a fresh session, never the author's.
+- qwen never reviews the standard tier or above, nor a package whose class
+  demands a stronger reviewer, and never decides whether the cloud is called.
+- qwen unavailable (slot timeout, server down): the unit falls back to
+  Sonnet or Haiku, logged as a fallback and analysed as assigned
+  (intention to treat).
+- The spot-check sample (§5.5, 10 %) covers qwen-reviewed packages at the same
+  rate in both arms; its shadow reviewer is cloud-side (Opus).
+- An *escape* is a defect found by the shadow review, a later failing check,
+  or a revert within 7 days, attributed to the reviewed package.
+- Escapes are rare, so E17 is a long-running arm: report the escape rate per
+  arm with a confidence interval; stop only for harm (an escape-rate bound set
+  before the start), never for superiority; the owner decides from the data.
+- A qwen review uses the single local slot (the local queue, §5.7), pays a
+  cold prefill, costs time (EUR), not $, and is no cloud contact: it does not
+  count against §5.5's contact budgets. Its queue wait is logged.
 
 ### 5.5 Contact points and their budget
 
@@ -329,8 +370,8 @@ exceeds 150 lines or is elevated; leaves per class and tier (§5.4); a plan
 review at every level.
 
 **Escalation ladder** [Dec]: breaker or failed check → for a child at medium
-effort one retry at xhigh (local, before the split; orchestrator's call) → a
-split first (§5.2) → one bounded corrective card (Sonnet for
+effort one retry at xhigh (local, before the split; skipped for a child at
+xhigh) [Dec, r6] → a split first (§5.2) → one bounded corrective card (Sonnet for
 standard, Opus for elevated: the cloud gets goal, check, last failures and the
 focal diff and returns a root cause and a revised package card, which a fresh
 local child runs) → hand-off one tier up (an open-ended agent contact) → stop
@@ -408,8 +449,9 @@ contacts stay exceptions.
   build is verified (orchestrator's call). LD1 stays (the main's effort is no
   importance source).
 - **Context** [Dec; r6]: soft hint for local children at 64k, with a 32k arm
-  (r5: 96k; today 32k, noise on a 262k model [K 5.7]; the effective working
-  context of a 27B model is about 32–64k [K 6.14]); the coordinating main's
+  (today 32k, noise on a 262k model [K 5.7]; the research puts a 27B model's
+  effective working context at 25–30 % of the window, about 65–79k on 262k,
+  with active working sets of 32–64k [K 6.14]); the coordinating main's
   hint stays at 96k and it folds only at package boundaries or at ≥ 200k (a
   fold rewrites the local prefix: minutes of prefill [K 6.2]); a breaker when
   one request carries ≥ 64k uncached input. All values are factors (E14).
@@ -469,7 +511,7 @@ contacts stay exceptions.
   repository), contact (kind, shape, member,
   class, tier, round, duration), size crossing (§5.3), node (depth, fan-out,
   parent, kind, outcome), split (reason: estimate, breaker, failed check,
-  choice), profile switch, local-queue wait, merge-queue wait and rebase
+  choice), profile switch, local-queue wait, merge-queue lock wait, re-review and rebase
   conflict (parent, child, wait, outcome), quota wait, arm per factor.
   `docs/outcome-log.md` governs versions; pi-economics' consumer copy follows
   at its next router bump.
@@ -540,7 +582,7 @@ once; the staging is in the note after the table (orchestrator's call).
 | E14 | context values | child soft hint 64k (default) / 32k; the main's hint 96k, fold 200k, breaker 64k, each against a second level | session | wall time, breaker trips, acceptance | ≈ 200/arm |
 | E15 | plan budgets | children (≤ 5) and plan lines (~150) against other levels | session | splits, crossings, acceptance | ≈ 200/arm |
 | E16 | top-level plan author | local main drafts + bounded cloud review (default) / Opus authors | request | cost, acceptance, amendments | ≈ 200/arm |
-| E17 | reviewer of small and inert-like packages | Sonnet (Haiku advisory when inert-like) / qwen3.8 in a fresh session, 50/50 (§5.4) | review | cost ($ and EUR), wall time with queue wait, escapes by spot-checks and shadow replay, rounds | cost ≈ 190; escapes by replay |
+| E17 | reviewer of small and inert-like packages | two strata, 50/50 each: small, qwen3.8 / Sonnet (both binding); inert-like, qwen3.8 / Haiku (both advisory); qwen in a fresh session, fallback to the cloud reviewer, intention to treat (§5.4) | review | cost ($ and EUR), wall time with queue wait, rounds, fallbacks; escapes (shadow review at the same 10 % rate, a later failing check, a revert within 7 days) per arm with a confidence interval | long-running: escapes are rare; stop only for harm (a bound set before the start) |
 | E18 | child brief and tools | full / lean (minimal brief, about a dozen tools; §5.7) | package child | cost (EUR), wall time, acceptance, tool-call count | ≈ 200/arm |
 
 Not factors: the profile (the user's choice, a stratum), the spot-check rate
@@ -572,7 +614,7 @@ Paths are under `packages/task-router/`.
 | 11 | Provider errors in reviews | any `error` event ends the attempt, a transient 429 fails closed (`core/local/overseer.ts:194`; LM-lim) | wait or retry; quota waits via quota-wait |
 | 12 | Cheap refusals first | main-dirty only at the merge step (MGS §1) | main-dirty before the review [K 7.4] |
 | 13 | Contact budget | 15 Opus overseer spawns and 3 steers per session branch (`overseer.budget`, `steerBudget`) | per-node budgets (§5.5); no session cap beyond the quota fallback |
-| 14 | Escalation | persistent trip → Opus steer (on by default) or the fixed "spawn a debug-design card" (`core/local/hints.ts:22`, `core/local/steer.ts`) | breaker or failed check → (medium-effort child: one retry at xhigh) → split → corrective card (a new bounded role) → hand-off → stop and report; steer as an arm |
+| 14 | Escalation | persistent trip → Opus steer (on by default) or the fixed "spawn a debug-design card" (`core/local/hints.ts:22`, `core/local/steer.ts`) | breaker or failed check → (medium-effort child: one retry at xhigh, skipped at xhigh) → split → corrective card (a new bounded role) → hand-off → stop and report; steer as an arm |
 | 15 | Child trips | `identical-call` and `alternation` only, from calls without results (`core/local/childtrips.ts`) | the full trip set and the breakers for package children (they need child tool results: actor API, pi-setup) |
 | 16 | Spot-checks | the parent spawns a review card and judges it (`core/spotcheck.ts`) | bounded, router-judged tickets on the three samples (§5.5) |
 | 17 | Batching | none | §5.5, as factors |
@@ -582,10 +624,10 @@ Paths are under `packages/task-router/`.
 | 21 | Model facts | members copy `contextWindow` etc. (`core/settings.ts:30–33`); the registry is read only for `/force` (`core/forceinstall.ts:22–29`) | read model facts from pi's registry |
 | 22 | Local queue | `slots: 1` serialises local children; the main is not counted (LM-design N4, OQ19) | one local stream at a time, main included, and qwen reviews (E17); queue waits logged |
 | 23 | Quota | provider blocks after errors (`core/failover.ts`); OpenRouter free cap (`core/freecap.ts`, likely dead [K 2.14]) | the router reads rate-limit headers itself; quota-wait events complement; the fallback rule (§5.6) |
-| 24 | Randomization | `randomize` (level-up share, `core/randomize.ts`), spot-check share; arms read from `__piExperimentsApi_v1` (`core/shell.ts:56–83`) | one router-owned randomizer for E2–E16 with the arm on each line, staged (§6); the experiments read leaves; shipping defaults per profile and user-defined delegation rules are the owner's wish (backlog) |
+| 24 | Randomization | `randomize` (level-up share, `core/randomize.ts`), spot-check share; arms read from `__piExperimentsApi_v1` (`core/shell.ts:56–83`) | one router-owned randomizer for E2–E18 with the arm on each line, staged (§6); the experiments read leaves; shipping defaults per profile and user-defined delegation rules are the owner's wish (backlog) |
 | 25 | Logs | `hint`, `review`, `merge`, `plan`, `gatebypass`, `spawn` (`core/outcome.ts`, `docs/outcome-log.md`) | §5.8 content; pi-economics' `log-contract` and consumer copy follow |
 | 26 | Cloud-first | default mode | unchanged; `router-golden` not re-recorded |
-| 27 | Merge queue | the gate refuses `behind` when the target is not an ancestor of the branch and the agent rebases in its worktree; no queue per target branch, no router-driven rebase or recheck (`core/local/merge.ts:24, 53`) | merges into one parent branch serialised in the gate: rebase onto the parent's current tip, rerun the deterministic checks, merge; conflict or red check → one bounded fix, then the ladder; state in the main's tree state; waits and rebase conflicts logged (§5.2, §5.8) |
+| 27 | Merge queue | the gate refuses `behind` when the target is not an ancestor of the branch and the agent rebases in its worktree; no queue per target branch, no router-driven rebase or recheck (`core/local/merge.ts:24, 35, 53, 324`; `behind` is relative to `main.sha`, retargeting is gap 5) | one lock per parent branch from rebase to fast-forward: acquire → rebase onto the parent's tip → deterministic checks → review (a rebased tree is re-reviewed; reuse keyed on commit and tree) → ff-only merge → release (LD7 holds); conflict or red check releases the lock, one bounded fix by a fresh local child, then the ladder from its first step; state persisted in the main's tree state; lock waits and re-reviews logged (§5.2, §5.8) |
 | 28 | Child brief and tools | one brief and tool set for every local child | lean arm: minimal brief and about a dozen tools, as a factor (E18, §5.7) |
 
 ## 8. Left to the builder
@@ -604,9 +646,11 @@ Paths are under `packages/task-router/`.
 - The queue mechanism (spawn policy, a pause of the main's next request, or
   both) and its interaction with `queueMaxSec`.
 - The merge queue mechanism: how the gate serialises merges per parent branch
-  (a lock or a queue in the main's tree state), how a waiting child is held,
-  and how the rebase and the bounded fix are driven; distinct from the local
-  request queue above.
+  (the lock and the queue persisted in the main's tree state, a session entry
+  like the plan records, so they survive a fold or a resume), how a waiting
+  child is held, and how the rebase and the bounded fix are driven; the
+  semantics (lock scope, review after rebase, ff-only merge) are fixed in
+  §5.2. Distinct from the local request queue above.
 - The lean child's brief text and which dozen tools it gets.
 - Where a package's size estimate comes from (a card or split field the agent
   fills; the router compares it with the actual).
@@ -664,15 +708,17 @@ record is kept with the author's configuration.
 5. **Reviewer** = the stronger of risk class and size tier: small Sonnet
    (Haiku advisory if inert-like), standard Sonnet vs Opus randomized, large
    Opus, elevated Opus in a fresh session plus an orthogonal check; the
-   ">400 lines → elevated" rule dropped.
+   ">400 lines → elevated" rule dropped. *Superseded in r6 for small and
+   inert-like packages: qwen3.8 as the reviewer in the E17 arm (item 26).*
 6. **Execution:** a fresh local child per package, task and branch; the main
    coordinates; the router gives the budgets at session start and prefers
    smaller packages.
 7. **Hierarchy:** divide and conquer as needed, ≤ 5 children per node, depth
    cap 3 at the start, depth and fan-out logged, flat vs recursive as an
    experiment; node = branch + worktree, children branch off the parent and
-   merge back through the gate; a local fit check and the checks per level;
-   do-or-split by the local agent, mandatory split on size estimate > tier,
+   merge back through the gate; a local fit check and the checks per level
+   (*superseded in r6: no size check at merge, the fit check advisory with a
+   fix package on a miss, a merge queue; items 24–25*); do-or-split by the local agent, mandatory split on size estimate > tier,
    breaker trip or failed check; deterministic size mechanics; budgets per
    work kind (plan/spec: children and text length, ~150 plan lines per node;
    implementation: changed code lines), values experimented.
@@ -703,7 +749,8 @@ record is kept with the author's configuration.
     (verify llama.cpp support on our build).
 16. **Context:** soft hint 96k; fold the coordinating main only at package
     boundaries or ≥ 200k; breaker at ≥ 64k uncached per request; values
-    experimented.
+    experimented. *Superseded in r6 for local children: soft hint 64k with a
+    32k arm (item 27); the main keeps 96k, its fold rule and the breaker.*
 17. **Serving:** independent of where llama-server runs; pi's `models.json`
     is the only model list (Nix-managed optionally); the router reads model
     facts from pi's registry; `maxTokens` 131072; the router queues local
@@ -740,16 +787,17 @@ record is kept with the author's configuration.
     leaf's budget and reviewer. The deterministic checks (the parent's plus
     every merged child's) run on the combined result; the local fit check is
     advisory, and a miss enters the escalation (split first, then the cloud
-    ladder) (§5.2).
+    ladder) (§5.2; how a miss is handled: §12 item 16).
 25. **Merge queue:** merges into one parent branch are serialised in the
     router's merge gate: rebase onto the parent's current tip, rerun the
     deterministic checks, merge; a conflict or red check sends the child back
     for one bounded fix, then the ladder. State in the main's tree state, no
-    extra process; not the local request queue (§5.2, §5.7, §7 gap 27).
+    extra process; not the local request queue (§5.2, §5.7, §7 gap 27; the
+    order of the steps: §12 item 14).
 26. **qwen3.8 as reviewer:** for small and inert-like packages, qwen3.8 vs
     Sonnet 50/50 as an arm (E17); a fresh session, never the author's; the
     10 % spot-check sample covers qwen-reviewed packages; one local slot,
-    time not $ (§5.4, §5.5).
+    time not $ (§5.4, §5.5; the arm's definition: §12 item 15).
 27. **Children's context and brief** (from the single-repo research): the
     local children's soft hint 64k instead of 96k plus a 32k arm (E14); the
     main's fold rule and the 64k breaker stay; lean local children (minimal
@@ -761,8 +809,12 @@ record is kept with the author's configuration.
 29. **Follow-ups, not in scope now:** a Tree-sitter code-graph tool for local
     children, the edit format, a complexity measure beyond lines, short
     decision records, repository fine-tuning (§5.9).
+30. **Escalation retry:** a medium-effort child's first escalation step after
+    a failed check or breaker is one retry at xhigh, a local step, before the
+    split (owner approved 2026-11-17); a child already at xhigh skips it
+    (§5.2, §5.5, §7 gap 14).
 
-## 12. Orchestrator's calls (r4), for the owner to check
+## 12. Orchestrator's calls (r4 and r6), for the owner to check
 
 Minor calls made where the decisions were silent; each is marked inline. The
 owner may overrule any of them.
@@ -799,10 +851,22 @@ owner may overrule any of them.
     (§5.4).
 12. O9: the request node is level 0, up to 3 levels below (§5.2).
 13. O12: factor order — size tiers, children's thinking, batching (§6).
-14. (r6) A medium-effort child's first escalation step after a failed check
-    or breaker is one retry at xhigh, local, before the split; the owner
-    approved it (§5.2, §5.5, §7 gap 14).
-15. (r6) The E17 arm covers small and inert-like packages (the Haiku-advisory
-    case); the inert class itself stays unreviewed in the audit sample
-    (§5.4).
-16. (r6) The main's soft hint stays at 96k; 64k/32k is for children (§5.7).
+14. (r6) Merge queue order: one lock per parent branch from the rebase to
+    the fast-forward (acquire → rebase → checks → review → ff-only merge →
+    release), so the merged tree is the reviewed tree (LD7); a rebased tree is
+    re-reviewed; a conflict or red check releases the lock and a fresh local
+    child gets one bounded fix, then the ladder from its first step; the
+    queue is persisted in the main's tree state (§5.2, §7 gap 27, §8).
+15. (r6) E17 defined: two strata, 50/50 each (small: qwen3.8 vs Sonnet, both
+    binding; inert-like: qwen3.8 vs Haiku, both advisory; the inert class
+    stays unreviewed in the audit sample); qwen never reviews standard or
+    above and never decides whether the cloud is called; unavailable →
+    fallback to the cloud reviewer, intention to treat; shadow reviewer Opus
+    at the same 10 % in both arms; escape = shadow-review defect, later
+    failing check or revert within 7 days; long-running, escape rate per arm
+    with a CI, stop only for harm (§5.4, §6).
+16. (r6) The fit check blocks no merge; a miss creates one fix package on the
+    parent node (a fresh local child on the parent's branch, the normal gate);
+    if that fails, the ladder from its first step; "split" applies only to an
+    unmerged package (§5.2).
+17. (r6) The main's soft hint stays at 96k; 64k/32k is for children (§5.7).
