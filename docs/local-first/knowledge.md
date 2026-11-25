@@ -9,7 +9,7 @@ History: written as pi-economics' working note `local-first-knowledge.md`
 repository-relative. New in this copy: rows 1.10, 2.13–2.14, 6.9–6.13 and 7.7;
 updated: 2.8 and 6.1 (measured before llama-server's `cache-ram`), 6.3, 6.4
 and §9 (the owner's serving facts, the quota-waiter scout, pi 1.4's budget
-field, llama.cpp's per-request budget); r4 changed rows 2.13 and 6.12 and §9 (router reads quota headers; budget support verified from the build, not live).
+field, llama.cpp's per-request budget); r4 changed rows 2.13 and 6.12 and §9 (router reads quota headers; budget support verified from the build, not live); r6 added key R-single and rows 1.11 and 6.14.
 
 ## 0. Sources, weights, method
 
@@ -25,6 +25,7 @@ some invented: `research/README.md` §Known problems, F-plan §4).
 | R-loop / R-merge | `docs/research/coding-agent-loop-harness-research.md`, `docs/research/autonomous-merge-pipeline-size-limits.md` |
 | R-econ / R-acre / R-risk / R-var | batch 4, prompts 9, 11, 10, 12: `docs/research/llm-code-review-economics.md`, `docs/research/autonomous-code-review-economics.md`, `docs/research/code-review-risk-classification.md`, `docs/research/llm-code-review-structural-variants.md` † |
 | R-harness / R-loops / R-team | batch 4: `docs/research/local-agent-harness-architecture.md`, `docs/research/local-llm-agent-loops.md`, `docs/research/qwen-multi-agent-benchmark.md` † |
+| R-single | `docs/research/originals/Local LLM Single-Repo Architecture.md` (an uncleaned export, Nov 2026; no cleaned copy, no recorded prompt; cited by section and reference number) |
 | LM-design / LM-lim / MGS | `docs/local-mode/design.md`, `docs/local-mode/limitations.md`, `docs/local-mode/merge-gate-sizing.md` |
 | PL13 / PL48 / TR / OL | `docs/local-mode/plan-L1-L3.md`, `docs/local-mode/plan-L4-L8.md`, `docs/task-router.md`, `docs/outcome-log.md` |
 | TODO | the author's router backlog (kept outside this repository) |
@@ -61,6 +62,7 @@ that look invented.
 | 1.8 | Fresh executor session per task, reading only its plan section; external memory (`PLAN.md`, `TASK_STATE.md`); multi-turn conversations lose ~39% | R2 §Filesystem State; R-loops §State Persistence; R-acre §1 (Laban et al.) | M | Package = fresh local child or fresh branch context, not one long main conversation |
 | 1.9 | Local autonomy limit ~20–30 min per run; package tiers T1 (1 file, <16k) local, T2 (2–4 coupled files) validate per file, T3 (cross-cutting >64k) cloud decomposes | R-loops §Practical Autonomy Limit, §Work Package table | L | Time/turn budget per package as a breaker input |
 | 1.10 | The router already measures size deterministically: after each successful `edit`/`write` inside the active worktree, `git diff --numstat` against the branch's base (committed, staged, unstaged, untracked; 5 s timeout, a failure = no trip) → `over-size` hint at 100 % of the branch's budget. Main session only; children get `identical-call`/`alternation` trips only | `packages/task-router/core/local/install.ts:365–380`, `core/local/tripwires.ts:170–181` (`sizeBudget`, `overSize`), `core/local/hints.ts:14`, `core/local/childtrips.ts`; Dec (fact) | H | The size sidecar the owner asked for exists; extend it (80 % stage, tiers, children, crossing log) rather than build a new one |
+| 1.11 | Lean children: LLM-generated repository context files raised steps and cost by 20–23 % and tended to lower success; human-written ones still raised cost by up to 19 % for marginal gain (ETH Zurich, Gloaguen et al., Feb 2026); keep one minimal AGENTS.md (non-discoverable build/test commands, pins, a few anti-patterns). Tool selection precision falls from 92.1 % at K=1 to 26.5 % at K=10 tools, and each tool schema costs 200–800 tokens (arXiv:2603.20313); the report recommends about a dozen tools | R-single (the minimal-guidance recommendation and the MCP tool-scaling caveat; refs 9, 49) | L–M (second-hand) | Lean local children (minimal brief, about a dozen tools) as a factor (design §5.7, E18); consistent with 1.1 and 6.5 |
 
 ## 2. Contact points and their cost
 
@@ -141,6 +143,7 @@ cold-cache prefill, so do not overdo them (Dec, round 1).
 | 6.11 | pi 1.4 caps reasoning per request: the setting `thinkingBudgets` (tokens for minimal, low, medium, high; one global value per level) is sent in the top-level field the model's `compat.thinkingTokenBudgetField` names (`thinking_budget_tokens` = llama.cpp; off by default); chat-template kwargs may use `$var` `thinking.budget`; an extension can rewrite the serialized payload in `before_provider_request`. xhigh has no budget entry | PI | H | A medium arm with one budget level per agent dir is expressible; several levels at once need a per-session value (setting or payload hook): the mechanism is open |
 | 6.12 | llama.cpp takes `thinking_budget_tokens` from the request body only when the server has no `--reasoning-budget` (−1) and the chat template has a thinking end tag | LC; SRV (no flag set) | M (source read; our build unverified) | Verify on our build before the medium arm runs: from its version and the llama.cpp docs and source, not by a live run (design §5.7) |
 | 6.13 | With `preserve_thinking` true, earlier reasoning stays in the context: a thinking budget caps the reasoning of one response, not the context (262k with infinite-context) | SRV; Dec | H | The budget is a per-response quality/time lever, not a context lever |
+| 6.14 | Effective working context of a 27B model is far below the advertised one: NoLiMa (10 of 12 128K+ models below 50 % of their short-context baseline by 32K), Chroma's Context Rot (a length-only accuracy loss), RULER; practitioner syntheses cap the active working set at 25–30 % of the window, i.e. about 32–64k on a 262k window | R-single (the context-constraints section, ref 4) | M (benchmarks real; the 25–30 % rule is a practitioner synthesis) | ⚡ with 5.7 and §8.6 (our pilot failed only at ≥ 200k): children's soft hint 64k with a 32k arm (design §5.7, E14); the main's fold and the 64k uncached breaker unchanged |
 
 ## 7. Local mode L1–L8 and the 11-11 run
 

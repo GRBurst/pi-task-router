@@ -33,6 +33,11 @@ the Memdoor team-solve project (five Qwen models against one frontier call on Li
 the claim that multi-turn local review beats single-pass frontier review. It has no reference list and was cleaned
 without footnotes.
 
+A later report, `originals/Local LLM Single-Repo Architecture.md` (single-repository work with a local dense model:
+effective context, edit formats, repository context files, a Tree-sitter graph tool, fine-tuning against fast-changing
+repositories), is kept only as its uncleaned export, with no recorded prompt; the knowledge base cites it as R-single
+(`docs/local-first/knowledge.md` rows 1.11 and 6.14). Its citations are numbers, and its numbers carry the same caveats.
+
 ## Known problems
 
 - `two-tier-agent-planning-architecture.md`: the formulas behind lines 93 and
