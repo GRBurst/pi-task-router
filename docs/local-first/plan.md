@@ -1,6 +1,6 @@
 # Plan LF1–LF19: the local-first build
 
-Status: draft for the plan review (the owner's loop, stage 4); no task started.
+Status: revision 2, re-reviewed; owner questions Q25/Q26 open.
 Scope: every requirement of `docs/local-first/spec.md` (REQ ids without the `REQ-` prefix below), from
 `docs/local-first/design.md` revision 6 (*design*). Precondition: the router at 0.2.1 (branch
 `local-first-design`, tip ccbfb8f); the cross-repository milestones of §15.2 for the tasks that name them.
@@ -94,7 +94,7 @@ Shape of the diff:
 | X34 | "Uncached input" for llama.cpp: pi's openai-completions usage mapping (`input` = prompt − cached?) | read pi's provider before LF12.T8; D72 adjusts the sum |
 | X35 | Quota header names (D73) are from knowledge, not from a captured response | fixtures use them; G13 (owner) captures one response; a mismatch is one constant |
 | X36 | The budget field: `compat.thinkingTokenBudgetField` per model (K6.11), default `thinking_budget_tokens` (K6.12) | LF12.T4 reads it from the registry |
-| X37 | Existing tests that change: (a) `flags`, `local-prompt`, `review-log`, `rule` stub `__piExperimentsApi_v1` — the stubs go, flag cases use settings (LF1.T1b, T1c, owner decision); (b) `outcome.test.ts` `v: 1` literals and spawn `arm` (LF1.T2); (c) at LF19 the local-mode cases for the gate size refusal (`local-merge-refuse`, `local-merge-plan`), the `localSection` text (`local-prompt`), the session overseer budget and steer default (`local-overseer`, `local-overseer-shell`, `local-steer`), fixer rounds (`local-fixer`); (d) snapshot lists of `ROLES`/`REASONS`/`TRIPS` grow; (e) `local-default`'s key inventory gains `experiments` (LF1.T4) and `localFirst` (LF3.T2); (f) `test/fake-api.ts` grows for API 3 (LF7.T2): consumer-visible, since `test/harness.ts` imports it and pi-economics' `log-contract` imports the harness — additive only, named in PE-3 | each named in its task with the reason |
+| X37 | Existing tests that change: (a) `flags`, `local-prompt`, `review-log`, `rule` stub `__piExperimentsApi_v1` — the stubs go, flag cases use settings (LF1.T1b, T1c, owner decision); (b) `outcome.test.ts` `v: 1` literals and spawn `arm` (LF1.T2); (c) at LF19 the local-mode cases for the gate size refusal (`local-merge-refuse`, `local-merge-plan`), the `localSection` text (`local-prompt`), the session overseer budget and steer default (`local-overseer`, `local-overseer-shell`, `local-steer`), fixer rounds (`local-fixer`); (d) snapshot lists of `ROLES`/`REASONS`/`TRIPS` grow; (e) `local-default`'s key inventory gains `experiments` (LF1.T4) and `localFirst` (LF3.T2); (f) `test/fake-api.ts` grows for API 3 (LF7.T2): consumer-visible, since `test/harness.ts` imports it and pi-economics' `log-contract` imports the harness — additive only, named in PE-3 (g) the harness' default settings pin `experiments.cloudOnlyShare: 0` (LF1.T4a); the default-mode cases that assert on whole line lists and fire `session_start` (`test/shell.test.ts:21, 56, 70`; `policy.test.ts:132, 287, 439`; `unrouted.test.ts:22–64`) keep their assertions | each named in its task with the reason |
 | X38 | Design §7.4 "children keep the `isChild` guards": the router is not loaded in children (D80) | the guards stay for the main's hooks; child-side gating goes through the actor |
 | X39 | Gap 19 "fold through the folding extension's per-model settings or a hint" | a hint only; the router depends on no pi-economics component |
 | X40 | "Queue persisted in the main's tree state" (§5.2) | a separate entry type `task-router/mqueue` in the main's session: same persistence, simpler replay |
@@ -306,7 +306,7 @@ Not reached by the checks: a real llama-server, a real actor, real provider head
   proceeds and logs `timeout`.
 - **G18 the experimental preview (R2)**: `localFirst.experimental = true` on API 2: the notice once, local
   children placed, no `beforeRequest`; `session.profile = "local-first"` with `routerVersion` 0.4.x, so
-  pi-economics keeps preview data apart.
+  pi-economics keeps preview data apart. Its non-leaf merges (LF4.T11a–f) take the leaf review path; the integration contact and the combined-diff review arrive with LF8 and LF11 (R3).
 
 ## 13. Snippets
 
@@ -556,14 +556,20 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 
 #### LF1.T3 `session` builder, `EVENTS_V2`, export snapshot (LOG-2, LOG-3, LOG-4) `[ ] todo`
 - Files: `core/outcome.ts`; test `lf-outcome` (new).
-- RED: `sessionEvent` missing; LOG-4 snapshot of the names and values of `TRIPS`, `ROLES`, `REASONS`, `TRIGGERS`, `PLAN_TYPE`, `BRANCH_TYPE` (literal, taken from today) must be a subset of the exports; LOG-3 runs `text-free` over the builder.
-- GREEN: `sessionEvent({now, sessionId, profile, mainModel, startSet, localMembers, routerVersion})`; `export const EVENTS_V2 = ["session"] as const` (each later builder task appends its event).
+- RED: `sessionEvent` missing; LOG-4 snapshot of the names and values of `TRIPS`, `ROLES`, `REASONS`, `TRIGGERS`, `PLAN_TYPE`, `BRANCH_TYPE` (literal, taken from today) must be a subset of the exports; `ENUMS_V2` holds `session.profile` and `session.localMembers` (§2.4) and `FALLBACKS = ["budget", "error"]` (today's `fallback`), both exported; LOG-3 runs `text-free` over the builder.
+- GREEN: `sessionEvent({now, sessionId, profile, mainModel, startSet, localMembers, routerVersion})`; `export const EVENTS_V2 = ["session"] as const` (each later builder task appends its event); `export const ENUMS_V2` and `export const FALLBACKS = ["budget", "error"] as const` (LF6.T7 appends).
 
 #### LF1.T4 Experiments settings (spec §2.1) `[ ] todo`
 - Files: `core/types.ts`, `core/settings.ts`; test `lf-settings` (new) "experiments keys".
 - RED: `experiments: {seed: "s", cloudOnlyShare: 0.2}` parsed; no key → `0.1` (D64); `cloudOnlyShare: 2` → one problem, default 0.1; `0` accepted.
 - GREEN: `ExperimentsSettings {seed, cloudOnlyShare, factors}` (factors parsed in LF2.T4), defaults per §2.1.
 - Keep green: `local-default` (the default-mode key inventory gains `experiments`; reason: D64, named in the commit).
+
+#### LF1.T4a Default-mode tests pin the share to 0 (X37g) `[ ] todo`
+- Files: `test/harness.ts` (one file, test-only; additive for pi-economics' harness import, PE-3).
+- RED: with LF1.T4's default 0.1, the default-mode cases of X37(g) fail: `test/shell.test.ts:21, 56, 70`, `policy.test.ts:132, 287, 439`, `unrouted.test.ts:22–64` (each gets an extra first `session` line); seen red before the change.
+- GREEN: the harness' default settings, and the settings those files build, set `experiments.cloudOnlyShare: 0`; the cases pass with their assertions unchanged. LF1.T5 and LF1.T9 set the share explicitly.
+- Keep green: `local-default`.
 
 #### LF1.T5 `session` line (MEAS-1) `[ ] todo`
 - Files: `core/shell.ts`; test `lf-session-log` (new).
@@ -587,7 +593,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 
 #### LF1.T9 E0 cloud-only arm (MEAS-2) `[ ] todo`
 - Files: `core/policy.ts`, `core/shell.ts`; test `lf-e0` (new).
-- RED: cloud-first session with share 1 → no spawn placed on a `route: "local"` member (property over random cards from `rand.ts`), `session.localMembers = "off"`; share 0 → no draw, routing = today; `router-golden` green with the default share (E0 lives in the session, never in `planSpawn`'s defaults).
+- RED: cloud-first session with share 1 → no spawn placed on a `route: "local"` member (property over random cards from `rand.ts`), `session.localMembers = "off"`; share 0 → no draw, routing = today; a `/profile local-first` switch keeps a cloud-only draw (no local member in that session, MEAS-2); `router-golden` green with the default share (E0 lives in the session, never in `planSpawn`'s defaults).
 - GREEN: at `session_start`, `E0 = pick([as-used, cloud-only], [1-s, s], draw(seed, "E0", sessionId))`; the policy filters `route === "local"` members when `cloud-only`.
 - Keep green: `router-golden` (NR-1).
 
@@ -759,8 +765,8 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 
 #### LF4.T11c Red run and review diff against the target (TREE-7 c) `[ ] todo`
 - Files: `core/local/merge.ts`; test `lf-merge-target` "TREE-7 red-run base".
-- RED: real git, the same shape as T11b: the red run's recorded base (fake runner) = the root tip (`:385`); the review input's diff = `target..commit` (`:395`).
-- GREEN: both take `target.sha`.
+- RED: real git, the same shape as T11b: the red run's recorded base (fake runner) = the root tip (`:385`); the review input's diff = `target..commit` (`:395`), the review ticket's `base` (`:403`) and the `branches.put` record's `base` (`:412`) = the target tip.
+- GREEN: all four (`:385`, `:395`, `:403`, `:412`) take `target.sha`.
 
 #### LF4.T11d Advance the parent in its worktree, never push (TREE-7 d, D65) `[ ] todo`
 - Files: `core/local/merge.ts`, `core/local/gitcmd.ts` (an `ffIn(worktree, commit)` port if missing); test `lf-merge-target` "TREE-7 no push".
@@ -785,7 +791,12 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 #### LF4.T12a Package scope at the gate (TREE-14) `[ ] todo`
 - Files: `core/local/merge.ts` (the scope refusal, `:344–350`, today for plan-bound branches only), `core/local/tree.ts` (`contractOf(node)`); test `lf-merge-target` "TREE-14".
 - RED: a package node whose diff touches a path outside its split child's `files` → refused `scope` naming the path; a path matching `forbidden` → refused `scope`; inside → not refused; the router-owned `<plans.dir>/split/**` is never a scope violation.
-- GREEN: package nodes are plan-bound: the scope check reads `contractOf(node)` as it reads a plan task's files today.
+- GREEN: package nodes are plan-bound: the scope check reads `contractOf(node)` as it reads a plan task's files today. `boundOf(…, main.sha, …)` (`:329`) is not consulted for package nodes, so `main.sha` there does not matter.
+
+#### LF4.T12b A package child cannot push or reach a remote (R26) `[ ] todo`
+- Files: `core/local/package.ts`; test `lf-placement` "R26".
+- RED: a package child's `bash` call `git push …` or `git remote …` is refused by the spawn policy's `toolGuard` (`core/toolguard.ts`) with a reason naming the command; `git status`, `git add`, `git commit` in its worktree are allowed.
+- GREEN: the package child's guard composes a pure `refusesRemote(cmd)` rule (`core/local/package.ts`); no rule exists today (`childguards.ts`, `toolguard.ts`, `worktree.ts`).
 
 #### LF4.T13 `submit_split` and do-or-split (TREE-13) `[ ] todo`
 - Files: `core/local/package.ts`; test `lf-placement` "TREE-13".
@@ -977,7 +988,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - Files: `core/outcome.ts`; test `lf-outcome` "contact, ladder".
 - RED: `contactEvent`/`ladderEvent` → every spec §2.4 field; `kind`, `shape`, `outcome`, `step` ∈ `ENUMS_V2`;
   `TRIPS` ⊇ spec §2.4's new `hint` trips; fails first: no builders.
-- GREEN: both builders; `EVENTS_V2` += `contact`, `ladder`; `TRIPS` += the new trips (X37d snapshot grows;
+- GREEN: both builders; `ENUMS_V2["ladder.step"]` = S40's `LadderStep` (`steer` in, no `fix`); `EVENTS_V2` += `contact`, `ladder`; `TRIPS` += the new trips (X37d snapshot grows;
   consumer-visible: PE-3).
 
 #### LF8.T2 Contact counters (CON-2) `[ ] todo`
@@ -1010,7 +1021,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - Depends: LF4.T9, LF4.T13, LF8.T2.
 - RED: overseer rig: a root split with 2 children and no arms → one bounded ticket, role `plan-review`,
   payload = the canonical split JSON + the node's goal and contract + the caps (prefix assertions), read-only
-  tools; no child starts before the verdict; one `contact` line `kind: "plan-review"`, `node.contacts` +1;
+  tools; no child starts before the verdict (`start_branch({parent, child})` is refused meanwhile, TREE-5: the split sets `pendingPlanReview` on the node, the verdict's op clears it); one `contact` line `kind: "plan-review"`, `node.contacts` +1;
   1 child standard → no ticket (CON-3).
 - GREEN: `reviewSplit(node, plan, ports)` behind `points(n, arms).planReview`.
 
@@ -1198,7 +1209,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 #### LF11.T5 The queue in `request_merge` (MQ-1 b) `[ ] todo`
 - Files: `core/local/merge.ts`; test `lf-mqueue-git` "MQ-1 ff".
 - RED: real git: sibling A's `request_merge` holds the lock, its review blocked on a deferred the test owns;
-  sibling B's `request_merge` is started and the test awaits B's `mqueue` entry `op: "wait"` (a barrier, no
+  sibling B's `request_merge` is started and the test awaits B's `mqueue` entry `op: "enqueue"` (a barrier, no
   sleeps); the test resolves A's review → A merged, then B rebased and merged, both ff-only; the merged tree
   of each = its reviewed tree (fake overseer records the reviewed tree id); the order is asserted on the
   `mqueue` lines.
@@ -1397,7 +1408,7 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
 
 #### LF18.T4 E16 Opus authors the top-level plan (TREE-12 b) `[ ] todo`
 - Files: `core/local/planflow.ts`, `core/local/splittool.ts`; test `lf-top-plan` "TREE-12 opus".
-- RED: request arms `{E16: "opus"}` → the root's plan comes from a `plan_request` ticket and is stored as the root split (op `split`, `reason: "choice"`); the main's `split` of the root is refused with the reason.
+- RED: request arms `{E16: "opus"}` → the root's plan comes from a `plan_request` ticket and is stored as the root split (op `split`, `reason: "choice"`) with no plan review (S49 runs on the `split` path only); the main's `split` of the root is refused with the reason.
 
 #### LF18.T5 E17 strata (REV-5) `[ ] todo`
 - Files: `core/strategy/reviewer.ts`; test `lf-reviewer` "REV-5".
@@ -1406,8 +1417,8 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
 #### LF18.T5a E17 shadow reviews (REV-11, D87) `[ ] todo`
 - Files: `core/local/spot.ts`; test `lf-spotcheck` "REV-11".
 - RED: with `localFirst.e17ShadowShare = 0.5`, a review in an E17 stratum is shadowed with probability 0.5 in both arms
-  (frequencies over 20 000 units within ±2 % per arm and stratum); the shadow = the stratum's cloud
-  reviewer, fresh, after the merge, `review.sample = "shadow"`, `of` = the shadowed review id, the arm of the
+  (frequencies over 20 000 units within ±2 % per arm and stratum); the shadow = a fresh Opus reviewer (CON-8, both arms),
+  after the merge, `review.sample = "shadow"`, `of` = the shadowed review id, the arm of the
   shadowed review on the line; outside E17 the shadow rate stays `spotCheckShare`.
 - GREEN: `shadowShare(unit) = inE17(unit) ? s.e17ShadowShare : s.spotCheckShare` in `spotDue`.
 
@@ -1518,11 +1529,11 @@ reads and reports; it never routes, gates or switches a factor.
 | Id | First router version | Adds to the consumer contract |
 |---|---|---|
 | PE-1 | 0.3.0 (R1) | `v: 2` beside `v ≤ 1`; spawn lines without `arm`; the `session` event; `arms: string[]` (`F=level`, F ∈ `FACTORS`, level ∈ its levels); `merge` fields `base`, `target`, `repo`, `repoId`; the lists read from the exports above; drop `iface-experiments-task-router` |
-| PE-2 | 0.4.0 (R2) | events `profile`, `node`, `split`, `crossing`; `review` fields (`class`, `tier`, `actualTier`, `reviewer`, `binding`, `overCap`, `rereview`, `of`, `sample`, `classBy`); `ROLES` += `spot`, `fit`, `corrective`, `integration`; `FALLBACKS` (`local-unavailable`, `transient`); `session.profile` incl. `local-first` |
-| PE-3 | 0.5.0 (R3) | events `contact`, `ladder`, `quota`, `lqueue`, `mqueue`; `TRIPS` += spec §2.4's; `REASONS` += `conflict`, `aborted-queue`; the harness' `fake-api` additions (X37f) replayed by `log-contract` |
-| PE-4 | 0.6.0 (R4) | `review.batch`; `mode: "local"` lines now say `session.profile = "local-first"` (the old value `local-mode` stays valid for old lines) |
+| PE-2 | 0.4.0 (R2) | events `profile`, `node`, `split` (`reason` `choice`), `crossing`; `review` fields (`class`, `tier`, `actualTier`, `reviewer`, `binding`, `overCap`, `rereview`, `of`, `sample`, `batch`, `classBy`); `ROLES` += `spot`, `fit`, `corrective`, `integration`; `FALLBACKS` (`local-unavailable`, `transient`); `session.profile` incl. `local-first` |
+| PE-3 | 0.5.0 (R3) | events `contact`, `ladder`, `quota`, `lqueue`, `mqueue`; `split.reason` += `review`; `TRIPS` += spec §2.4's; `REASONS` += `conflict`, `aborted-queue`; the harness' `fake-api` additions (X37f) replayed by `log-contract` |
+| PE-4 | 0.6.0 (R4) | `mode: "local"` lines now say `session.profile = "local-first"` (the old value `local-mode` stays valid for old lines) |
 | PE-5 | 0.7.0 (R5) | no new event or value: fixtures with E6–E10 arms (a replay only) |
-| PE-6 | 0.8.0 (R6) | `review.sample = "shadow"` with E17 arms; `fallback: "local-unavailable"` in use; `split.reason = "choice"` (E16) |
+| PE-6 | 0.8.0 (R6) | `review.sample = "shadow"` with E17 arms; `fallback: "local-unavailable"` in use |
 
 Analysis milestones in pi-economics (measure only; their own plans):
 
@@ -1531,7 +1542,7 @@ Analysis milestones in pi-economics (measure only; their own plans):
 | PA-1 | R1 | arms per factor (curves, the frontier); a factor only from sessions whose `session` snapshot lists it enabled; E0: σ, clustering, the cloud-only reference (`E0=cloud-only`, `session.localMembers = "off"`); E1: re-prefill split by 2026-11-13 and `routerVersion`, "after another session's request" from `lqueue` (R3); cross-tabulates E14f/E14m with pi-economics' own fold-reminder experiment (R24) |
 | PA-2 | R1 | quality from router-recorded verdicts (`review` incl. `role: spot`, `merge`); reverts within 7 days from `merge` (`commit`, `base`, `branch`, `target`, `repo`, `repoId`) against the repository's history |
 | PA-3 | R3 | waits: `lqueue`, `mqueue`, quota waits from quota-wait's meter lines and the router's `quota` lines |
-| PA-4 | R6 | E17's pre-registered harm rule (spec §2.7): per stratum, on the shadow-reviewed subset only; units counted once their 7 days have passed; batched units excluded (REV-5); looks every 25 shadow-reviewed units per arm, from 30 per arm; Beta(1,1) priors; report "stop" when P(p_qwen − p_cloud > δ) > 0.9 (δ: Q25); reverts compared by Fisher's exact test, one qwen-arm revert flagged "pause for owner review"; run at each meter analysis (the owner's cadence, at least weekly while E17 is enabled) |
+| PA-4 | R6 | E17's pre-registered harm rule (spec §2.7): per stratum, on the shadow-reviewed subset only; units counted once their 7 days have passed; batched units excluded (REV-5); first look at 50 shadow-reviewed units per arm, then every 25 (50, 75, 100 …); Beta(1,1) priors; report "stop" when P(p_qwen − p_cloud > δ) > 0.9 (δ: Q25), each stop beside the cloud arm's shadow-vs-gate disagreement as its baseline; reverts compared by Fisher's exact test, one qwen-arm revert flagged "pause for owner review"; run at each meter analysis (the owner's cadence, at least weekly while E17 is enabled) |
 
 Other repositories:
 
@@ -1562,7 +1573,7 @@ its PE-n.
 
 | # | Question | Recommendation |
 |---|---|---|
-| Q25 | E17's harm rule (spec §2.7, PA-4) needs two numbers from you: (a) δ, the excess escape rate that stops the qwen arm, per stratum; (b) the shadow-review rate in both E17 strata, which replaces your 0.1 (design §5.5) for E17 only | (a) δ = 3 pp in the binding stratum (small), 5 pp in the advisory one (inert-like); (b) 0.5, equal in both arms. At 0.1 a fourfold rise of the miss rate goes undetected at any realistic n (plan review M4); 0.5 costs ≈ 0.5 cloud reviews per small or inert-like unit while E17 runs, and E17 stays disabled until you set both. |
+| Q25 | E17's harm rule (spec §2.7, PA-4) needs two numbers from you: (a) δ, the excess escape rate that stops the qwen arm, per stratum; (b) the shadow-review rate in both E17 strata, which replaces your 0.1 (design §5.5) for E17 only | (a) δ = 3 pp in the binding stratum (small), 5 pp in the advisory one (inert-like); (b) 0.5, equal in both arms. At 0.1 a fourfold rise of the miss rate goes undetected at any realistic n (plan review M4); 0.5 costs ≈ 0.5 Opus reviews per small or inert-like unit (the shadow is Opus in both arms, CON-8) while E17 runs, and E17 stays disabled until you set both. |
 | Q26 | Split plans are committed to node branches (§11.19) and so reach the main branch with the request's merge. Keep them in the main branch's tree? | No: the router removes the request's `<plans.dir>/split/` files in one commit on the root branch after its rebase and before its review (so the approval covers the final tree, MQ-2); the plans stay in the branch history and the `split` lines; split files never count toward size, class or scope (D85). If you say yes, LF11.T5a is dropped and nothing else changes. |
 
 ## 17. Top risks
@@ -1582,7 +1593,7 @@ its PE-n.
 | R23 | E17 lets defects through binding small reviews | E17 shadows at `e17ShadowShare` (0.5) in both arms; PA-4's pre-registered rule; disabled until Q25 |
 | R24 | Two randomizers on one mechanism: pi-economics' fold-reminder experiment and E14f/E14m (the main's fold point and hint) both vary per main session | PA-1 cross-tabulates them; the owner enables E14f/E14m only while the fold-reminder experiment is off (the router no longer reads pi-economics' assignments, NR-3) |
 | R25 | X44: the child's report is not readable in the main's session as assumed | X44 is verified before LF8.T16; if not readable, sample (ii) is dropped with a notice and D90 is revisited |
-| R26 | Package contract enforcement: the gate checks scope (TREE-14) but not forbidden actions that leave no diff (a push, a network call) | the child's tool set (whitelist) and the spawn policy's `toolGuard` refuse git push/remote commands in package children (LF4.T12); anything else is caught only by review or spot-check |
+| R26 | Package contract enforcement: the gate checks scope (TREE-14) but not forbidden actions that leave no diff (a push, a network call) | the child's tool set (whitelist) and the spawn policy's `toolGuard` refuse git push/remote commands in package children (LF4.T12b); anything else is caught only by review or spot-check |
 
 ## 18. Resolutions (parent)
 

@@ -120,13 +120,13 @@ has its consumer-contract task in pi-economics (§2.7).
 | `split` (new) | `node`, `reason: estimate \| breaker \| check \| choice \| review` (`review` = a plan-review amendment), `children`, `depth`, `planLines` |
 | `crossing` (new) | `node`, `stage: 80 \| 100`, `lines`, `budget`, `estimate`, `tier`, `class`, `depth`, `kind`, `turn`, `call`, `sinceStartMs` |
 | `contact` (new) | `node`, `kind: review \| plan-review \| integration \| corrective \| handoff \| spot \| fit`, `shape: bounded \| open`, `member`, `model`, `class`, `tier`, `round`, `durationMs`, `reviewId?`, `outcome: approve \| revise \| amend \| invalid \| timeout \| error \| done` |
-| `ladder` (new) | `node`, `step: retry-xhigh \| split \| corrective \| handoff \| stop \| fix`, `reason: breaker \| check \| fit \| conflict`, `trip?`, `outcome` |
+| `ladder` (new) | `node`, `step: retry-xhigh \| split \| corrective \| handoff \| steer \| stop` (S40's `LadderStep`), `reason: breaker \| check \| fit \| conflict`, `trip?`, `outcome` |
 | `lqueue` (new) | `waiter: main \| child \| review`, `holder: main \| child \| review`, `waitedMs`, `outcome: granted \| aborted \| timeout` |
 | `mqueue` (new) | `target`, `branch`, `waitMs`, `outcome: merged \| conflict \| red \| aborted \| left`, `rereview` |
 | `quota` (new) | `provider`, `window: 5h \| 7d`, `source: headers \| quota-wait`, `kind: start \| end \| skip \| threshold \| fallback`, `utilization?`, `waitedMs?` |
 | `review` | `class`, `tier`, `actualTier`, `reviewer: haiku \| sonnet \| opus \| qwen`, `binding`, `overCap`, `rereview`, `of?` (the merge's branch, the child's name or the shadowed review id), `sample?: inert \| ungated \| shadow`, `batch?: string[]`, `classBy?: string[]`; `role` gains `spot`, `fit`, `corrective`, `integration`; `fallback` gains `local-unavailable`, `transient` |
 | `merge` | `base` (target tip before), `target`, `repo` (basename), `repoId` (the repository's root-commit sha, 12 hex), `class`, `classBy?`, `tier`, `actualTier`, `node`; `commit` = the merged tip; `reason` gains `conflict`, `aborted-queue` |
-| `hint` | `trip` gains `same-test`, `diff-apply`, `verify`, `turns`, `uncached`, `size-80`, `size-100` |
+| `hint` | `trip` gains `same-test`, `diff-apply`, `verify`, `turns`, `uncached` (the size stages 80 %, 100 % are `crossing` lines, not trips) |
 
 The exports `log-contract` imports (`TRIPS`, `ROLES`, `REASONS`, `TRIGGERS`, `PLAN_TYPE`, `BRANCH_TYPE`, and
 `test/harness.ts`, `test/fake-git.ts`) stay, grow only by new values, and gain `FACTORS`
@@ -216,7 +216,7 @@ gates or switches a factor. It needs, from its own repository:
   inert-like advisory), on the shadow-reviewed subset only (REV-11); a unit counts once its 7 days have
   passed; batched units are never in E17 (REV-5). Escape = a defect the shadow review finds that the unit's
   review did not flag (binding stratum: approved; advisory stratum: not flagged by the advisory verdict).
-  Looks every 25 shadow-reviewed units per arm, from 30 per arm; Beta(1,1) priors; the report says "stop"
+  First look at 50 shadow-reviewed units per arm, then every 25 (50, 75, 100 …); Beta(1,1) priors; the report says "stop"
   when P(p_qwen − p_cloud > δ) > 0.9, with δ set by the owner (recommended 3 pp binding, 5 pp advisory;
   Q25). Reverts are compared between arms by Fisher's exact test; one revert of a qwen-arm unit is flagged
   "pause for owner review", it does not stop the arm. Run at each meter analysis, at least weekly while E17
@@ -279,7 +279,7 @@ design's review points (CON-3), E10 `2` its leaf rounds.
 | REQ | Requirement | Acceptance | Check |
 |---|---|---|---|
 | MEAS-1 | `session` line at every local-first (and legacy local-mode) `session_start`, and at every cloud-first one while `cloudOnlyShare > 0` | fields of §2.4; no `session` line in a cloud-first session with `cloudOnlyShare = 0` (G7) | `test/lf-session-log.test.ts › "MEAS-1"` |
-| MEAS-2 | E0 cloud-only reference | `E0=cloud-only` → no spawn of that session is placed on a `route: "local"` member (property over random cards) and `localMembers = "off"`; share 0 → no draw | `test/lf-e0.test.ts › "MEAS-2"` |
+| MEAS-2 | E0 cloud-only reference | `E0=cloud-only` → no spawn of that session is placed on a `route: "local"` member (property over random cards) and `localMembers = "off"`; share 0 → no draw; a `/profile local-first` switch keeps a `cloud-only` draw (no local member in that session) | `test/lf-e0.test.ts › "MEAS-2"` |
 | RND-1 | Registry = §2.8 | `FACTORS` deep-equals the table (literal); `Record<FactorId, …>` tables type-check | `test/lf-arms.test.ts › "RND-1"`; `typecheck-task-router` |
 | RND-2 | Deterministic draw | ∀ seed, id, unit: `draw` twice → equal; frequencies over 20 000 units within ±2 % of the weights | `test/lf-arms.test.ts › "RND-2"` |
 | RND-3 | Independent factors | joint frequencies of two factors over 20 000 units within ±2 % of the product of the marginals | `test/lf-arms.test.ts › "RND-3"` |
@@ -313,14 +313,14 @@ design's review points (CON-3), E10 `2` its leaf rounds.
 | TREE-2 | Caps | a split that would put a node below `maxDepth` (levels 1…3 under the request's level 0) or give a node > `maxChildren` children → refused with the cap named | `test/lf-tree.test.ts › "TREE-2"` |
 | TREE-3 | Persisted tree | property: replay(ops written) deep-equals the live tree, across a fold and a resume | `test/lf-tree.test.ts › "TREE-3"` |
 | TREE-4 | Split plan | `split`/`submit_split` validate §2.3 (one reason per violation), commit the canonical file on the node's branch by a path-limited commit in its worktree (other changes stay uncommitted), set the node `split`; `submit_split` ends the child | `test/lf-split.test.ts › "TREE-4 <rule>"`; `test/lf-split-git.test.ts › "TREE-4 commit"` |
-| TREE-5 | Start from a split | `start_branch({parent, child})` takes goal, files, estimate and check from the split; refused when the parent is not `split`, the slug is unknown or already started | `test/lf-start-child.test.ts › "TREE-5"` |
+| TREE-5 | Start from a split | `start_branch({parent, child})` takes goal, files, estimate and check from the split; refused when the parent is not `split`, the slug is unknown or already started, or while the parent's plan review is pending (CON-12) | `test/lf-start-child.test.ts › "TREE-5"` |
 | TREE-6 | Package child placement | a card with `package: <node>` in a local-first session → the local member, `cwd` = the node's worktree, the brief = the package contract (goal, files, budget, check, forbidden), `meta.node`; a `t2` card still goes to the cloud and counts as an open-ended contact | `test/lf-placement.test.ts › "TREE-6"` |
 | TREE-7 | Merge into the parent | (a) `request_merge` targets the parent node's branch; (b) `behind` and the size are computed against the target's tip; (c) the red run and the review diff use the target's tip as base; (d) a node→parent merge fast-forwards the parent in its worktree and never pushes; only the root→main merge pushes (as today); (e) the main-ref record is written only for the main branch; (f) the git guard blocks a child's and the main's direct writes to an open parent branch | `test/lf-merge-target.test.ts › "TREE-7 <a–f>"` (real git, a fake remote) |
 | TREE-8 | Checks per level, no size | an integration runs the parent's check and every merged child's check on the combined tree; red → the ladder; no merge is refused for size (property over sizes); the review step is the integration contact at a review point (CON-13), else checks only (CON-14) | `test/lf-integration.test.ts › "TREE-8"`, `"checks only"` |
 | TREE-9 | Advisory fit check | after the last child merges, one fresh local child gets the fit brief; `miss` → exactly one fix package (kind `fix`) on the parent node; the fit result never blocks a merge; a failed fix → the ladder at its first step | `test/lf-fit.test.ts › "TREE-9"` |
 | TREE-10 | Split only unmerged | the ladder's split step is never offered for a node with a merged child or in state `merged` (property) | `test/lf-ladder.test.ts › "TREE-10"` |
 | TREE-11 | Node and split lines | each node state change writes one `node` line; each split one `split` line (§2.4), text-free | `test/lf-tree-log.test.ts › "TREE-11"` |
-| TREE-12 | Top-level plan | E16=`local`: the main's `split` of the root is the top-level plan; E16=`opus`: `plan_request` authors it and the router stores it as the root split | `test/lf-top-plan.test.ts › "TREE-12"` |
+| TREE-12 | Top-level plan | E16=`local`: the main's `split` of the root is the top-level plan; E16=`opus`: `plan_request` authors it and the router stores it as the root split without a plan review (S49 runs on the `split` path only) | `test/lf-top-plan.test.ts › "TREE-12"` |
 | TREE-13 | Do or split | the package brief states the do-or-split rule; `submit_split` is offered only while the node's depth < `maxDepth` | `test/lf-placement.test.ts › "TREE-13"` |
 | TREE-14 | Package scope | a package node is plan-bound: its merge is refused `scope` (naming the path) for a changed path outside its split child's `files` or matching its `forbidden`; split files are exempt | `test/lf-merge-target.test.ts › "TREE-14"` |
 
@@ -357,7 +357,7 @@ design's review points (CON-3), E10 `2` its leaf rounds.
 | REV-8 | Cheap refusals first | a dirty target or main refuses before any contact (no ticket issued) | `test/lf-merge-target.test.ts › "REV-8"` |
 | REV-9 | Transient errors | a review attempt failing with a transient provider error is retried (≤ 2, backoff) or waits out an active quota-wait episode; never a closed gate for that reason | `test/lf-reviewer-gate.test.ts › "REV-9"` |
 | REV-10 | Inert | no review; merged after the extra checks; in the audit sample | `test/lf-reviewer-gate.test.ts › "REV-10"` |
-| REV-11 | E17 shadow rate | while E17 is enabled, a review in either E17 stratum is shadowed with probability `e17ShadowShare`, equal in both arms (±2 % over 20 000 units per arm); the shadow = the stratum's cloud reviewer, fresh, after the merge, `sample: shadow`, `of` = the review id, the shadowed arm on the line; E17 enabled without `e17ShadowShare` → a settings problem, E17 at its default | `test/lf-spotcheck.test.ts › "REV-11"`; `test/lf-arms-shell.test.ts › "stage 5"` |
+| REV-11 | E17 shadow rate | while E17 is enabled, a review in either E17 stratum is shadowed with probability `e17ShadowShare`, equal in both arms (±2 % over 20 000 units per arm); the shadow = Opus (CON-8), fresh, in both arms, after the merge, `sample: shadow`, `of` = the review id, the shadowed arm on the line; E17 enabled without `e17ShadowShare` → a settings problem, E17 at its default | `test/lf-spotcheck.test.ts › "REV-11"`; `test/lf-arms-shell.test.ts › "stage 5"` |
 
 ### 3.7 Contacts, ladder, spot-checks, batching (CON)
 
@@ -371,7 +371,7 @@ design's review points (CON-3), E10 `2` its leaf rounds.
 | CON-6 | Corrective | payload = goal, check, last failures, focal diff; result via `submit_correction`; a fresh local child runs the revised package | `test/lf-corrective.test.ts › "CON-6"` |
 | CON-7 | Stop and report | node `blocked`; one message to the main naming the node, the steps taken and the last failure; no further contact for the node | `test/lf-ladder-shell.test.ts › "CON-7"` |
 | CON-8 | Spot-checks | router-judged, bounded, sample `spotCheckShare` by a deterministic draw per unit over (i) inert merges, (ii) ungated local output (the report, as the main's session received it, of a child placed local by its kind, PRO-10), (iii) gate reviews incl. qwen's (E17: REV-11); shadow reviewer Opus; `review` line `role: spot`, `of`, `sample`; never gates; cloud-first keeps today's spot-check | `test/lf-spotcheck.test.ts › "CON-8"` |
-| CON-9 | Batching | E4 on: consecutive small/inert leaves merge into the parent with checks only; one review of their accumulated diff ≤ E5 cap before the parent merges up; elevated never batched | `test/lf-batching.test.ts › "CON-9"` |
+| CON-9 | Batching | E4 on: consecutive small/inert leaves merge into the parent with checks only; one review of their accumulated diff ≤ E5 cap before the parent merges up; elevated never batched; where that batch review covers a child's diff, the integration contact (S50) does not review that diff again at the merge-up (CON-9 wins; the combined tree still gets its contact when due) | `test/lf-batching.test.ts › "CON-9"` |
 | CON-10 | Steer only as an arm | a local-first session spawns no steer overseer unless E11 = `steer` | `test/lf-ladder-shell.test.ts › "CON-10"` |
 | CON-11 | No session cap | `overseer.budget`/`steerBudget` do not apply to local-first contacts | `test/lf-contacts-shell.test.ts › "CON-11"` |
 | CON-12 | Plan-review contact | at a plan-review point (CON-3), after `split`/`submit_split` commits a plan: one bounded ticket (role `plan-review`; Opus for an elevated node, else Sonnet; payload = the split JSON, the node's goal and contract, the caps; read-only tools); no child starts before the verdict; `amend` → the unstarted children replaced as one tree op, the file recommitted, one `split` line `reason: review`; an invalid amendment → one re-ask, then the plan stands (`contact.outcome = invalid`); one counted `contact` line | `test/lf-planreview.test.ts › "verdict"`, `"ticket"`, `"amend"` |
