@@ -809,7 +809,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: a package node whose diff touches a path outside its split child's `files` → refused `scope` naming the path; a path matching `forbidden` → refused `scope`; inside → not refused; the router-owned `<plans.dir>/split/**` is never a scope violation.
 - GREEN: package nodes are plan-bound: the scope check reads `contractOf(node)` as it reads a plan task's files today. `boundOf(…, main.sha, …)` (`:329`) is not consulted for package nodes, so `main.sha` there does not matter.
 
-#### LF4.T12b A package child cannot push or reach a remote (R26) `[ ] todo`
+#### LF4.T12b A package child cannot push or reach a remote (R26) `[x] done`
 - Files: `core/local/package.ts`; test `lf-placement` "R26".
 - RED: a package child's `bash` call `git push …` or `git remote …` is refused by the spawn policy's `toolGuard` (`core/toolguard.ts`) with a reason naming the command; `git status`, `git add`, `git commit` in its worktree are allowed.
 - GREEN: the package child's guard composes a pure `refusesRemote(cmd)` rule (`core/local/package.ts`); no rule exists today (`childguards.ts`, `toolguard.ts`, `worktree.ts`).

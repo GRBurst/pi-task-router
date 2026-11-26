@@ -75,3 +75,20 @@ test("PRO-10 b", async () => {
   const plain = accepted(await spawn(cf, "k5", card({ kind: "scout" }) as never)) as Placed;
   assert.deepEqual([ignored.model, ignored.cwd, (ignored.meta as Record<string, unknown>).node, (ignored.meta as Record<string, unknown>).ungated], [plain.model, plain.cwd, undefined, undefined]);
 });
+
+test("R26", async () => {
+  const { s, worktree } = await packaged();
+  const r = accepted(await spawn(s.h, "p1", card({ package: "auth.form" } as never))) as Placed;
+  const g = (command: string) => r.toolGuard!("bash", { command });
+  // a package child never reaches a remote: push, remote and the other remote commands are refused, naming the command
+  for (const [cmd, sub] of [["git push origin lm/auth.form", "push"], ["git remote add up https://x.invalid/r.git", "remote"],
+    [`git -C ${worktree} fetch`, "fetch"], ["git status && git pull --rebase", "pull"], ["git ls-remote origin", "ls-remote"]] as const) {
+    const why = await g(cmd);
+    assert.ok(typeof why === "string" && why.includes(`git ${sub}`), `${cmd}: ${why}`);
+  }
+  // its work in its worktree is not
+  for (const cmd of ["git status", "git add -A", "git commit -qm 'form'", `git -C ${worktree} diff`, "npm test"]) assert.equal(await g(cmd), undefined, cmd);
+  // a child that is no package keeps today's guard: no remote rule
+  const plain = accepted(await spawn(s.h, "p2", card({ kind: "review" }))) as Placed;
+  assert.equal(await plain.toolGuard?.("bash", { command: "git fetch" }), undefined);
+});

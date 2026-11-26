@@ -216,8 +216,8 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     const own = local || place?.cwd ? cwd : caller.cwd;
     const guarded = (t: ReturnType<typeof toolsFor>) => {
       const trips = isLocal(s) && componentOn(s, "hints") ? d.childGuard?.(args.name, caller.name) : undefined;
-      const lg = d.local?.guard?.(own);
-      return trips || lg ? { ...t, toolGuard: composeGuards(trips, lg, t.toolGuard) } : t;
+      const lg = d.local?.guard?.(own), pg = place?.guard; // R26: a package child's remote rule (LF4.T12b)
+      return trips || lg || pg ? { ...t, toolGuard: composeGuards(trips, pg, lg, t.toolGuard) } : t;
     };
     const result = (model: string, thinkingLevel: ThinkingLevel) => ({
       model, thinkingLevel,
