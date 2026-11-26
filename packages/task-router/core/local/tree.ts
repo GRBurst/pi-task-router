@@ -60,3 +60,15 @@ export function step(t: Tree, o: TreeOp): { tree: Tree; problem?: string } {
 /** Pure: an unknown node leaves the tree unchanged (its problem: `step`). */
 export const apply = (t: Tree, o: TreeOp): Tree => step(t, o).tree;
 export const replay = (ops: readonly TreeOp[]): Tree => ops.reduce(apply, EMPTY_TREE);
+
+/** The tree's caps (spec §2.1 `localFirst.tree`, the strategy's `treeCaps`). */
+export type Caps = { maxDepth: number; maxChildren: number; planLines: number };
+/** TREE-2: the reason a split of `id` into `n` children is refused (the cap named), or undefined. The request node is level 0; a
+ *  split puts its children one level below, at most `maxDepth`. */
+export function canSplit(t: Tree, id: string, n: number, caps: Caps): string | undefined {
+  const node = Object.hasOwn(t.nodes, id) ? t.nodes[id] : undefined;
+  if (!node) return `unknown node ${id}`;
+  if (node.depth + 1 > caps.maxDepth) return `node ${id} is at depth ${node.depth}: its children would exceed maxDepth ${caps.maxDepth}`;
+  if (n > caps.maxChildren) return `${n} children exceed maxChildren ${caps.maxChildren}`;
+  return undefined;
+}

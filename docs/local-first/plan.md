@@ -240,7 +240,7 @@ factors with `enabled` by settings.
 | `lf-profile` | restore takes the first entry | PRO-3 | [x] |
 | `lf-start-model` | `setModel` also on `model_select` | PRO-5 | [x] |
 | `lf-prompt` | the section omits the tier budget | PRO-8/SIZE-9 | [x] |
-| `lf-tree` | `maxDepth` compared with `<` instead of `≤` | TREE-2 | [ ] |
+| `lf-tree` | `maxDepth` compared with `<` instead of `≤` | TREE-2 | [x] |
 | `lf-split` / `lf-split-git` | the commit takes every staged file (`commit -a`) | TREE-4 commit (a staged unrelated file stays uncommitted) | [ ] |
 | `lf-tree-git` | the base stays the main tip | TREE-1 | [ ] |
 | `lf-start-child` | a slug may start twice | TREE-5 | [ ] |
@@ -724,7 +724,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: property: for random op sequences, `replay(ops)` = folding `apply`; an op on an unknown node leaves the tree unchanged with one problem.
 - GREEN: S35 types, `apply`, `replay`.
 
-#### LF4.T2 Caps (TREE-2) `[ ] todo`
+#### LF4.T2 Caps (TREE-2) `[x] done`
 - Files: `core/local/tree.ts`, `core/strategy/local-first.ts` (`treeCaps` from settings; E6/E15 later); test `lf-tree` "TREE-2".
 - RED: depth 3 node split → reason names `maxDepth 3`; 6 children → reason names `maxChildren 5`; depth 2 with 5 → ok.
 - GREEN: `canSplit` per S35.

@@ -3,7 +3,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { seeded } from "./rand.ts";
-import { EMPTY_TREE, apply, replay, step, type Node, type TreeOp } from "../core/local/tree.ts";
+import { EMPTY_TREE, apply, canSplit, replay, step, type Node, type Tree, type TreeOp } from "../core/local/tree.ts";
+import { localFirst } from "../core/strategy/local-first.ts";
+import { defaults, parseSettings } from "../core/settings.ts";
 import type { ContactKind, LadderStep } from "../core/strategy/types.ts";
 
 const CONTACTS: ContactKind[] = ["review", "plan-review", "integration", "corrective", "handoff", "spot", "fit"];
@@ -82,4 +84,27 @@ test("TREE-3 ops: started, merged, split, contacts, ladder, fit", () => {
   t = apply(t, { op: "state", node: "req.a", state: "merged" });
   assert.deepEqual(t.nodes.req!.merged, ["a"], "merged once");
   assert.equal(step(t, { op: "fit", node: "req.a", child: child("x") }).problem !== undefined, true, "fit needs a split");
+});
+
+// LF4.T2 (spec TREE-2, S35): a split may not put a child below `maxDepth` (levels 1…maxDepth under the request's 0) nor give a
+// node more than `maxChildren` children; the refusal names the cap. The caps come from the strategy (settings now; E6/E15 later).
+test("TREE-2", () => {
+  const caps = localFirst(defaults()).treeCaps({});
+  assert.deepEqual(caps, { maxDepth: 3, maxChildren: 5, planLines: 150 });
+  const chain = (depth: number): Tree => {
+    const ops: TreeOp[] = [];
+    let p: { id: string; depth: number } | undefined;
+    for (let d = 0; d <= depth; d++) { const n = node(p ? `${p.id}.n${d}` : "req", p); ops.push({ op: "add", node: n }); p = { id: n.id, depth: d }; }
+    return replay(ops);
+  };
+  const deep = chain(3), at3 = Object.values(deep.nodes).find((n) => n.depth === 3)!.id;
+  assert.match(canSplit(deep, at3, 2, caps) ?? "", /maxDepth 3/);
+  const at2 = Object.values(deep.nodes).find((n) => n.depth === 2)!.id;
+  assert.equal(canSplit(deep, at2, 5, caps), undefined, "depth 2 with 5 children is allowed");
+  assert.match(canSplit(deep, at2, 6, caps) ?? "", /maxChildren 5/);
+  assert.match(canSplit(deep, "nope", 1, caps) ?? "", /unknown node nope/);
+  const tight = localFirst(parseSettings({ localFirst: { tree: { maxDepth: 1, maxChildren: 2, planLines: 40 } } }).settings).treeCaps({});
+  assert.deepEqual(tight, { maxDepth: 1, maxChildren: 2, planLines: 40 });
+  assert.match(canSplit(deep, "req.n1", 1, tight) ?? "", /maxDepth 1/);
+  assert.equal(canSplit(deep, "req", 2, tight), undefined);
 });

@@ -5,11 +5,11 @@ import type { Strategy } from "./types.ts";
 
 const notYet = (part: keyof Strategy) => (): never => { throw new Error(`task-router: strategy part ${part}: not yet`); };
 
-export const localFirst = (_settings: RouterSettings): Strategy => ({
+export const localFirst = (settings: RouterSettings): Strategy => ({
   sessionTier: notYet("sessionTier"),
   tierBudget: notYet("tierBudget"),
   tierOfLines: notYet("tierOfLines"),
-  treeCaps: notYet("treeCaps"),
+  treeCaps: () => ({ ...settings.localFirst.tree }), // E6/E15 draw them later (LF14+)
   classify: notYet("classify"),
   reviewer: notYet("reviewer"),
   points: notYet("points"),
