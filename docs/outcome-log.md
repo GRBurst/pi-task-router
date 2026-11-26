@@ -57,7 +57,16 @@ events and new values, which need no further bump:
   `REASONS`, `TRIGGERS`, `PLAN_TYPE` and `BRANCH_TYPE`; and `FACTORS`
   (`packages/task-router/core/strategy/arms.ts`), the factor registry: each
   factor's id, unit, levels (the first is the default) and `from` release.
-  They only grow.
+  They only grow. The levels and their order that apply to a session are those
+  of the `FACTORS` of the router version named on its `session` line
+  (`routerVersion`); the first level is that version's default. A session's
+  own levels are in its snapshot, the session entry `task-router/arms` (the
+  entry shape: `docs/task-router.md`, "The snapshot"), which a release that
+  moves a first level does not change. E0's `weights` in `FACTORS` are unused
+  placeholders: E0 is weighted `[1 − s, s]` by its share `s` (the snapshot's
+  `cloudOnlyShare`), so a reader takes E0's weights from the share, not from
+  `FACTORS`. E0 is not in the entry's `arms`; its arm is the `session` line's
+  (`docs/task-router.md`, "The snapshot").
 
 A reader keeps reading `v` ≤ 1 lines as before (with `arm`), and v2 lines
 without it.
@@ -82,10 +91,12 @@ fields must also take the optional `arms` (on `session` lines from 0.3.0).
   keeps the first line per `taskId`. A session whose lines disagree on
   `localMembers` is left out of E0. Since the arm is drawn from the
   session's stored experiments settings (the session entry `task-router/arms`,
-  from 0.3.0), a settings change across a resume no longer changes it.
+  from 0.3.0; its shape, with each factor's levels, is in `docs/task-router.md`,
+  "The snapshot"), a settings change across a resume no longer changes it.
 - **Arms.** `arms` lists `"<id>=<level>"`, sorted, of the factors enabled
-  for the line's session and unit; an absent factor ran at its default (its
-  first level in `FACTORS`) or was not enabled. A factor counts for a session
+  for the line's session and unit; an absent factor ran at its default (the
+  first level of the session's `routerVersion` in `FACTORS`, see above) or was
+  not enabled. A factor counts for a session
   only while it is listed; the session's `session` line carries the session's
   arms.
 
@@ -118,6 +129,8 @@ on `review` lines; the branch on `merge` lines; the main branch on `gatebypass` 
 `FACTORS`). In a cloud-first session only its `session` line has it, `["E0=as-used"]` or `["E0=cloud-only"]`, and only
 while E0 is drawn (it agrees with `localMembers`: `cloud-only` = `off`); a `session` line without `localMembers` has no
 `arms`. A local-first session (later releases) will carry it on every line, `[]` included. Legacy local mode never does.
+The levels of `arms` are the session's own, from its snapshot (`task-router/arms`, `docs/task-router.md`, "The snapshot"), not
+the `FACTORS` of a later release.
 
 ¶ Optional, added with v2 (2026-11-26, from 0.3.0) on a `merged` line: `base` the target branch's tip before the merge, `target`
 the branch merged into, `repo` the repository's directory name (never a path), `repoId` the first 12 hex of its root

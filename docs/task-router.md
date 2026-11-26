@@ -678,7 +678,7 @@ session branch; never in the model's context):
 | `task-router/approval` | `{repo, branch, commit, tree, reviewId}` |
 | `task-router/main-ref` | `{repo, branch, sha}`, the last main tip the router knows |
 | `task-router/plan` | `{slug, repo, file, skeletonHash, approvedBy, triggers: [{id, kind, task?, open, rejected?}]}` |
-| `task-router/arms` | `{v: 1, sessionId, experiments: {seed, cloudOnlyShare, factors: {<id>: {enabled, weights}}}, routerVersion, arms: {<id>: level}}`, once per main session, in default mode too (Experiments, below); `arms` holds the session's draws of its enabled factors (E0's is on the `session` line) |
+| `task-router/arms` | `{v: 1, sessionId, experiments: {seed, cloudOnlyShare, factors: {<id>: {enabled, levels, weights}}}, routerVersion, arms: {<id>: level}}`, once per main session, in default mode too (Experiments, below); `arms` holds the session's draws of its enabled factors, E0 aside (E0's is on the `session` line) |
 
 A steer review's result reaches the main session as a displayed message of
 type `task-router/steer`.
@@ -757,12 +757,18 @@ independent. A factor that is off gives its first level and no arm.
 **The snapshot.** At the first `session_start` of a main session the router
 stores the effective experiments settings in the session entry
 `task-router/arms`: the seed, `cloudOnlyShare`, and for every factor of the
-registry its effective `enabled` and `weights` (code defaults included),
+registry its effective `enabled`, its `levels` (the level order the session
+took, the first its default) and its `weights` (code defaults included),
 with the router's version and the session's own draws. Every later draw of
 the session reads it, so a resume, a reload, a settings edit or an upgrade
-that changes a default never changes an arm of a running session. A child
-session, a session without an id and legacy local mode take none (they draw
-nothing).
+that changes a default, or moves a factor's first level, never changes an arm
+of a running session: the weights are positional, so a draw needs the levels
+they were stored with. A restore checks the whole shape (a malformed entry is
+no snapshot, and the session takes a new one). E0 is not in `arms`: the shell
+draws E0 only in an eligible session (D93: a child, an empty id, routing off
+or no cloud member draws none), after the snapshot is written, so E0's arm is
+the `session` line's `arms`. A child session, a session without an id and
+legacy local mode take none (they draw nothing).
 
 **Arms on lines.** A local-first session (later releases) will carry `arms`,
 the sorted `id=level` of its enabled factors, on every outcome line; a
@@ -776,8 +782,10 @@ arm through the registry from the seed and the session id: `cloud-only`
 with probability `cloudOnlyShare`, else `as-used`. The share defaults to 0.1
 from the first release, so a default install writes a `session` line per
 session and routes one session in ten to cloud members only; set
-`"experiments": {"cloudOnlyShare": 0}` to turn E0 off (no draw, no `session`
-line, routing as before). In a `cloud-only` session
+`"experiments": {"cloudOnlyShare": 0}` to turn E0 off for new sessions (no
+draw, no `session` line, routing as before). A session resumed from before
+keeps the share of its snapshot ("The snapshot"): it stays cloud-only or
+as-used, and keeps writing its `session` line, whatever the settings say. In a `cloud-only` session
 the router routes no spawn to a `route: "local"` member: the plan, the
 selection and the failover see those members as blank (`model = ""`). A
 force is the owner's override and keeps its member (`/force` or the settings

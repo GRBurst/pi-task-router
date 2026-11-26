@@ -365,6 +365,7 @@ export const assign = (snap: ExperimentsSnapshot, id: FactorId, unit: string): s
 `ev.arms = [...new Set([...sessionArms(), ...unitArms])].sort()` iff `armed()` (the session is local-first);
 the `session` line always carries the session's arms (E0 in cloud-first); unit arms come from the builder's
 caller (`assign` for E3, E12, E13, E17, …).
+Until LF14 (unit arms, LF14.T1) the lines carry only session arms: the `session` line and, on a local-first session, every line (S33 with `unitArms` empty). A review-unit factor (E3, E17) has no arm on any line before LF14.
 
 **S34 — `core/profile.ts` (extended, D82)**: `createRoutingProfile(settings, append)` → `{ current(): RoutingProfile | "local-mode";
 restore(branch: Entry[]): void; set(p, by): void }`; `restore` = last `task-router/profile` entry's
@@ -1366,6 +1367,7 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
 
 #### LF14.T1 E2 and E3 end to end `[ ] todo`
 - Files: `core/local/install.ts` (the session's tier from the snapshot); test `lf-arms-shell` (new) "stage 1".
+- Note (LF2 review): until this task, lines carry only session arms (S33, `unitArms` empty); E3's per-review arm and any unit arm reach the lines here.
 - RED: a harness session with E2, E3 enabled by settings → E2 drawn once per session (on the `session` line and
   every local-first line), E3 per review (on its `review` line), the drawn levels change the tier and the
   reviewer; the same session without the settings → no `E2`/`E3` arms, defaults used.
