@@ -52,7 +52,7 @@ Unknown keys and invalid values go to the problem list (today's rule) and take t
 | `localFirst.breakers` | `{sameTest, diffApply, verify, turns}` | `{3, 2, 2, plans.taskTurns}` | §5.5 |
 | `localFirst.localQueue` | `{enabled, affinitySec, mainHoldSec, hookTimeoutSec}` | `{true, 10, 600, 600}` | §5.7, §8; `mainHoldSec` bounds a main's hold when its hook has no abort signal; `hookTimeoutSec` → the actor's `hookTimeoutMs` (§2.6) |
 | `localFirst.policyFile` | repository-relative path | `".pi/task-router-policy.json"` | §5.4; schema below |
-| `localFirst.e17ShadowShare` | number in (0, 1] | unset: E17 cannot be enabled | §5.5, §6 E17 (REV-11; recommended 0.5, owner question Q25) |
+| `localFirst.e17ShadowShare` | number in (0, 1] | 0.5 (owner, Q25, 2026-11-26) | §5.5, §6 E17 (REV-11) |
 | `localFirst.quotaFallback` | `{maxCloud, q5hOpenEnded}` | `{2, 0.8}` | §5.6 |
 | `localFirst.overCapBytes` | integer | `60000` | §5.3 |
 | `experiments.seed` | string | `"task-router"` | §6, §8 |
@@ -95,7 +95,7 @@ kind}, check: string, forbidden?: string[] (globs the package must not touch)}`.
 `<plans.dir>/split/<node>.json`, canonical JSON (sorted keys, two-space indent, trailing newline) of
 `{v: 1, node, summary, children}`. Split files are router-owned: they never count toward size (SIZE-2), class
 (CLS-1) or scope (TREE-14), and the root's rebased branch drops them in one commit before its review
-(MQ-1; owner question Q26).
+(MQ-1; owner, Q26, 2026-11-26).
 
 Plan-review verdict (the overseer's verdict tool, role `plan-review`, CON-12): `{verdict: "approve" |
 "amend", amend?: {summary, children: SplitChild[]}, reasons: string[] (≤ 5, ≤ 200 chars)}`.
@@ -217,8 +217,8 @@ gates or switches a factor. It needs, from its own repository:
   passed; batched units are never in E17 (REV-5). Escape = a defect the shadow review finds that the unit's
   review did not flag (binding stratum: approved; advisory stratum: not flagged by the advisory verdict).
   First look at 50 shadow-reviewed units per arm, then every 25 (50, 75, 100 …); Beta(1,1) priors; the report says "stop"
-  when P(p_qwen − p_cloud > δ) > 0.9, with δ set by the owner (recommended 3 pp binding, 5 pp advisory;
-  Q25). Reverts are compared between arms by Fisher's exact test; one revert of a qwen-arm unit is flagged
+  when P(p_qwen − p_cloud > δ) > 0.9, with δ = 3 pp in the binding stratum and 5 pp in the advisory one
+  (owner, Q25, 2026-11-26). Reverts are compared between arms by Fisher's exact test; one revert of a qwen-arm unit is flagged
   "pause for owner review", it does not stop the arm. Run at each meter analysis, at least weekly while E17
   is enabled. The switch stays the owner's `experiments.factors.E17.enabled`.
 
@@ -253,7 +253,7 @@ runs while `cloudOnlyShare > 0` (default 0.1).
 | E14b | session | `64k`, `32k` (uncached breaker) | 0.8.0 |
 | E15 | session | `5x150`, `3x80` (children × plan lines) | 0.8.0 |
 | E16 | request | `local`, `opus` | 0.8.0 |
-| E17 | review, two strata (small; inert-like); never a batched unit | `cloud`, `qwen` | 0.8.0; also needs `localFirst.e17ShadowShare` (REV-11) and the owner's δ (Q25) |
+| E17 | review, two strata (small; inert-like); never a batched unit | `cloud`, `qwen` | 0.8.0; shadow share `localFirst.e17ShadowShare` (REV-11, default 0.5), δ 3/5 pp (Q25) |
 | E18 | package child | `full`, `lean` | 0.8.0 |
 
 The defaults (every factor disabled) give the design's starting behaviour: e.g. E7, E8, E9 at `on` are the

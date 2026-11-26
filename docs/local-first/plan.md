@@ -1,6 +1,6 @@
 # Plan LF1–LF19: the local-first build
 
-Status: revision 2, re-reviewed; owner questions Q25/Q26 open.
+Status: revision 3, re-reviewed; owner questions answered (Q25, Q26: 2026-11-26).
 Scope: every requirement of `docs/local-first/spec.md` (REQ ids without the `REQ-` prefix below), from
 `docs/local-first/design.md` revision 6 (*design*). Precondition: the router at 0.2.1 (branch
 `local-first-design`, tip ccbfb8f); the cross-repository milestones of §15.2 for the tasks that name them.
@@ -77,9 +77,9 @@ Shape of the diff:
 | D82 | Extend, do not replace: `core/profile.ts` keeps `profileFor`, `skillBlocks`, `skillNames`, `BUILTIN_PROFILES` and gains `createRoutingProfile`, `PROFILE_TYPE`; the card-kind `Profile` and `profiles` keep shape and meaning and gain the optional `localFirst.placement` (PRO-10, S34b); the session-level type is `RoutingProfile`; the key `profile` (the design's word, `/profile`, the module option) answers an object value with a problem pointing to `profiles.<kind>`. Migration: none for existing settings (orchestrator's call) | a live module and a live key stay byte-compatible; one place for "profile" code | r1: a new `core/profile.ts` (overwrites the live module, review M6); renaming the concept (the design, the command and the option say profile) |
 | D83 | Plan review and integration review are contacts (B1): plan review = bounded, payload = the split JSON + the node's goal and contract, verdict `approve \| amend`, an amendment replaces the unstarted part of the split (tree op `split`, recommitted, one `split` line `reason: review`); integration review = the S39 reviewer by the combined diff's actual size and class, as for leaves; over `large` → the O3 input (numstat, check output, riskiest hunks within `overCapBytes`); each counts one contact (`plan-review`, `integration`); no review point → the integration merges on checks only (TREE-8) (orchestrator's call) | design §5.5 decision 8: these are contact points with budgets; E7–E9 then change behaviour | r1: points decided, contacts not built; Opus on every integration (contradicts E8 and the budgets) |
 | D84 | Actor API 3 is specified whole before PS-1 publishes (spec §2.6): `beforeRequest(payload, info)` with `info.requestId`, `info.signal`; Esc, kill, pause and shutdown abort the signal and drop the request; a hook pending > `hookTimeoutMs` lets the request proceed unchanged and emits a `hook` event; `requestId` pairs `beforeRequest`, `afterResponse` and `usage`; detected by `api.policyApi >= 3` (orchestrator's call) | API 3 is published once; a held child must not leak a pending promise or a queue entry | r1: `{name, model}` only (review M5) |
-| D85 | `<plans.dir>/split/**` is router-owned: excluded from size (numstat pathspec), class, scope and the review diff; validated by the router (S37). Q26 (if accepted): one commit removes the request's split files on the root branch inside its merge-queue turn, before the checks and the review, so the approval covers the merged tree | a plan node would be elevated by S38's config rule; a removal after the approval forces a re-review (MQ-2) | counting them; removing them after the review |
+| D85 | `<plans.dir>/split/**` is router-owned: excluded from size (numstat pathspec), class, scope and the review diff; validated by the router (S37). Q26 (accepted by the owner): one commit removes the request's split files on the root branch inside its merge-queue turn, before the checks and the review, so the approval covers the merged tree | a plan node would be elevated by S38's config rule; a removal after the approval forces a re-review (MQ-2) | counting them; removing them after the review |
 | D86 | Consumer contract per release: `ENUMS_V2` (`core/outcome.ts`, `{"<event>.<field>": values}`) beside `EVENTS_V2`; PE-n (§15.2) before every release that adds events, enum values or fields (orchestrator's call) | pi-economics' `contract.ts` validates closed sets (`event` `oneOf`, `fallback` literal); a release would fail its `log-contract` | r1: commit messages as the contract (review M2) |
-| D87 | E17 measurement: while E17 is enabled, the shadow share in both E17 strata = `localFirst.e17ShadowShare` (no default: E17 cannot be enabled until the owner sets it; recommended 0.5, equal per arm; other units keep `spotCheckShare`); batched reviews (E4) are never in E17; the harm rule is pre-registered in pi-economics (PA-4, spec §2.7); the switch is the owner's settings (orchestrator's call; δ and the rate: Q25) | a 0.1 shadow dilutes detection below any usable rule (review M4) | r1: a Wald 5 pp rule at 10 % (unsound) |
+| D87 | E17 measurement: while E17 is enabled, the shadow share in both E17 strata = `localFirst.e17ShadowShare` (default 0.5, equal per arm, owner Q25; other units keep `spotCheckShare`); batched reviews (E4) are never in E17; the harm rule is pre-registered in pi-economics (PA-4, spec §2.7); the switch is the owner's settings (orchestrator's call; δ 3/5 pp and the rate 0.5: owner, Q25) | a 0.1 shadow dilutes detection below any usable rule (review M4) | r1: a Wald 5 pp rule at 10 % (unsound) |
 | D88 | API 3 is required for local-first: the module asserts it and the runtime refuses local-first below it (one notice, cloud-first), except under `localFirst.experimental` (a degraded preview, XR-2) | one rule for both install paths; no data from a half profile | r1: the module asserts while the runtime degrades (review m9) |
 | D89 | Classifier proxies (X41): the policy file holds `{inertGlobs, testGlobs, ciGlobs, riskGlobs, configGlobs, publicApiGlobs, componentDepth}`; a component = the first `componentDepth` path segments (default 1; a `packages/*` monorepo sets 2); every proxy that fired is logged (`classBy` on `merge` and `review`) | "settable in the policy file" made true; single-top-dir monorepos covered; misclassing is measurable | top-level directories only (never fires in `packages/…`) |
 | D90 | Ungated local output (CON-8 ii) = children placed local by kind (PRO-10 b, `meta.ungated`), never package children; the artifact = the child's final report as delivered to the main (X44); the shadow reviewer gets the brief, the report and read-only tools | defines the unit and the payload | sampling package children (their gate already reviews them) |
@@ -462,7 +462,7 @@ now`, arm a timer of `affinitySec`; `acquire` by the holder before it fires keep
 
 **S45 — merge queue** (`mqueue.ts`): `Map<target, {holder?, waiters}>`; `acquire(target, node, signal)` →
 `Promise<Release>`; abort → `leave`. In `request_merge` (local-first): acquire → `git rebase <target tip>` in
-the node worktree (conflict → `rebase --abort`, release, `mqfix`) → (the root only, Q26 accepted: the
+the node worktree (conflict → `rebase --abort`, release, `mqfix`) → (the root only, Q26: the
 split-file removal commit, D85) → `checksFor(node)` (red → release, `mqfix`) → the review step by kind:
 a leaf → approval for `{repo, branch, commit, tree}` or a new review (`rereview` iff the tree differs from the
 last approved); a node with merged children → `points(n, arms).integrationReview` ? the integration contact
@@ -1215,7 +1215,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   `mqueue` lines.
 - GREEN: acquire → S45's steps → release in `requestMerge`, in local-first only.
 
-#### LF11.T5a Split files leave the root before its review (D85; dropped if the owner keeps split files, Q26) `[ ] todo`
+#### LF11.T5a Split files leave the root before its review (D85; owner, Q26) `[ ] todo`
 - Files: `core/local/merge.ts`; test `lf-mqueue-git` "split files".
 - RED: real git: a root whose tree holds `<plans.dir>/split/root.json` and a child's split file → after the
   rebase step, one commit on the root branch removes `<plans.dir>/split/**`; the review diff and the approval
@@ -1433,10 +1433,10 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
 #### LF18.T8 Stage 5 end to end `[ ] todo`
 - Files: `core/local/install.ts`; test `lf-arms-shell` "stage 5".
 - RED: E11, E14c/m/f/b, E15, E16, E17, E18 enabled by settings → each drawn per its unit and on its lines; E17
-  enabled without `localFirst.e17ShadowShare` set by the owner → one settings problem
-  `experiments.factors.E17 needs localFirst.e17ShadowShare (Q25)` and E17 stays at its default level.
+  enabled with `localFirst.e17ShadowShare` outside (0, 1] → one settings problem
+  `experiments.factors.E17 needs localFirst.e17ShadowShare in (0, 1]` and E17 stays at its default level.
 - GREEN: the check in `validateLocal`'s local-first branch. Then release R6. E17 is enabled only by the owner
-  after Q25 (δ, shadow rate); the analysis rule is pi-economics' PA-4.
+  (shadow share 0.5, δ 3/5 pp: Q25); the analysis rule is pi-economics' PA-4.
 
 ### LF19 — Retire legacy local mode (D59; after LF13; Q24)
 
@@ -1542,7 +1542,7 @@ Analysis milestones in pi-economics (measure only; their own plans):
 | PA-1 | R1 | arms per factor (curves, the frontier); a factor only from sessions whose `session` snapshot lists it enabled; E0: σ, clustering, the cloud-only reference (`E0=cloud-only`, `session.localMembers = "off"`); E1: re-prefill split by 2026-11-13 and `routerVersion`, "after another session's request" from `lqueue` (R3); cross-tabulates E14f/E14m with pi-economics' own fold-reminder experiment (R24) |
 | PA-2 | R1 | quality from router-recorded verdicts (`review` incl. `role: spot`, `merge`); reverts within 7 days from `merge` (`commit`, `base`, `branch`, `target`, `repo`, `repoId`) against the repository's history |
 | PA-3 | R3 | waits: `lqueue`, `mqueue`, quota waits from quota-wait's meter lines and the router's `quota` lines |
-| PA-4 | R6 | E17's pre-registered harm rule (spec §2.7): per stratum, on the shadow-reviewed subset only; units counted once their 7 days have passed; batched units excluded (REV-5); first look at 50 shadow-reviewed units per arm, then every 25 (50, 75, 100 …); Beta(1,1) priors; report "stop" when P(p_qwen − p_cloud > δ) > 0.9 (δ: Q25), each stop beside the cloud arm's shadow-vs-gate disagreement as its baseline; reverts compared by Fisher's exact test, one qwen-arm revert flagged "pause for owner review"; run at each meter analysis (the owner's cadence, at least weekly while E17 is enabled) |
+| PA-4 | R6 | E17's pre-registered harm rule (spec §2.7): per stratum, on the shadow-reviewed subset only; units counted once their 7 days have passed; batched units excluded (REV-5); first look at 50 shadow-reviewed units per arm, then every 25 (50, 75, 100 …); Beta(1,1) priors; report "stop" when P(p_qwen − p_cloud > δ) > 0.9 (δ = 3 pp binding, 5 pp advisory: Q25), each stop beside the cloud arm's shadow-vs-gate disagreement as its baseline; reverts compared by Fisher's exact test, one qwen-arm revert flagged "pause for owner review"; run at each meter analysis (the owner's cadence, at least weekly while E17 is enabled) |
 
 Other repositories:
 
@@ -1571,10 +1571,7 @@ its PE-n.
 
 ## 16. Open questions (owner; only where the design is silent and a choice is costly to reverse)
 
-| # | Question | Recommendation |
-|---|---|---|
-| Q25 | E17's harm rule (spec §2.7, PA-4) needs two numbers from you: (a) δ, the excess escape rate that stops the qwen arm, per stratum; (b) the shadow-review rate in both E17 strata, which replaces your 0.1 (design §5.5) for E17 only | (a) δ = 3 pp in the binding stratum (small), 5 pp in the advisory one (inert-like); (b) 0.5, equal in both arms. At 0.1 a fourfold rise of the miss rate goes undetected at any realistic n (plan review M4); 0.5 costs ≈ 0.5 Opus reviews per small or inert-like unit (the shadow is Opus in both arms, CON-8) while E17 runs, and E17 stays disabled until you set both. |
-| Q26 | Split plans are committed to node branches (§11.19) and so reach the main branch with the request's merge. Keep them in the main branch's tree? | No: the router removes the request's `<plans.dir>/split/` files in one commit on the root branch after its rebase and before its review (so the approval covers the final tree, MQ-2); the plans stay in the branch history and the `split` lines; split files never count toward size, class or scope (D85). If you say yes, LF11.T5a is dropped and nothing else changes. |
+None open: Q25 and Q26 are answered (§18).
 
 ## 17. Top risks
 
@@ -1590,7 +1587,7 @@ its PE-n.
 | R20 | Split commits disturb a worktree | D66's path-limited commit through the worktree; LF4.T5's staged-file case |
 | R21 | Golden drift from default changes | local-first values under `localFirst.*`; D71; KG-R per task |
 | R22 | Two local paths diverge (D59) | LF19 at R4; the legacy gate is not changed meanwhile (LF6.T12 local-first only) |
-| R23 | E17 lets defects through binding small reviews | E17 shadows at `e17ShadowShare` (0.5) in both arms; PA-4's pre-registered rule; disabled until Q25 |
+| R23 | E17 lets defects through binding small reviews | E17 shadows at `e17ShadowShare` (0.5) in both arms; PA-4's pre-registered rule; off until the owner enables it |
 | R24 | Two randomizers on one mechanism: pi-economics' fold-reminder experiment and E14f/E14m (the main's fold point and hint) both vary per main session | PA-1 cross-tabulates them; the owner enables E14f/E14m only while the fold-reminder experiment is off (the router no longer reads pi-economics' assignments, NR-3) |
 | R25 | X44: the child's report is not readable in the main's session as assumed | X44 is verified before LF8.T16; if not readable, sample (ii) is dropped with a notice and D90 is revisited |
 | R26 | Package contract enforcement: the gate checks scope (TREE-14) but not forbidden actions that leave no diff (a push, a network call) | the child's tool set (whitelist) and the spawn policy's `toolGuard` refuse git push/remote commands in package children (LF4.T12b); anything else is caught only by review or spot-check |
@@ -1600,4 +1597,6 @@ its PE-n.
 | # | Resolution |
 |---|---|
 | Q24 | Answered by the orchestrator (revision 2): keep the built local mode untouched until LF19 (R4); LF2.T6 and LF6.T12 do not change it (D59). |
+| Q25 | Owner, 2026-11-26: δ = 3 pp in the binding stratum (small) and 5 pp in the advisory one (inert-like); `localFirst.e17ShadowShare` = 0.5 (default), equal in both arms, the shadow = Opus (CON-8); other units keep `spotCheckShare` 0.1. E17 still ships off (D63). |
+| Q26 | Owner, 2026-11-26: split plans do not reach the main branch; the router removes them in one commit on the root branch before its review (D85, LF11.T5a). |
 | Review | Plan review `APPROVE-WITH-FIXES` (B1, M1–M6, minors 1–20) fixed in revision 2; the orchestrator's calls are marked in §3. |
