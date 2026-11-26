@@ -32,7 +32,7 @@ import type { LocalDeps } from "./local/install.ts";
 import type { Trip } from "./local/tripwires.ts";
 import { enabled } from "./members.ts";
 import { createPolicy } from "./policy.ts";
-import { draw, pick } from "./strategy/draw.ts";
+import { assign } from "./strategy/arms.ts";
 import { spotCheckDue, spotCheckText } from "./spotcheck.ts";
 import type { Child, PolicyDeps } from "./policy.ts";
 import type { SkillPort } from "./profile.ts";
@@ -99,9 +99,13 @@ export function install(pi: PiLike, deps: Deps) {
   };
   // The session's experiments snapshot (RND-5): every draw of the session reads it.
   const arms = createArmStore((type, data) => pi.appendEntry?.(type, data), deps.factors);
-  // RND-6 (S33): an armed (local-first) session's lines carry its session's arms; the session line carries them always.
+  // E0 (local-first spec §6, MEAS-2, D61, D93): drawn from the snapshot at the start of an eligible cloud-first session; else as used.
+  type E0Level = "as-used" | "cloud-only";
+  let e0: E0Level = "as-used", e0drawn = false;
+  // RND-6 (S33): an armed (local-first) session's lines carry its session's arms; the session line carries them always (E0's
+  // arm while it is drawn).
   const armed = deps.armed ?? (() => false);
-  const sessionArms = (): string[] => (armed() ? arms.armsFor("session", sessionId ?? "") : []);
+  const sessionArms = (): string[] => [...(e0drawn ? [`E0=${e0}`] : []), ...(armed() ? arms.armsFor("session", sessionId ?? "") : [])].sort();
   const log = createOutcomeLog({ append, now, armed, arms: sessionArms });
 
   const nowMs = () => now().getTime();
@@ -116,8 +120,6 @@ export function install(pi: PiLike, deps: Deps) {
   const counter = createMemberCounter(join(deps.agentDir, "task-router", "member-count.json"), now);
   // The force override (design §3.6): `/force` and the settings force; the policy reads its port (plan D7).
   const force = installForce(pi, { settings, log, onChange: (ctx) => { ui = ctx?.ui ?? ui; render(); } });
-  // E0 (local-first spec §6, MEAS-2, D61): drawn at a cloud-first session_start while the share is above 0; else as used.
-  let e0: "as-used" | "cloud-only" = "as-used";
   const pd: PolicyDeps = {
     cloudOnly: () => e0 === "cloud-only", settings, api, children, attempts: new Map(), now: nowMs, skills: () => skillPort,
     rng: deps.rng ?? Math.random, home: deps.home ?? homedir(),
@@ -239,10 +241,6 @@ export function install(pi: PiLike, deps: Deps) {
   let spawnWarned = false;
   pi.on("session_start", (e, ctx) => {
     track(ctx);
-    // Legacy local mode draws nothing (no E0, no factor) and keeps its entries (NR-7): no snapshot there.
-    let branch: unknown[] = [];
-    try { branch = ctx?.sessionManager?.getBranch?.() ?? []; } catch { branch = []; }
-    if (!isLocal(settings)) arms.start(sessionId ?? "", Array.isArray(branch) ? branch : [], settings.experiments, ROUTER_VERSION);
     force.start(ctx, problems); // plan D8: its problem joins the one notification below
     lm.start(ctx); // the Opus budget (D30) before the status line shows it
     showStatus(ctx, ctx?.model);
@@ -253,11 +251,18 @@ export function install(pi: PiLike, deps: Deps) {
     // arm for every such session. E0 (MEAS-2) is drawn only where routing can place a spawn and a cloud member can take it;
     // outside it the line has no `localMembers`.
     e0 = "as-used";
-    const x = settings.experiments, local = isLocal(settings);
-    if (sessionId && !isChild(ctx) && (local || x.cloudOnlyShare > 0)) {
+    e0drawn = false;
+    const local = isLocal(settings), sid = sessionId && !isChild(ctx) ? sessionId : undefined;
+    // The experiments snapshot (RND-5), read by every draw of the session: a main session with an id only, and not in legacy
+    // local mode, which draws nothing and keeps its entries (NR-7).
+    let branch: unknown[] = [];
+    try { branch = ctx?.sessionManager?.getBranch?.() ?? []; } catch { branch = []; }
+    arms.start(local ? undefined : sid, Array.isArray(branch) ? branch : [], settings.experiments, ROUTER_VERSION);
+    const x = arms.snapshot() ?? settings.experiments;
+    if (sid && (local || x.cloudOnlyShare > 0)) {
       const eligible = settings.routing && active && enabled(settings.models).some((m) => m.route !== "local");
-      if (!local && eligible) e0 = pick(["as-used", "cloud-only"], [1 - x.cloudOnlyShare, x.cloudOnlyShare], draw(x.seed, "E0", sessionId));
-      append({ ...sessionEvent({ now: now(), sessionId, profile: local ? "local-mode" : "cloud-first", mainModel: main ?? "", startSet: false,
+      if (!local && eligible) { e0 = assign(x, "E0", sid) as E0Level; e0drawn = true; }
+      append({ ...sessionEvent({ now: now(), sessionId: sid, profile: local ? "local-mode" : "cloud-first", mainModel: main ?? "", startSet: false,
         ...(local || eligible ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}), routerVersion: ROUTER_VERSION }),
         ...(armed() || sessionArms().length ? { arms: sessionArms() } : {}) });
     }

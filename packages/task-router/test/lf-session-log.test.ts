@@ -22,7 +22,8 @@ test("MEAS-1", () => {
   assert.deepEqual(sessions({ mode: "local" }, true), want("local-mode"));
   // cloud-first: only while E0 runs (D64's default share 0.1)
   assert.deepEqual(sessions({ experiments: { cloudOnlyShare: 0 } }), []);
-  assert.deepEqual(sessions({ experiments: { cloudOnlyShare: 0.1 } }), want("cloud-first"));
+  // with E0's arm, drawn from the registry (LF2.T7)
+  assert.deepEqual(sessions({ experiments: { cloudOnlyShare: 0.1 } }), [{ ...want("cloud-first")[0], arms: ["E0=as-used"] }]);
 });
 
 // ---- LF1 review: who writes a session line, and when ----

@@ -6,6 +6,8 @@ import { T0_ALL, accepted, card, harness, provideSkills } from "./harness.ts";
 import { seeded } from "./rand.ts";
 import { defaults } from "../core/settings.ts";
 import type { Card, T2 } from "../core/types.ts";
+import { assign } from "../core/strategy/arms.ts";
+import { draw, pick } from "../core/strategy/draw.ts";
 
 const LOCAL = Object.values(defaults().models).filter((m) => m.route === "local").map((m) => m.model);
 const KINDS = ["scout", "mechanical", "implement", "debug-design", "review", "plan"];
@@ -135,4 +137,40 @@ test("MEAS-2 refusals name the cause: an explicit local model, and a level only 
   assert.ok(rej.reject.startsWith("no enabled member reaches write level"), rej.reject);
   assert.ok(rej.reject.includes(E0_OFF), rej.reject);
   assert.ok(!rej.reject.includes("blank or missing"), rej.reject);
+});
+
+// LF2.T7 (spec §2.8, D61, D93): E0 is the registry's factor; its weights are [1 − s, s] of the session's snapshot, so its
+// level is LF1.T9's draw and resume-stable. An eligible session's line names it in `arms`; any other session draws nothing.
+test("E0 via registry", () => {
+  for (const s of [0, 0.1, 0.5, 1]) {
+    const snap = { seed: "task-router", cloudOnlyShare: s, factors: {} };
+    for (let i = 0; i < 1000; i++) {
+      const lf1 = s > 0 ? pick(["as-used", "cloud-only"], [1 - s, s], draw("task-router", "E0", `s-${i}`)) : "as-used";
+      assert.equal(assign(snap, "E0", `s-${i}`), lf1, `share ${s}, s-${i}`);
+    }
+  }
+  const start = (id: string, settings: Record<string, unknown>, entries: { type: string; data: unknown }[] = []) => {
+    const h = harness({ settings: settings as never });
+    h.f.entries.push(...entries);
+    h.f.fire("session_start", { reason: entries.length ? "resume" : "startup" },
+      { ...ctx(id), sessionManager: { getSessionId: () => id, getBranch: () => h.f.entries.map((e) => ({ type: "custom", customType: e.type, data: e.data })) } });
+    return { h, session: h.lines().filter((l) => l.event === "session").map((l) => [l.localMembers, l.arms]) };
+  };
+  const share = (s: number) => ({ experiments: { cloudOnlyShare: s } });
+  for (let i = 0; i < 20; i++) {
+    const want = assign({ seed: "task-router", cloudOnlyShare: 0.5, factors: {} }, "E0", `s-${i}`);
+    const first = start(`s-${i}`, share(0.5));
+    assert.deepEqual(first.session, [[want === "cloud-only" ? "off" : "on", [`E0=${want}`]]]);
+    // a resume with another share keeps the snapshot's draw
+    assert.deepEqual(start(`s-${i}`, share(0), first.h.f.entries).session, first.session);
+  }
+  assert.deepEqual(start("s-zero", share(0)).session, [], "share 0: no draw, no session line");
+  // D93: outside E0's eligibility the session line has neither localMembers nor an E0 arm
+  assert.deepEqual(start("s-off", { ...share(1), routing: false }).session, [[undefined, undefined]]);
+  // a session without an id, and a child, draw nothing: no snapshot either
+  const none = harness({ settings: share(1) as never });
+  none.f.fire("session_start", { reason: "startup" }, {});
+  none.a.agents.push({ name: "c1", parent: "main", sessionId: "s-c1", model: "m", thinkingLevel: undefined, state: "running" });
+  none.f.fire("session_start", { reason: "startup" }, ctx("s-c1"));
+  assert.deepEqual([none.f.entries, none.lines()], [[], []]);
 });

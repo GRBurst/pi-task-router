@@ -52,9 +52,11 @@ export const FACTORS: Readonly<Record<FactorId, Factor>> = {
 /** What a draw reads: the session's snapshot (spec §2.2) or settings of the same shape. */
 export type ExperimentsSnapshot = ExperimentsSettings;
 
-/** A factor's effective switch and weights: the snapshot's, else the registry's. */
+/** A factor's effective switch and weights: the snapshot's, else the registry's; E0's from its share s: on while s > 0,
+ *  weights [1 − s, s] (spec §2.8). */
 export const effective = (x: ExperimentsSnapshot, id: FactorId, reg: Registry = FACTORS): { enabled: boolean; weights: readonly number[] } =>
-  ({ enabled: x.factors[id]?.enabled ?? reg[id].enabled, weights: x.factors[id]?.weights ?? reg[id].weights });
+  id === "E0" ? { enabled: x.cloudOnlyShare > 0, weights: [1 - x.cloudOnlyShare, x.cloudOnlyShare] }
+  : { enabled: x.factors[id]?.enabled ?? reg[id].enabled, weights: x.factors[id]?.weights ?? reg[id].weights };
 
 /** A unit's level of a factor (D61): drawn while the factor is enabled, else its default (the first level, RND-4). */
 export const assign = (x: ExperimentsSnapshot, id: FactorId, unit: string): string => {
@@ -62,6 +64,7 @@ export const assign = (x: ExperimentsSnapshot, id: FactorId, unit: string): stri
   return e.enabled ? pick(f.levels, e.weights, draw(x.seed, id, unit)) : f.levels[0]!;
 };
 
-/** A unit's arms (spec §2.4 `arms`): `id=level` of every enabled factor of its kind, sorted; a disabled factor is absent. */
+/** A unit's arms (spec §2.4 `arms`): `id=level` of every enabled factor of its kind, sorted; a disabled factor is absent.
+ *  E0 is not among them: only an eligible cloud-first session draws it (D93), and the shell adds its arm. */
 export const armsOf = (x: ExperimentsSnapshot, kind: FactorUnit, unit: string): string[] =>
-  Object.values(FACTORS).filter((f) => f.unit === kind && effective(x, f.id).enabled).map((f) => `${f.id}=${assign(x, f.id, unit)}`).sort();
+  Object.values(FACTORS).filter((f) => f.id !== "E0" && f.unit === kind && effective(x, f.id).enabled).map((f) => `${f.id}=${assign(x, f.id, unit)}`).sort();

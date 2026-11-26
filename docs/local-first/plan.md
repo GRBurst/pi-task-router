@@ -648,7 +648,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: with E2 enabled and the log's `armed()` port stubbed `true` (the profile store arrives in LF3; legacy local-mode sessions stay unarmed, NR-7), every line carries `arms` containing `"E2=…"`, sorted; `armed()` false → no `arms` key except on the `session` line (E0, NR-2).
 - GREEN: S33; the shell wires `armed = () => false` until LF3.T3 replaces it.
 
-#### LF2.T7 E0 through the registry `[ ] todo`
+#### LF2.T7 E0 through the registry `[x] done`
 - Files: `core/shell.ts`; test `lf-e0` "E0 via registry".
 - RED: E0's level from `assign(snap, "E0", sid)` equals LF1.T9's draw for 1 000 session ids; `arms` holds `E0=…` while share > 0 in an eligible session (D93).
 - GREEN: replace the inline pick by `assign` (E0's weights = `[1-s, s]`).
