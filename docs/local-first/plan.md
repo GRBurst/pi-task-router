@@ -235,7 +235,7 @@ factors with `enabled` by settings.
 | `lf-arms` RND-2 | the hash shifts 10 bits, not 11 | "RND-2 known answers" | [x] |
 | `lf-outcome` | the shell writes `localMembers: "other"` | LOG-4 | [x] |
 | `lf-session-log` | the draw uses `Math.random` | "MEAS-1 resume" | [x] |
-| `lf-seams` NR-6 | `core/local/merge.ts` imports `core/strategy/tiers.ts` | the import scan | [ ] |
+| `lf-seams` NR-6 | `core/local/merge.ts` imports `core/strategy/tiers.ts` | the import scan | [x] |
 | `lf-settings` PRO-1 | `mode: "local"` overrides `profile` | PRO-1 | [ ] |
 | `lf-profile` | restore takes the first entry | PRO-3 | [ ] |
 | `lf-start-model` | `setModel` also on `model_select` | PRO-5 | [ ] |
@@ -660,7 +660,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 
 ### LF3 — Seams and profiles (design §5.1, §5.9; gaps 1–3)
 
-#### LF3.T1 The `Strategy` seam (NR-6) `[ ] todo`
+#### LF3.T1 The `Strategy` seam (NR-6) `[x] done`
 - Files: `core/strategy/types.ts`, `core/strategy/local-first.ts` (new); test `lf-seams` (new).
 - RED: the scan: `local-first.ts` exports `localFirst(settings): Strategy`; no file outside `core/strategy/` imports a strategy file other than `types.ts`, `local-first.ts`, `arms.ts` (the last for `FACTORS`/`assign` in `armstore.ts`); no file in `core/strategy/` imports outside it except `node:crypto` and `../types.ts`.
 - GREEN: S31; `localFirst` returns stubs that throw `not yet` for parts later tasks fill (each part's task replaces its stub).
