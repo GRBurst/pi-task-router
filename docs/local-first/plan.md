@@ -814,7 +814,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: a package child's `bash` call `git push …` or `git remote …` is refused by the spawn policy's `toolGuard` (`core/toolguard.ts`) with a reason naming the command; `git status`, `git add`, `git commit` in its worktree are allowed.
 - GREEN: the package child's guard composes a pure `refusesRemote(cmd)` rule (`core/local/package.ts`); no rule exists today (`childguards.ts`, `toolguard.ts`, `worktree.ts`).
 
-#### LF4.T13 `submit_split` and do-or-split (TREE-13) `[ ] todo`
+#### LF4.T13 `submit_split` and do-or-split (TREE-13) `[x] done`
 - Files: `core/local/package.ts`; test `lf-placement` "TREE-13".
 - RED: depth < cap → `childTools` has `submit_split` and the brief states the rule; at the cap → neither; calling it → validate, commit, op `split`, `terminate: true`, one message to the main naming the node.
 - GREEN: the child tool's `execute` calls `validateSplit`/`commitSplit`.

@@ -223,7 +223,7 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
       model, thinkingLevel,
       briefAppend: [briefAppend(card, plan, v.t0.specified, prof.value, blocks.value, s.delegation.nudge !== "off"), place?.brief].filter(Boolean).join("\n\n"),
       ...guarded(toolsFor(prof.value, card, cwd, own)), ...((local || place?.cwd) && cwd !== caller.cwd ? { cwd } : {}),
-      meta: { taskId: args.name, importance, ...place?.meta },
+      ...(place?.childTools && { childTools: place.childTools }), meta: { taskId: args.name, importance, ...place?.meta },
     });
     if (f) {
       // Plan D9, D11: the forced effort, else the plan's effort literally. A member waits for its slot alone (pinned) and never

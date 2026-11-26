@@ -145,7 +145,7 @@ export function install(pi: PiLike, deps: Deps) {
     local: { activeWorktree: () => (componentOn(settings, "worktrees") ? lm.branches.active()?.worktree : undefined), guard: (cwd) => lm.childGuard(cwd) },
     // TREE-6, PRO-10 b: the placement view of a local-first session (LF4.T12); its arms are the session's (S33).
     ...(settings.localFirst.experimental && { localFirst: () => (profile.current() !== "local-first" ? undefined : {
-      tree: tree.tree(), strategy, startMember: settings.localFirst.startMember,
+      tree: tree.tree(), strategy, startMember: settings.localFirst.startMember, submitSplit: (node: string) => lm.submitSplit(node),
       arms: Object.fromEntries(arms.armsFor("session", sessionId ?? "").map((a) => a.split("=") as [string, string])),
     }) }),
   };

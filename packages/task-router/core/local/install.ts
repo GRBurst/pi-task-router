@@ -6,14 +6,14 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import type { ApiEvent, SubagentsApiV1 } from "../api.ts";
+import type { ApiEvent, ChildTool, SubagentsApiV1 } from "../api.ts";
 import type { ForcePort } from "../forceinstall.ts";
 import type { createOutcomeLog } from "../log.ts";
 import type { RouterSettings } from "../types.ts";
 import { BRANCH_TYPE, createBranchStore } from "./branches.ts";
 import type { BranchRecord } from "./branches.ts";
 import { startBranchTool } from "./branchtool.ts";
-import { splitTool } from "./splittool.ts";
+import { SPLIT_MESSAGE_TYPE, splitTool, submitSplitTool } from "./splittool.ts";
 import { nodeOfBranch, openIn, openParents } from "./tree.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { createGit, gitRunner } from "./git.ts";
@@ -43,7 +43,7 @@ import type { CallRecord, Trip } from "./tripwires.ts";
 
 type Pi = {
   on(name: string, handler: (e: any, ctx: any) => unknown): void; appendEntry?(customType: string, data: unknown): void;
-  sendMessage?(message: { customType: string; content: string; display: boolean }, options?: { deliverAs?: "steer" }): void;
+  sendMessage?(message: { customType: string; content: string; display: boolean }, options?: { deliverAs?: "steer"; triggerTurn?: boolean }): void;
   registerTool?(tool: RouterTool): void;
 };
 export type LocalDeps = {
@@ -253,6 +253,9 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     childGuard: (cwd: string): Guard | undefined => composeGuards(handle.gitGuard(cwd), handle.planGuard(cwd), handle.whitelistGuard(cwd)),
     /** PRO-7: registers the tools and hooks of the components on now that are not yet (the shell, in a local-first session). */
     attach: (): void => attach(),
+    /** TREE-13: a package child's `submit_split` for its node; it tells the main (a steer that wakes an idle main). */
+    submitSplit: (node: string): ChildTool | undefined => d.nodes && submitSplitTool({ git, branches, settings: d.settings, nodes: d.nodes,
+      tell: (content) => pi.sendMessage?.({ customType: SPLIT_MESSAGE_TYPE, content, display: true }, { deliverAs: "steer", triggerTurn: true }) }, node),
     /** The tools registered so far, each with whether its component is on in the session's profile now (PRO-7). */
     tools: (): { name: string; on: boolean }[] => owned.map((t) => ({ name: t.name, on: t.live() })),
   };

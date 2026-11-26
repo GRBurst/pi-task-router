@@ -16,8 +16,8 @@ const PLAN: SplitPlan = { summary: "two packages", children: [
   { slug: "docs", goal: "document it", files: ["docs/login.md"], estimate: { lines: 0, kind: "inert" }, check: "true" },
 ] };
 
-async function packaged() {
-  const s = treeRig();
+async function packaged(settings?: Record<string, unknown>) {
+  const s = treeRig(settings);
   provideSkills(s.h, ["tdd-implementation-planner", "code-reviewer"]);
   await s.start(ROOT);
   assert.equal((await s.call("split", PLAN as never)).isError, undefined);
@@ -91,4 +91,43 @@ test("R26", async () => {
   // a child that is no package keeps today's guard: no remote rule
   const plain = accepted(await spawn(s.h, "p2", card({ kind: "review" }))) as Placed;
   assert.equal(await plain.toolGuard?.("bash", { command: "git fetch" }), undefined);
+});
+
+test("TREE-13", async () => {
+  const { s, worktree } = await packaged();
+  const r = accepted(await spawn(s.h, "p1", card({ package: "auth.form" } as never))) as Placed;
+  // below the depth cap: submit_split and the do-or-split rule
+  assert.deepEqual(r.childTools?.map((t) => t.name), ["submit_split"]);
+  const rule = r.briefAppend!.split("\n").filter((l) => l.startsWith("Do or split:"));
+  assert.equal(rule.length, 1, r.briefAppend);
+  assert.ok(rule[0]!.includes("submit_split"), rule[0]);
+  const tool = r.childTools![0]!;
+  // an invalid split: an error to resubmit, nothing written
+  const before = s.ops().length;
+  const bad = await tool.execute({ summary: "x", children: [] });
+  assert.deepEqual([bad.isError, bad.terminate], [true, undefined], bad.text);
+  assert.equal(s.ops().length, before);
+  // a valid one: committed on the node's branch, op split, the node split, the child ends, one message to the main naming the node
+  const plan = { summary: "the form in two", children: [
+    { slug: "fields", goal: "the fields", files: ["src/form/fields.ts"], estimate: { lines: 30, kind: "code" }, check: "true" },
+    { slug: "submit", goal: "the submit button", files: ["src/form/submit.ts"], estimate: { lines: 25, kind: "code" }, check: "true" }] };
+  const ok = await tool.execute(plan);
+  assert.deepEqual([ok.isError, ok.terminate], [undefined, true], ok.text);
+  assert.deepEqual(s.ops().slice(before).map((o) => [o.op, o.node]), [["split", "auth.form"]]);
+  assert.equal(s.h.router.tree.tree().nodes["auth.form"]!.state, "split");
+  const file = `${s.h.router.settings.plans.dir}/split/auth.form.json`;
+  assert.equal(JSON.parse(s.r.git(["show", `lm/auth.form:${file}`])).node, "auth.form");
+  assert.equal(s.r.git(["status", "--porcelain"], worktree), "");
+  const msgs = s.h.f.sent.filter((m) => String(m.msg?.customType).startsWith("task-router/"));
+  assert.equal(msgs.length, 1, JSON.stringify(s.h.f.sent));
+  assert.ok(String(msgs[0]!.msg.content).includes("auth.form"), msgs[0]!.msg.content);
+  assert.deepEqual(s.h.lines().filter((l) => l.event === "split").map((l) => [l.taskId, l.reason, l.children, l.depth]),
+    [["auth", "choice", 2, 0], ["auth.form", "choice", 2, 1]]);
+  // the main starts the children of the child's split
+  assert.equal((await s.start({ parent: "auth.form", child: "fields" })).isError, undefined);
+  // at the cap: neither the tool nor the rule
+  const cap = await packaged({ profile: "local-first", localFirst: { experimental: true, tree: { maxDepth: 1 } } });
+  const at = accepted(await spawn(cap.s.h, "p2", card({ package: "auth.form" } as never))) as Placed;
+  assert.equal(at.childTools, undefined);
+  assert.ok(!at.briefAppend!.includes("Do or split") && !at.briefAppend!.includes("submit_split"), at.briefAppend);
 });
