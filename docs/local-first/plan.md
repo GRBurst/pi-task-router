@@ -729,7 +729,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: depth 3 node split → reason names `maxDepth 3`; 6 children → reason names `maxChildren 5`; depth 2 with 5 → ok.
 - GREEN: `canSplit` per S35.
 
-#### LF4.T3 Tree entries (TREE-3 b) `[ ] todo`
+#### LF4.T3 Tree entries (TREE-3 b) `[x] done`
 - Files: `core/local/treestore.ts` (new), `core/shell.ts` (restore at `session_start`); test `lf-tree` "TREE-3 resume".
 - RED: ops written through the store, a fold (entries kept, messages dropped) and a resume → the restored tree deep-equals the live one.
 - GREEN: S36; `TREE_TYPE = "task-router/tree"` exported (log-contract may import it).

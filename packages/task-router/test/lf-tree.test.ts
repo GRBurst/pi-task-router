@@ -6,6 +6,8 @@ import { seeded } from "./rand.ts";
 import { EMPTY_TREE, apply, canSplit, replay, step, type Node, type Tree, type TreeOp } from "../core/local/tree.ts";
 import { localFirst } from "../core/strategy/local-first.ts";
 import { defaults, parseSettings } from "../core/settings.ts";
+import { TREE_TYPE } from "../core/local/treestore.ts";
+import { harness } from "./harness.ts";
 import type { ContactKind, LadderStep } from "../core/strategy/types.ts";
 
 const CONTACTS: ContactKind[] = ["review", "plan-review", "integration", "corrective", "handoff", "spot", "fit"];
@@ -107,4 +109,27 @@ test("TREE-2", () => {
   assert.deepEqual(tight, { maxDepth: 1, maxChildren: 2, planLines: 40 });
   assert.match(canSplit(deep, "req.n1", 1, tight) ?? "", /maxDepth 1/);
   assert.equal(canSplit(deep, "req", 2, tight), undefined);
+});
+
+// LF4.T3 (spec TREE-3, §2.2, S36): every tree op is one `task-router/tree` entry `{v: 1, …op}`; session_start replays them. A
+// fold keeps the entries and drops messages; the resumed session's tree deep-equals the live one.
+test("TREE-3 resume", () => {
+  const rnd = seeded(7);
+  const lf = { profile: "local-first", localFirst: { experimental: true } } as never;
+  for (let i = 0; i < 40; i++) {
+    const live = harness({ settings: lf });
+    live.f.fire("session_start", { reason: "startup" }, { sessionManager: { getSessionId: () => "s-tree", getBranch: () => [] } });
+    let problems = 0;
+    const ops = randomOps(rnd);
+    for (const o of ops) if (live.router.tree.apply(o) !== undefined) problems++;
+    const written = live.f.entries.filter((e) => e.type === TREE_TYPE);
+    assert.equal(written.length, ops.length - problems, "one entry per op that changed the tree");
+    for (const e of written) assert.equal((e.data as { v?: unknown }).v, 1);
+    // a fold: entries kept, messages dropped (none here but the noise below); a malformed entry is ignored
+    const branch = [{ type: "message" }, ...live.f.entries.map((e) => ({ type: "custom", customType: e.type, data: e.data })),
+      { type: "custom", customType: TREE_TYPE, data: { v: 2, op: "add", node: node("later") } }, { type: "custom", customType: TREE_TYPE, data: null }];
+    const resumed = harness({ settings: lf });
+    resumed.f.fire("session_start", { reason: "resume" }, { sessionManager: { getSessionId: () => "s-tree", getBranch: () => branch } });
+    assert.deepEqual(resumed.router.tree.tree(), live.router.tree.tree());
+  }
 });

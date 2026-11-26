@@ -26,6 +26,7 @@ import { createOutcomeLog } from "./log.ts";
 import { cardSection, coordinatorSection, localSection } from "./prompt.ts";
 import { activeSet, componentOn, isLocal, opusLeft, statusText } from "./local/mode.ts";
 import { installLocal } from "./local/install.ts";
+import { createTreeStore } from "./local/treestore.ts";
 import { createChildTrips } from "./local/childtrips.ts";
 import { createTickets, hasSpawnApi, NO_SPAWN_API } from "./local/overseer.ts";
 import type { LocalDeps } from "./local/install.ts";
@@ -108,6 +109,8 @@ export function install(pi: PiLike, deps: Deps) {
   const arms = createArmStore((type, data) => pi.appendEntry?.(type, data), deps.factors);
   // The session's routing profile (PRO-3): restored at every session_start from its `task-router/profile` entries.
   const profile = createRoutingProfile(settings, (type, data) => pi.appendEntry?.(type, data), now);
+  // The work tree (TREE-3, S36): restored at every session_start from its `task-router/tree` entries.
+  const tree = createTreeStore((type, data) => pi.appendEntry?.(type, data));
   // E0 (local-first spec §6, MEAS-2, D61, D93): drawn from the snapshot at the start of an eligible cloud-first session; else as used.
   type E0Level = "as-used" | "cloud-only";
   let e0: E0Level = "as-used", e0drawn = false;
@@ -270,6 +273,7 @@ export function install(pi: PiLike, deps: Deps) {
     if (!Array.isArray(branch)) branch = [];
     // PRO-3 (spec §2.2): the last profile entry, else the settings; the first local-first start records the settings' choice.
     if (!profile.restore(branch, (t) => ctx?.ui?.notify?.(t, "warning")) && sid && profile.current() === "local-first") profile.set("local-first", "settings");
+    tree.restore(branch);
     ensureLocalTools();
     force.start(ctx, problems); // plan D8: its problem joins the one notification below
     lm.start(ctx); // the Opus budget (D30) before the status line shows it
@@ -377,5 +381,5 @@ export function install(pi: PiLike, deps: Deps) {
     else delete sections.task_cards;
   });
 
-  return { log, settings, arms, profile, tickets, overseer: lm.overseer, budget: lm.budget, branches: lm.branches, approvals: lm.approvals, fixer: lm.fixer, ready: lm.ready, settled: lm.settled };
+  return { log, settings, arms, profile, tree, tickets, overseer: lm.overseer, budget: lm.budget, branches: lm.branches, approvals: lm.approvals, fixer: lm.fixer, ready: lm.ready, settled: lm.settled };
 }
