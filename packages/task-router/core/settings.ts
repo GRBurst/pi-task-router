@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { EFFORTS, effortRank, enabled } from "./members.ts";
 import { validateLocal } from "./local/settings.ts";
 import { FACTORS } from "./strategy/arms.ts";
-import type { Factor } from "./strategy/arms.ts";
+import type { Factor, FactorId } from "./strategy/arms.ts";
 import type { Cell, ExperimentsSettings, Member, Profile, Rows, RouterSettings } from "./types.ts";
 
 export type Settings = RouterSettings;
@@ -433,7 +433,8 @@ function validateFactors(raw: Record<string, unknown>, problems: string[], versi
   const out: ExperimentsSettings["factors"] = {};
   for (const [k, v] of Object.entries(raw)) {
     const p = (why: string, key = k): void => void problems.push(`experiments.factors.${key}: ${why}`);
-    const f = k === "E0" ? undefined : (FACTORS as Record<string, Factor | undefined>)[k];
+    // an own key only: "constructor" or "__proto__" is no factor (a problem, not a throw)
+    const f: Factor | undefined = k !== "E0" && Object.hasOwn(FACTORS, k) ? FACTORS[k as FactorId] : undefined;
     if (!f) { p(k === "E0" ? "E0 runs while experiments.cloudOnlyShare is above 0; ignored" : "unknown factor; ignored"); continue; }
     if (!isObj(v)) { p("not an object; ignored"); continue; }
     const e: ExperimentsSettings["factors"][string] = {};

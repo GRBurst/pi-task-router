@@ -59,3 +59,15 @@ test("factor keys", () => {
   assert.deepEqual(parseSettings({ experiments: { factors: { E2: { enabled: true } } } }, "0.10.0").problems, [], "a numeric compare");
   assert.deepEqual(parseSettings({ experiments: { factors: { E2: { enabled: false } } } }, "0.3.0").problems, [], "disabled is always fine");
 });
+
+// LF2 review minor 1: a key that names an Object.prototype member is no factor id: a problem, never a throw, and the
+// file's other settings stay (the whole file is not dropped to defaults).
+test("factor ids are own keys", () => {
+  for (const id of ["constructor", "__proto__", "toString", "hasOwnProperty"]) {
+    const raw = JSON.parse(`{"experiments":{"seed":"s","factors":{"${id}":{"weights":[1]},"E2":{"enabled":true}}}}`);
+    let r: ReturnType<typeof parseSettings> | undefined;
+    assert.doesNotThrow(() => { r = parseSettings(raw, "0.8.0"); }, id);
+    assert.deepEqual(r!.problems, [`experiments.factors.${id}: unknown factor; ignored`], id);
+    assert.deepEqual(r!.settings.experiments, { seed: "s", cloudOnlyShare: 0.1, factors: { E2: { enabled: true } } }, id);
+  }
+});
