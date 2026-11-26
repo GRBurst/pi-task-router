@@ -349,7 +349,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   const commit = await git.sha(wt.dir, "HEAD");
   if (commit === undefined) return gitError(`cannot read HEAD of ${wt.dir}`);
   // ── 2 refuse ──
-  const why = refusal({ isMain, state: rec?.state, dirty: await git.dirty(wt.dir), behind: !(await git.isAncestor(repo, main.sha, commit)) });
+  const why = refusal({ isMain, state: rec?.state, dirty: await git.dirty(wt.dir), behind: !(await git.isAncestor(repo, target.sha, commit)) });
   if (why) return blockedOf(refuse(why, { ...x, worktree: wt.dir, fixer: rec?.fixer ?? "" }, commit));
   // ── plan-bound (L7): the plan at the commit has the approved skeleton ──
   let bound: Bound | undefined;
@@ -360,8 +360,8 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   /** Opens a trigger for this branch's unit; its id. */
   const trigger = (b: Bound, kind: "non-whitelisted" | "over-budget" | "regression"): string | undefined => p.plans?.open(b.rec.slug, kind, b.id);
   // ── 3 size (a tick-only plan change counts toward none; a plan-bound branch by its plan budget) ──
-  const st = await git.numstat(repo, main.sha, commit);
-  if (st === undefined) return gitError(`cannot diff ${main.name}...${commit}`, commit);
+  const st = await git.numstat(repo, target.sha, commit); // TREE-7 b: the size against the target
+  if (st === undefined) return gitError(`cannot diff ${target.name}...${commit}`, commit);
   const z = sizeOf(st, bound?.file, bound?.tick !== undefined), lim = budgetOf(s, bound);
   seen.nLines = z.lines;
   seen.nFiles = z.files;

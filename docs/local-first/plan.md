@@ -277,7 +277,7 @@ factors with `enabled` by settings.
 | module-eval `task-router-local-first-needs-api-3` | the assertion removed | the negative case | [ ] |
 | `pi-hooks` (LF1.T0) | the probe's hook returns at once and sets `x_probe` after a `setTimeout` | (i) awaited and (ii) rewritten fail on both transports | [x] |
 | `lf-default` NR-2 v1 capture (LF1.T1a) | the fixture empty | the capture case | [x] |
-| `lf-merge-target` TREE-7 base (LF4.T11b) | `behind` keeps `main.sha` | a child cut after main moved is refused `behind` | [ ] |
+| `lf-merge-target` TREE-7 base (LF4.T11b) | `behind` keeps `main.sha` | a child cut after main moved is refused `behind` | [x] |
 | `lf-merge-target` TREE-7 no push (LF4.T11d) | the node→parent merge calls `pushPort` | the fake remote records a push | [ ] |
 | `lf-merge-target` TREE-14 (LF4.T12a) | the scope check only for `plan`-bound branches | a path outside the package's `files` merges | [ ] |
 | `lf-settings` PRO-9 (LF3.T2) | `experimental` ignored | local-first active without it before LF12.T10 | [x] |
@@ -774,7 +774,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: fake git: a child node's `request_merge` resolves `target` = the parent node's branch and tip; the root → the main branch; a nodeless (legacy) branch → the main branch, its facts unchanged (`local-merge-*` green).
 - GREEN: `targetOf(node) = tree.parentBranch(node) ?? mainBranch`; `Facts` gains `target: {name, sha}` beside `main` (filled = `main` for nodeless branches).
 
-#### LF4.T11b `behind` and size against the target (TREE-7 b) `[ ] todo`
+#### LF4.T11b `behind` and size against the target (TREE-7 b) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-merge-target` "TREE-7 base".
 - RED: real git: root cut from main; main gains a commit; a child cut from the root; the child's `request_merge` → not refused `behind` (today `merge.ts:324` tests `isAncestor(main.sha, commit)`), and the line's `nLines` = numstat(root tip, child tip), not numstat(main, child) (`:335`).
 - GREEN: `:324` and `:335` take `target.sha`.
