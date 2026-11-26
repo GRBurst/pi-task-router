@@ -93,6 +93,14 @@ export function defaults(): Settings {
     spotCheck: { enabled: false, share: 0.1 },
     // Local-first spec §2.1: E0 (cloud-only sessions) runs from the first release (D64); 0 turns it off.
     experiments: { seed: "task-router", cloudOnlyShare: 0.1, factors: {} },
+    // Local-first spec §2.1: read only in a local-first session; `breakers.turns` follows `plans.taskTurns` unless set.
+    localFirst: {
+      experimental: false, startMember: "qwen-local", tiers: { small: 60, standard: 150, large: 300 }, tree: { maxDepth: 3, maxChildren: 5, planLines: 150 },
+      reviewers: { haiku: "haiku", sonnet: "sonnet", opus: "opus", local: "qwen-local" }, spotCheckShare: 0.1,
+      context: { childSoftTokens: 65536, mainSoftTokens: 98304, mainFoldTokens: 204800, uncachedBreakerTokens: 65536 },
+      breakers: { sameTest: 3, diffApply: 2, verify: 2, turns: 12 }, localQueue: { enabled: true, affinitySec: 10, mainHoldSec: 600, hookTimeoutSec: 600 },
+      policyFile: ".pi/task-router-policy.json", e17ShadowShare: 0.5, quotaFallback: { maxCloud: 2, q5hOpenEnded: 0.8 }, overCapBytes: 60000,
+    },
     // Local mode (design §3.0.1; validated in core/local/settings.ts). Every component "auto": on in local mode only.
     mode: "default",
     hints: {
@@ -417,6 +425,24 @@ function validate(s: Settings, base: Settings, problems: string[], raw: Record<s
   } else if (isObj(ex.factors)) s.experiments.factors = validateFactors(ex.factors, problems, version);
   validatePlanning(s, base, problems, raw);
   validateLocal(s, base, problems);
+  validateProfile(s, problems, raw, version);
+}
+
+/** Local-first opens at this release (PRO-9 b, D81); before it `localFirst.experimental` is required. */
+const LOCAL_FIRST_OPEN = "0.5.0";
+/** PRO-1, PRO-9 a (spec §2.1): `profile` wins over `mode` when set; an invalid value is dropped (then `mode` decides). */
+function validateProfile(s: Settings, problems: string[], raw: Record<string, unknown>, version: string): void {
+  if (!(isObj(raw.localFirst) && isObj(raw.localFirst.breakers) && "turns" in raw.localFirst.breakers)) s.localFirst.breakers.turns = s.plans.taskTurns;
+  if (!("profile" in raw)) return;
+  const p = raw.profile;
+  if (isObj(p)) return void problems.push("profile takes cloud-first | local-first; card-kind profiles go under profiles.<kind>");
+  if (p !== "cloud-first" && p !== "local-first") return void problems.push('profile: must be "cloud-first" or "local-first"; default kept');
+  s.mode = "default";
+  s.profile = p;
+  if (p === "local-first" && !s.localFirst.experimental && !atLeast(version, LOCAL_FIRST_OPEN)) {
+    problems.push(`profile local-first is experimental before ${LOCAL_FIRST_OPEN}; set localFirst.experimental`);
+    s.profile = "cloud-first";
+  }
 }
 
 /** "a.b.c" at least "x.y.z", numerically; an unreadable version proves nothing (false). */

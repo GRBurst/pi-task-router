@@ -71,3 +71,60 @@ test("factor ids are own keys", () => {
     assert.deepEqual(r!.settings.experiments, { seed: "s", cloudOnlyShare: 0.1, factors: { E2: { enabled: true } } }, id);
   }
 });
+
+// LF3.T2 (spec §2.1, PRO-1, D82): the routing profile `profile` beside the card-kind `profiles`; `profile` wins over the
+// legacy `mode` when both are set, `mode: "local"` alone keeps the legacy local mode (until RET-1). An invalid value is a
+// problem and the key is dropped (the effective profile then follows `mode`, cloud-first by default).
+const OPEN = "0.5.0", PREVIEW = "0.4.0"; // the router's version is a parameter, so the cases survive releases
+const XP = { localFirst: { experimental: true } };
+test("PRO-1", () => {
+  const p = (raw: Record<string, unknown>, version = OPEN) => {
+    const r = parseSettings(raw, version);
+    return { profile: r.settings.profile, mode: r.settings.mode, problems: r.problems };
+  };
+  assert.deepEqual(p({}), { profile: undefined, mode: "default", problems: [] }, "no profile: cloud-first by default");
+  assert.deepEqual(p({ profile: "cloud-first" }), { profile: "cloud-first", mode: "default", problems: [] });
+  assert.deepEqual(p({ profile: "local-first", ...XP }, PREVIEW), { profile: "local-first", mode: "default", problems: [] });
+  assert.deepEqual(p({ profile: "local-first" }), { profile: "local-first", mode: "default", problems: [] }, "from 0.5.0 no gate");
+  for (const bad of ["local", "", 1, true, null, []]) {
+    const r = p({ profile: bad }, PREVIEW);
+    assert.deepEqual([r.profile, r.mode], [undefined, "default"], JSON.stringify(bad));
+    assert.deepEqual(r.problems, ['profile: must be "cloud-first" or "local-first"; default kept'], JSON.stringify(bad));
+  }
+  // a card-kind profile in the wrong key
+  assert.deepEqual(p({ profile: { tools: "all" } }), { profile: undefined, mode: "default",
+    problems: ["profile takes cloud-first | local-first; card-kind profiles go under profiles.<kind>"] });
+  // both set: profile wins; mode alone: the legacy local mode, unchanged
+  assert.deepEqual(p({ profile: "cloud-first", mode: "local" }), { profile: "cloud-first", mode: "default", problems: [] });
+  assert.deepEqual(p({ profile: "local-first", mode: "local" }), { profile: "local-first", mode: "default", problems: [] });
+  assert.deepEqual(p({ mode: "local" }), { profile: undefined, mode: "local", problems: [] });
+  assert.deepEqual(p({ mode: "local", profile: 5 }, PREVIEW).mode, "local", "an invalid profile does not override mode");
+});
+
+// LF3.T2 (spec §2.1): the `localFirst` keys and their defaults, one nested object; `experimental` false (D81).
+test("localFirst defaults", () => {
+  const LF = {
+    experimental: false, startMember: "qwen-local", tiers: { small: 60, standard: 150, large: 300 }, tree: { maxDepth: 3, maxChildren: 5, planLines: 150 },
+    reviewers: { haiku: "haiku", sonnet: "sonnet", opus: "opus", local: "qwen-local" }, spotCheckShare: 0.1,
+    context: { childSoftTokens: 65536, mainSoftTokens: 98304, mainFoldTokens: 204800, uncachedBreakerTokens: 65536 },
+    breakers: { sameTest: 3, diffApply: 2, verify: 2, turns: 12 }, localQueue: { enabled: true, affinitySec: 10, mainHoldSec: 600, hookTimeoutSec: 600 },
+    policyFile: ".pi/task-router-policy.json", e17ShadowShare: 0.5, quotaFallback: { maxCloud: 2, q5hOpenEnded: 0.8 }, overCapBytes: 60000,
+  };
+  assert.deepEqual(parseSettings({}).settings.localFirst, LF);
+  // breakers.turns defaults to plans.taskTurns; its own value wins
+  assert.equal(parseSettings({ plans: { taskTurns: 20 } }).settings.localFirst.breakers.turns, 20);
+  assert.equal(parseSettings({ plans: { taskTurns: 20 }, localFirst: { breakers: { turns: 7 } } }).settings.localFirst.breakers.turns, 7);
+  assert.deepEqual(parseSettings({ localFirst: { experimental: true, tree: { maxDepth: 2 } } }).settings.localFirst.tree, { maxDepth: 2, maxChildren: 5, planLines: 150 });
+});
+
+// LF3.T2 (spec PRO-9 a, D81): before 0.5.0 local-first needs `localFirst.experimental: true`; without it the settings'
+// profile is a problem and the session is cloud-first.
+test("PRO-9", () => {
+  const gated = parseSettings({ profile: "local-first" }, PREVIEW);
+  assert.deepEqual(gated.problems, ["profile local-first is experimental before 0.5.0; set localFirst.experimental"]);
+  assert.equal(gated.settings.profile, "cloud-first");
+  assert.equal(parseSettings({ profile: "local-first", localFirst: { experimental: false } }, "0.4.9").settings.profile, "cloud-first");
+  assert.equal(parseSettings({ profile: "local-first", localFirst: { experimental: "yes" } }, PREVIEW).settings.profile, "cloud-first");
+  assert.equal(parseSettings({ profile: "local-first", ...XP }, "0.3.0").settings.profile, "local-first");
+  assert.equal(parseSettings({ profile: "local-first" }, "").settings.profile, "cloud-first", "an unreadable version stays gated");
+});

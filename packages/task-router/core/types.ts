@@ -1,4 +1,5 @@
 // Shared types of the router core (plan S7). Types only: erased at load time.
+import type { RoutingProfile } from "./strategy/types.ts";
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 export type Result<T> = { ok: true; value: T } | { ok: false; errors: string[] };
 
@@ -104,6 +105,10 @@ export type RouterSettings = {
   /** Spot-check reviews (T5.22): an accepted verdict asks for a fresh review with probability `share`. */
   spotCheck: { enabled: boolean; share: number };
   experiments: ExperimentsSettings;
+  /** The routing profile (local-first spec §2.1, PRO-1; D82: not the card-kind `profiles`). Absent: `mode` decides (legacy
+   *  local mode), else cloud-first; when set it wins over `mode`. */
+  profile?: RoutingProfile;
+  localFirst: LocalFirstSettings;
   // Local mode (design §3.0.1): declared in L1, inert until their milestones.
   mode: "default" | "local";
   hints: HintSettings;
@@ -121,6 +126,21 @@ export type ExperimentsSettings = {
   seed: string;
   cloudOnlyShare: number;
   factors: Record<string, { enabled?: boolean; weights?: number[] }>;
+};
+
+/** Local-first's settings (spec §2.1): read only in a local-first session; `experimental` gates it before 0.5.0 (PRO-9, D81). */
+export type LocalFirstSettings = {
+  experimental: boolean; startMember: string;
+  tiers: { small: number; standard: number; large: number };
+  tree: { maxDepth: number; maxChildren: number; planLines: number };
+  reviewers: { haiku: string; sonnet: string; opus: string; local: string };
+  spotCheckShare: number;
+  context: { childSoftTokens: number; mainSoftTokens: number; mainFoldTokens: number; uncachedBreakerTokens: number };
+  breakers: { sameTest: number; diffApply: number; verify: number; turns: number };
+  localQueue: { enabled: boolean; affinitySec: number; mainHoldSec: number; hookTimeoutSec: number };
+  policyFile: string; e17ShadowShare: number;
+  quotaFallback: { maxCloud: number; q5hOpenEnded: number };
+  overCapBytes: number;
 };
 
 /** A local-mode component's switch (design §2.1): "auto" = on in local mode only. */

@@ -236,7 +236,7 @@ factors with `enabled` by settings.
 | `lf-outcome` | the shell writes `localMembers: "other"` | LOG-4 | [x] |
 | `lf-session-log` | the draw uses `Math.random` | "MEAS-1 resume" | [x] |
 | `lf-seams` NR-6 | `core/local/merge.ts` imports `core/strategy/tiers.ts` | the import scan | [x] |
-| `lf-settings` PRO-1 | `mode: "local"` overrides `profile` | PRO-1 | [ ] |
+| `lf-settings` PRO-1 | `mode: "local"` overrides `profile` | PRO-1 | [x] |
 | `lf-profile` | restore takes the first entry | PRO-3 | [ ] |
 | `lf-start-model` | `setModel` also on `model_select` | PRO-5 | [ ] |
 | `lf-prompt` | the section omits the tier budget | PRO-8/SIZE-9 | [ ] |
@@ -280,7 +280,7 @@ factors with `enabled` by settings.
 | `lf-merge-target` TREE-7 base (LF4.T11b) | `behind` keeps `main.sha` | a child cut after main moved is refused `behind` | [ ] |
 | `lf-merge-target` TREE-7 no push (LF4.T11d) | the node→parent merge calls `pushPort` | the fake remote records a push | [ ] |
 | `lf-merge-target` TREE-14 (LF4.T12a) | the scope check only for `plan`-bound branches | a path outside the package's `files` merges | [ ] |
-| `lf-settings` PRO-9 (LF3.T2) | `experimental` ignored | local-first active without it before LF12.T10 | [ ] |
+| `lf-settings` PRO-9 (LF3.T2) | `experimental` ignored | local-first active without it before LF12.T10 | [x] |
 | `lf-settings` PRO-10 (LF3.T2a) | `localFirst` added to the built-in `scout` without `placement` | the built-in table case; the snapshot property catches a changed `tools` | [ ] |
 | `lf-planreview` CON-12 | children start before the verdict | "ticket" (no child before the verdict) | [ ] |
 | `lf-planreview` amend | the amendment replaces started children | the started-slug case and the TREE-3 property | [ ] |
@@ -665,7 +665,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: the scan: `local-first.ts` exports `localFirst(settings): Strategy`; no file outside `core/strategy/` imports a strategy file other than `types.ts`, `local-first.ts`, `arms.ts` (the last for `FACTORS`/`assign` in `armstore.ts`); no file in `core/strategy/` imports outside it except `node:crypto` and `../types.ts`.
 - GREEN: S31; `localFirst` returns stubs that throw `not yet` for parts later tasks fill (each part's task replaces its stub).
 
-#### LF3.T2 Profile setting (PRO-1) `[ ] todo`
+#### LF3.T2 Profile setting (PRO-1) `[x] done`
 - Files: `core/types.ts`, `core/settings.ts`; test `lf-settings` "PRO-1".
 - RED: `profile` parsed; invalid → problem + `cloud-first`; an object (a card-kind profile in the wrong key) → the problem `profile takes cloud-first | local-first; card-kind profiles go under profiles.<kind>`; `{profile: "cloud-first", mode: "local"}` → `cloud-first`; `{mode: "local"}` → legacy local mode, unchanged; PRO-9 a: `profile: "local-first"` without `localFirst.experimental: true` → the problem `profile local-first is experimental before 0.5.0; set localFirst.experimental` and `cloud-first`.
 - GREEN: `profile?: RoutingProfile` (`core/types.ts`; the card-kind `Profile` keeps its name and shape); `localFirst` defaults (§2.1) as one nested object, `experimental: false`.
