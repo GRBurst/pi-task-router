@@ -10,6 +10,8 @@ export interface ClassifyContext {
   plansDir: string;
   /** `localFirst.policyFile`: an edit of it is `policy-edit`. */
   policyFile: string;
+  /** CLS-3: a configured `mergeGate.extraChecks` entry exists and passes (the branch's own check does not count). */
+  inertChecked: boolean;
   /** Anchored glob match: `**\/` any leading directories, `**` anything, `*` within a segment (`core/glob.ts`). */
   glob: (glob: string, path: string) => boolean;
 }
@@ -17,6 +19,9 @@ export interface Classification { cls: RiskClass; inertLike: boolean; why: strin
 
 /** The gate's own configuration besides the policy file (S38). */
 const GATE_CONFIG = [".pi/**", "**/task-router*.json"];
+
+/** Agent-instruction files (`AGENTS.md`, `CLAUDE.md`, `.pi/`, `skills`/`prompts` directories) are prose, never inert (MGS §2.1). */
+const INSTRUCTION_GLOBS = ["**/AGENTS.md", "**/CLAUDE.md", "**/.pi/**", "**/skills/**", "**/prompts/**"];
 
 /** A component = the first `depth` directories of the path; a root file has the component "". */
 const component = (path: string, depth: number): string => path.split("/").slice(0, -1).slice(0, depth).join("/");
@@ -37,7 +42,7 @@ function classifyFiles(all: readonly FileFact[], p: Policy, ctx: ClassifyContext
   const why = new Set<string>();
   const proxy = (name: string, fired: boolean): boolean => { if (fired) why.add(name); return fired; };
   const configFiles: string[] = [], codeFiles: string[] = [];
-  let elevated = false;
+  let elevated = false, inertFiles = 0;
   for (const { path, added, deleted } of files) {
     if (typeof path !== "string" || !Number.isFinite(added) || !Number.isFinite(deleted)) throw new Error("malformed file fact");
     const fired = [
@@ -49,11 +54,14 @@ function classifyFiles(all: readonly FileFact[], p: Policy, ctx: ClassifyContext
       proxy("weakened-tests", any(p.testGlobs, path) && deleted > added),
     ];
     if (fired.includes(true)) elevated = true;
+    if (any(p.inertGlobs, path) && !any(INSTRUCTION_GLOBS, path) && !ctx.glob(`${ctx.plansDir}/**`, path)) inertFiles++;
     if (any(p.configGlobs, path)) configFiles.push(path);
     else if (!any(p.inertGlobs, path) && !any(p.testGlobs, path)) codeFiles.push(path);
   }
   const components = (paths: string[]): number => new Set(paths.map((x) => component(x, depth))).size;
   if (proxy("coupled", codeFiles.length >= 3 && components(codeFiles) >= 2)) elevated = true;
   if (proxy("multi-component-config", configFiles.length >= 2 && components(configFiles) >= 2)) elevated = true;
-  return { cls: elevated ? "elevated" : "standard", inertLike: false, why: [...why].sort() };
+  // CLS-3: inert only when every file is inert and a configured check passes; a riskGlobs match is elevated, never inert
+  const inert = files.length > 0 && inertFiles === files.length && ctx.inertChecked;
+  return { cls: elevated ? "elevated" : inert ? "inert" : "standard", inertLike: false, why: [...why].sort() };
 }

@@ -16,7 +16,7 @@ const POLICY: Policy = {
   publicApiGlobs: ["api/**"],
   componentDepth: 1,
 };
-const CTX: ClassifyContext = { plansDir: "docs/plans", policyFile: ".pi/task-router-policy.json", glob: globMatch };
+const CTX: ClassifyContext = { plansDir: "docs/plans", policyFile: ".pi/task-router-policy.json", glob: globMatch, inertChecked: true };
 const f = (path: string, added = 5, deleted = 1): FileFact => ({ path, added, deleted });
 const run = (paths: (string | FileFact)[], p: Policy = POLICY, ctx: ClassifyContext = CTX) =>
   classify(paths.map((x) => (typeof x === "string" ? f(x) : x)), p, ctx);
@@ -127,4 +127,28 @@ test("split files: <plans.dir>/split/** is router-owned, dropped before the rule
   assert.equal(run(["plans/split/n1.json", "svc/a.json"], POLICY, { ...CTX, plansDir: "plans" }).cls, "standard");
   // only the split directory is dropped, other plan files are not
   assert.equal(run(["docs/plans/p1.json", "svc/a.json"]).cls, "elevated");
+});
+
+test("CLS-3 inert: every file inert and a configured extraChecks entry passes", () => {
+  const docs = ["docs/a.md", "NOTICE", "notes/b.txt", "LICENSE"];
+  assert.deepEqual([run(docs).cls, run(docs).why], ["inert", []]);
+  assert.equal(run(docs, POLICY, { ...CTX, inertChecked: false }).cls, "standard", "no passing configured check: standard");
+  // a mixed change is not inert, with or without a check
+  assert.equal(run([...docs, "src/a.ts"]).cls, "standard");
+  assert.equal(run(["docs/a.md", "test/a.test.ts"]).cls, "standard", "tests are not inert files");
+  // elevated beats the check
+  assert.equal(run(["docs/a.md", "src/auth/x.ts"]).cls, "elevated");
+  assert.equal(run(["src/auth/README.md"]).cls, "elevated", "a riskGlobs match is never inert");
+});
+
+test("CLS-3 agent-instruction and plan files are prose, but never inert", () => {
+  for (const p of ["AGENTS.md", "CLAUDE.md", "svc/AGENTS.md", "a/b/CLAUDE.md", "sub/.pi/notes.md", "skills/x/SKILL.md", "pkg/skills/a.md",
+    "prompts/p.md", "x/prompts/p.md", "docs/plans/m1.md", "docs/plans/sub/m2.txt"]) {
+    assert.equal(run([p]).cls, "standard", p);
+  }
+  assert.equal(run(["docs/a.md", "AGENTS.md"]).cls, "standard");
+  // a name that only contains the word is prose
+  assert.equal(run(["docs/skillset.md", "docs/my-prompts.md"]).cls, "inert");
+  // an empty change (nothing but split files) has no files to be inert
+  assert.equal(run(["docs/plans/split/n1.json"]).cls, "standard");
 });
