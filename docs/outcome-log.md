@@ -52,10 +52,13 @@ events and new values, which need no further bump:
 - the exports a reader takes its lists from instead of copying them:
   `EVENTS_V2` (the events v2 added), `ENUMS_V2` (`"<event>.<field>"` → the
   field's values; only fields v2 added, the values of the v1 fields stay in
-  `TRIPS`, `ROLES`, `REASONS`, `TRIGGERS` and `FALLBACKS`, `review.fallback`), all in
-  `packages/task-router/core/outcome.ts`, beside `TRIPS`, `ROLES`,
-  `REASONS`, `TRIGGERS`, `PLAN_TYPE` and `BRANCH_TYPE`; and `FACTORS`
-  (`packages/task-router/core/strategy/arms.ts`), the factor registry: each
+  `TRIPS`, `ROLES`, `REASONS`, `TRIGGERS` and `FALLBACKS`, `review.fallback`).
+  Under `packages/task-router/core/`: `EVENTS_V2`, `ENUMS_V2` and `FALLBACKS`
+  in `outcome.ts`; `TRIPS` in `local/tripwires.ts`, `ROLES` in
+  `local/overseer.ts`, `REASONS` in `local/merge.ts`, `TRIGGERS` in
+  `local/plan.ts`, `PLAN_TYPE` in `local/plans.ts`, `BRANCH_TYPE` in
+  `local/branches.ts`; and `FACTORS`
+  (`strategy/arms.ts`), the factor registry: each
   factor's id, unit, levels (the first is the default) and `from` release.
   They only grow. The levels and their order that apply to a session are those
   of the `FACTORS` of the router version named on its `session` line
