@@ -535,7 +535,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: the case compares a default-settings harness session (fake clock; spawn, verdict, spotcheck, hint, review, merge) with the fixture → fails while the fixture is empty.
 - GREEN: test only: the fixture is recorded at this commit, before any v2 change, and committed; the case passes. LF1.T2 compares against it.
 
-#### LF1.T1b Flag cases through settings: `flags`, `local-prompt` (X37a) `[ ] todo`
+#### LF1.T1b Flag cases through settings: `flags`, `local-prompt` (X37a) `[x] done`
 - Files: tests `flags`, `local-prompt` only (no production change).
 - Why: these cases stub `__piExperimentsApi_v1` to set a flag; the router falls back to settings today, so setting the flag through settings passes before and after LF1.T1. Cases that test the experiments read itself are deleted (reason: owner decision 2026-11-16, recorded with the author's configuration).
 - RED: N/A (a refactor of tests); evidence: the same assertions pass before (stub) and after (settings).

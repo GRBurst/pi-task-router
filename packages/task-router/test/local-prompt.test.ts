@@ -1,12 +1,10 @@
 // Local mode L1.T5 (design §2.3, LD3, AC-R3, AC-N3): a local main gets the short local section; default mode keeps today's.
-import { test, afterEach } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ORCHESTRATOR_RULE, cardSchema, cardSection, localSection } from "../core/prompt.ts";
 import { defaults, parseSettings } from "../core/settings.ts";
 import { harness } from "./harness.ts";
 
-const g = globalThis as { __piExperimentsApi_v1?: unknown };
-afterEach(() => void delete g.__piExperimentsApi_v1);
 const MAIN = { sessionManager: { getSessionId: () => "s-main" } };
 const fire = (h: ReturnType<typeof harness>, ctx: unknown = MAIN) => {
   const options = { sections: {} as Record<string, string>, skills: [] };
@@ -39,9 +37,9 @@ test("AC-R3 pinned text: local mode sets task_cards to the local section", () =>
   assert.equal(fire(harness({ settings: BARE })), text, "stable across sessions (cache)");
 });
 
+// The rule is set through settings (local-first LF1.T1b: no experiments read, NR-3).
 test("LD3: delegationRule on, local → localSection", () => {
-  g.__piExperimentsApi_v1 = { version: 1, flag: (n: string, d: string) => (n === "delegationRule" ? "on" : d) };
-  const text = fire(harness({ settings: BARE }));
+  const text = fire(harness({ settings: { ...(BARE as object), delegation: { rule: "on" } } as never }));
   assert.equal(text, PINNED(cardSchema(defaults())));
   assert.ok(!text.includes(ORCHESTRATOR_RULE));
 });
