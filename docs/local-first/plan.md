@@ -220,7 +220,7 @@ factors with `enabled` by settings.
 |---|---|---|---|
 | `lf-default` NR-3 | a comment-free `globalThis.__piExperimentsApi_v1` read left in `shell.ts` | the source scan | [x] |
 | `lf-default` NR-2 | `spawnEvent` keeps `arm` | "NR-2 cloud-first lines" | [x] |
-| `lf-outcome` | a builder copies `goal` text into a field | LOG-3 text-free | [ ] |
+| `lf-outcome` | a builder copies `goal` text into a field | LOG-3 text-free | [x] |
 | `lf-session-log` | write `session` in cloud-first with share 0 | MEAS-1 | [ ] |
 | `lf-merge-log` | `repoId` from `HEAD` instead of the root commit | LOG-1 | [ ] |
 | `lf-arms` RND-2 | `unit` dropped from the hash input | determinism-by-unit frequencies | [ ] |
@@ -282,7 +282,7 @@ factors with `enabled` by settings.
 | `lf-spotcheck` REV-11 | the E17 shadow drawn with `spotCheckShare` | the 0.5 frequency per arm | [ ] |
 | `lf-api3` XR-3 | the fake ignores `signal` | the aborted hold settles | [ ] |
 | `lf-lqueue` XR-3 (LF10.T6) | an aborted waiter stays queued | the next waiter is granted at once | [ ] |
-| `lf-outcome` ENUMS_V2 | a builder writes `kind: "other"` | the `∈ ENUMS_V2` assertion | [ ] |
+| `lf-outcome` ENUMS_V2 | a builder writes `kind: "other"` | the `∈ ENUMS_V2` assertion | [x] |
 | `lf-arms-shell` stage n (LF14–LF18) | a factor drawn without its `enabled` setting | the "without the settings → no arm" case | [ ] |
 | module-eval `localMode.enable` (LF19.T7a) | the option still sets `mode = "local"` | the expected HM-1 b list | [ ] |
 
@@ -554,7 +554,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: LF1.T1a's session → every line = its fixture line with `v: 2` and without `arm` → fails on `v: 1`.
 - GREEN: `SCHEMA_VERSION = 2`; drop `arm` from `spawnEvent`'s input type and output.
 
-#### LF1.T3 `session` builder, `EVENTS_V2`, export snapshot (LOG-2, LOG-3, LOG-4) `[ ] todo`
+#### LF1.T3 `session` builder, `EVENTS_V2`, export snapshot (LOG-2, LOG-3, LOG-4) `[x] done`
 - Files: `core/outcome.ts`; test `lf-outcome` (new).
 - RED: `sessionEvent` missing; LOG-4 snapshot of the names and values of `TRIPS`, `ROLES`, `REASONS`, `TRIGGERS`, `PLAN_TYPE`, `BRANCH_TYPE` (literal, taken from today) must be a subset of the exports; `ENUMS_V2` holds `session.profile` and `session.localMembers` (§2.4) and `FALLBACKS = ["budget", "error"]` (today's `fallback`), both exported; LOG-3 runs `text-free` over the builder.
 - GREEN: `sessionEvent({now, sessionId, profile, mainModel, startSet, localMembers, routerVersion})`; `export const EVENTS_V2 = ["session"] as const` (each later builder task appends its event); `export const ENUMS_V2` and `export const FALLBACKS = ["budget", "error"] as const` (LF6.T7 appends).

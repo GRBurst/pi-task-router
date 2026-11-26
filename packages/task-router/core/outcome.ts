@@ -32,6 +32,8 @@ const KEYS = [
   "nLines", "nFiles", "reviewId", "pushed", "repo",
   // local mode L7 (design §3.0.3): the plan line
   "trigger", "nTasks", "full",
+  // outcome log v2 (local-first spec §2.4): the session line
+  "profile", "mainModel", "startSet", "localMembers", "routerVersion",
 ];
 const MAX_STR = 256;
 const MAX_ITEMS = 20;
@@ -98,7 +100,7 @@ export const hintEvent = (i: { now: Date; taskId: string; trip: Trip; stage: Hin
 
 export type ReviewOutcome = "approve" | "revise" | "invalid" | "timeout" | "error";
 export type ReviewInput = { reviewId: string; role: Role; member: string; model: string; outcome: ReviewOutcome; attempt: number; durationMs: number;
-  fallback?: "budget" | "error"; findings?: number; blocking?: number; inconsistent?: boolean; commit?: string; branch?: string };
+  fallback?: Fallback; findings?: number; blocking?: number; inconsistent?: boolean; commit?: string; branch?: string };
 /** One overseer attempt (design §3.0.3): `taskId` is the review id; the verdict's counts and flags, never its text. */
 export const reviewEvent = (i: ReviewInput & { now: Date }) =>
   finish({
@@ -130,6 +132,26 @@ export type PlanLogInput = { slug: string; action: PlanAction; trigger?: Trigger
  *  trigger opened (its code), an amendment applied or rejected (`full`: by a plan-review); never the plan's text. */
 export const planEvent = (i: PlanLogInput & { now: Date }) =>
   finish({ ...base("plan", i.now, i.slug), action: i.action, trigger: i.trigger, nTasks: i.nTasks, reviewId: i.reviewId, full: i.full });
+
+/** The events v2 added (local-first spec §2.4, LOG-2); a consumer reads the event list from here. */
+export const EVENTS_V2 = ["session"] as const;
+/** The review line's `fallback` values. */
+export const FALLBACKS = ["budget", "error"] as const;
+export type Fallback = (typeof FALLBACKS)[number];
+const PROFILES = ["cloud-first", "local-first", "local-mode"] as const;
+const LOCAL_MEMBERS = ["on", "off"] as const;
+/** Every v2 enumerated field's values, by `"<event>.<field>"` (LOG-4); the lists only grow. */
+export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = {
+  "session.profile": PROFILES,
+  "session.localMembers": LOCAL_MEMBERS,
+};
+export type SessionInput = { now: Date; sessionId: string; profile: (typeof PROFILES)[number]; mainModel: string; startSet: boolean;
+  localMembers: (typeof LOCAL_MEMBERS)[number]; routerVersion: string };
+/** A session's start (MEAS-1): `taskId` is the session id; the profile, the main's model, whether a start set was
+ *  configured, whether local members may run, the router's version. */
+export const sessionEvent = (i: SessionInput) =>
+  finish({ ...base("session", i.now, i.sessionId), profile: i.profile, mainModel: i.mainModel, startSet: i.startSet,
+    localMembers: i.localMembers, routerVersion: i.routerVersion });
 
 export const serializeEvent = (e: OutcomeEvent): string => `${JSON.stringify(e)}\n`;
 
