@@ -3,8 +3,9 @@
 # localhost (./probe.mjs serve), once on openai-completions (the llama
 # transport, a models.json provider) and once on anthropic-messages (the
 # built-in provider, its base URL overridden), with the probe extension
-# (./probe.mjs). Per transport: (i) the request reaches the server ≥ 300 ms
-# after before_provider_request started (pi awaits the hook), (ii) its body
+# (./probe.mjs). Per transport: (i) the request reaches the server ≥ 200 ms
+# after before_provider_request started (pi awaits the hook; the hook holds
+# 300 ms, so a timer that fires early cannot fail the check), (ii) its body
 # has the hook's `x_probe: 1` (the returned payload is sent), (iii)
 # after_provider_response saw the status and the quota header, (iv) ctx.signal
 # is an AbortSignal inside the hook. A verification check: the router has no
@@ -47,7 +48,7 @@ pkgs.runCommand "pi-hooks" {nativeBuildInputs = [pkgs.pi-coding-agent pkgs.nodej
       miss "$transport: a hook or the request is missing"
       return
     fi
-    jq -e --argjson b "$before" '.at - $b.started >= 300' <<<"$request" >/dev/null \
+    jq -e --argjson b "$before" '.at - $b.started >= 200' <<<"$request" >/dev/null \
       || miss "$transport: (i) the request did not wait for the hook"
     jq -e '.x_probe == 1' <<<"$request" >/dev/null || miss "$transport: (ii) the hook's payload was not sent"
     jq -e '.status == 200 and .header == "0.42"' <<<"$after" >/dev/null \
