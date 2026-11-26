@@ -6,7 +6,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { startNode, type NodeDeps } from "../core/local/branchtool.ts";
 import type { MergeInput } from "../core/outcome.ts";
-import { targetOf } from "../core/local/merge.ts";
+import { reasonText, targetOf } from "../core/local/merge.ts";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { replay, type Node, type TreeOp } from "../core/local/tree.ts";
 import { createTreeStore } from "../core/local/treestore.ts";
 import { fakeGit } from "./fake-git.ts";
@@ -16,7 +18,9 @@ import { mergeRig, REVISE } from "./merge-rig.ts";
 function nodeRig(settings: Record<string, unknown> = {}) {
   const m = mergeRig({ settings });
   const tree = createTreeStore((type, data) => { m.entries.push({ type, data: structuredClone(data) }); });
-  const nodes: NodeDeps = { tree, localFirst: () => true, caps: () => ({ maxDepth: 3, maxChildren: 5, planLines: 150 }), log: { node() {}, split() {} } };
+  const nodeLines: Array<Record<string, unknown>> = [];
+  const nodes: NodeDeps = { tree, localFirst: () => true, caps: () => ({ maxDepth: 3, maxChildren: 5, planLines: 150 }),
+    log: { node(i) { nodeLines.push(i); }, split() {} } };
   const lines: MergeInput[] = [];
   m.ports.nodes = nodes;
   m.ports.log = (i) => { lines.push(i); };
@@ -34,7 +38,7 @@ function nodeRig(settings: Record<string, unknown> = {}) {
     m.r.commit("form.ts", "a\nb\n", "form", child.worktree);
     return { root, child };
   };
-  return { ...m, tree, nodes, lines, node, shape };
+  return { ...m, tree, nodes, nodeLines, lines, node, shape };
 }
 
 const A = "a".repeat(40), B = "b".repeat(40);
@@ -61,10 +65,11 @@ test("TREE-7 target", async () => {
 test("TREE-7 base", async () => {
   const x = nodeRig();
   const { root, child } = await x.shape();
+  const tips = [x.r.git(["rev-parse", root.branch]), x.r.git(["rev-parse", child.branch])] as const;
   const r = await x.merge({ branch: child.branch });
   assert.notEqual(r.reason, "behind", r.detail);
   // the size against the parent's tip: the child's two lines, not the root's plan or main's commit
-  const st = await x.git.numstat(x.r.dir, x.r.git(["rev-parse", root.branch]), x.r.git(["rev-parse", child.branch]));
+  const st = await x.git.numstat(x.r.dir, ...tips);
   assert.deepEqual([x.lines[0]?.nLines, x.lines[0]?.nFiles], [st!.reduce((a, f) => a + f.added + f.deleted, 0), 1]);
   assert.equal(x.lines[0]?.nLines, 2);
 });
@@ -84,4 +89,55 @@ test("TREE-7 red-run base", async () => {
   assert.ok(input.includes(`Diff ${rootTip}..${childTip}`), input);
   assert.ok(input.includes("form.ts") && !input.includes("docs/auth.md") && !input.includes("main.txt"), input);
   assert.equal(x.store.get(x.r.dir, child.branch)?.base, rootTip);
+});
+
+/** The root `auth` with a plan commit and its child `auth.form` with one commit, main not moved; a bare remote `origin`. */
+async function pushShape(x: ReturnType<typeof nodeRig>) {
+  const remote = join(x.r.base, "remote.git");
+  x.r.git(["init", "-q", "--bare", remote]);
+  x.r.git(["remote", "add", "origin", remote]);
+  const root = await x.node({ slug: "auth", estimate: { kind: "plan", lines: 0 } });
+  x.r.commit("docs/auth.md", "one\n", "plan", root.worktree);
+  const child = await x.node({ parent: "auth", slug: "form", estimate: { kind: "code", lines: 2 } });
+  const tip = x.r.commit("form.ts", "a\nb\n", "form", child.worktree);
+  const pushed = () => x.r.git(["for-each-ref", "--format=%(refname)"], remote);
+  return { remote, root, child, tip, pushed };
+}
+
+test("TREE-7 no push", async () => {
+  const x = nodeRig({ mergeGate: { push: true } });
+  const { remote, root, child, tip, pushed } = await pushShape(x);
+  const before = x.r.git(["rev-parse", root.branch]);
+  const r = await x.merge({ branch: child.branch });
+  // node → parent: the parent's branch fast-forwarded in its worktree (in sync, clean), nothing pushed
+  assert.equal(r.status, "merged", r.detail);
+  assert.equal(r.pushed, undefined);
+  assert.equal(r.detail.startsWith(`merged ${child.branch} into ${root.branch} at ${tip.slice(0, 7)}`), true, r.detail);
+  assert.equal(x.r.git(["rev-parse", root.branch]), tip);
+  assert.equal(x.r.git(["rev-parse", "HEAD"], root.worktree), tip);
+  assert.equal(x.r.git(["status", "--porcelain"], root.worktree), "");
+  assert.equal(pushed(), "");
+  assert.deepEqual([x.lines[0]?.target, x.lines[0]?.base], [root.branch, before]);
+  // the node is merged: one op, the parent counts it
+  assert.equal(x.tree.tree().nodes["auth.form"]?.state, "merged");
+  assert.deepEqual(x.tree.tree().nodes["auth"]?.merged, ["form"]);
+  assert.deepEqual(x.nodeLines.filter((l) => l.outcome === "merged").map((l) => l.node), ["auth.form"]);
+  // root → main: pushed once, as today
+  const m = await x.merge({ branch: root.branch });
+  assert.equal(m.status, "merged", m.detail);
+  assert.equal(m.pushed, true);
+  assert.equal(x.r.git(["rev-parse", "main"], remote), tip);
+});
+
+test("TREE-7 no push: a dirty parent worktree", async () => {
+  const x = nodeRig({ mergeGate: { push: true } });
+  const { root, child, pushed } = await pushShape(x);
+  const before = x.r.git(["rev-parse", root.branch]);
+  writeFileSync(join(root.worktree, "scratch"), "s\n");
+  const r = await x.merge({ branch: child.branch });
+  assert.deepEqual([r.status, r.reason], ["refused", "dirty"], r.detail);
+  assert.equal(r.detail, reasonText("dirty", { worktree: root.worktree }));
+  assert.equal(x.r.git(["rev-parse", root.branch]), before);
+  assert.equal(x.tree.tree().nodes["auth.form"]?.state, "active");
+  assert.equal(pushed(), "");
 });

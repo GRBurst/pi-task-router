@@ -278,7 +278,7 @@ factors with `enabled` by settings.
 | `pi-hooks` (LF1.T0) | the probe's hook returns at once and sets `x_probe` after a `setTimeout` | (i) awaited and (ii) rewritten fail on both transports | [x] |
 | `lf-default` NR-2 v1 capture (LF1.T1a) | the fixture empty | the capture case | [x] |
 | `lf-merge-target` TREE-7 base (LF4.T11b) | `behind` keeps `main.sha` | a child cut after main moved is refused `behind` | [x] |
-| `lf-merge-target` TREE-7 no push (LF4.T11d) | the node→parent merge calls `pushPort` | the fake remote records a push | [ ] |
+| `lf-merge-target` TREE-7 no push (LF4.T11d) | the node→parent merge calls `pushPort` | the fake remote records a push | [x] |
 | `lf-merge-target` TREE-14 (LF4.T12a) | the scope check only for `plan`-bound branches | a path outside the package's `files` merges | [ ] |
 | `lf-settings` PRO-9 (LF3.T2) | `experimental` ignored | local-first active without it before LF12.T10 | [x] |
 | `lf-settings` PRO-10 (LF3.T2a) | `localFirst` added to the built-in `scout` without `placement` | the built-in table case; the snapshot property catches a changed `tools` | [x] |
@@ -784,7 +784,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: real git, the same shape as T11b: the red run's recorded base (fake runner) = the root tip (`:385`); the review input's diff = `target..commit` (`:395`), the review ticket's `base` (`:403`) and the `branches.put` record's `base` (`:412`) = the target tip.
 - GREEN: all four (`:385`, `:395`, `:403`, `:412`) take `target.sha`.
 
-#### LF4.T11d Advance the parent in its worktree, never push (TREE-7 d, D65) `[ ] todo`
+#### LF4.T11d Advance the parent in its worktree, never push (TREE-7 d, D65) `[x] done`
 - Files: `core/local/merge.ts`, `core/local/gitcmd.ts` (an `ffIn(worktree, commit)` port if missing); test `lf-merge-target` "TREE-7 no push".
 - RED: real git with a fake remote and `mergeGate.push = true`: a node→parent merge fast-forwards the parent branch by `git -C <parent worktree> merge --ff-only` (its worktree stays in sync), and the remote records no push; a dirty parent worktree → refused `dirty`; the root→main merge pushes once, as today (`:233–253`).
 - GREEN: advance branches on `target` being a main branch: main → today's step 9; else `ffIn(parent worktree)`, no push.

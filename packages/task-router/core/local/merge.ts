@@ -20,7 +20,7 @@ import { errorReply } from "./branchtool.ts";
 import { type Milestone, parsePlan, planBudget, type PlanRecord, type Skeleton, skeletonHash, type Task, tickOnly } from "./plan.ts";
 import { mergedUnits, type PlanStore } from "./plans.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
-import { parentOf, type Node, type Tree } from "./tree.ts";
+import { nodeLine, nodeOf, nodeOfBranch, parentOf, type Node, type Tree } from "./tree.ts";
 
 export const REASONS = ["main-branch", "dirty", "behind", "fixer-running", "abandoned", "blocked", "size", "scope",
   "check", "main-dirty", "plan-changed", "no-worktree", "review-unavailable", "aborted", "git"] as const;
@@ -279,6 +279,15 @@ export async function advanceMain(p: Pick<MergePorts, "git" | "settings" | "appe
   });
 }
 
+/** TREE-7 d (D65): a node's merge into its parent node: the parent's worktree (it must be clean) fast-forwards to `commit`, so
+ *  it stays in sync; without a worktree the ref moves from the target's tip. Never a push, never a main-ref (TREE-7 e). */
+export async function advanceParent(git: Git, repo: string, target: Target, commit: string): Promise<Advanced | { ok: false; reason: "dirty"; worktree: string }> {
+  const there = (await git.worktrees(repo)).find((w) => w.branch === target.name && !w.prunable);
+  if (there && await git.dirty(there.dir)) return { ok: false, reason: "dirty", worktree: there.dir };
+  const moved = there ? await git.ffMerge(there.dir, commit) : await git.updateRef(repo, `refs/heads/${target.name}`, commit, target.sha);
+  return moved.ok ? { ok: true, push: "" } : { ok: false, reason: "git", err: moved.err };
+}
+
 // ── plan-bound branches (L7; design §3.4.2 steps 3–6, §3.5.5) ──
 /** A plan-bound branch's plan at its commit: the record, the skeleton, the unit (its milestone, its tasks), the plan file's
  *  change against the main tip (`tick`: tick-only and its flips; undefined: unchanged). */
@@ -466,11 +475,22 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   }
   // ── 9 merge: fast-forward only (LD7), so main's tree is the reviewed and checked one ──
   if ((await git.sha(wt.dir, "HEAD")) !== commit) return "moved";
-  const adv = await advanceMain(p, repo, main, commit);
-  if (!adv.ok) return { ...(adv.reason === "main-dirty" ? refuse("main-dirty", { checkout: adv.checkout }, commit) : gitError(adv.err, commit)), reviewId };
-  Object.assign(seen, { base: main.sha, target: main.name, repo, repoId: await repoIdOf(git, repo) }); // LOG-1: what a revert needs
-  let detail = `merged ${branch} into ${main.name} at ${commit.slice(0, 7)}${adv.push}`;
+  // TREE-7 d: a node's merge into its parent node advances the parent in its worktree and never pushes; into main, as today
+  const adv = target.parent ? await advanceParent(git, repo, target, commit) : await advanceMain(p, repo, main, commit);
+  if (!adv.ok) {
+    const no = adv.reason === "main-dirty" ? refuse("main-dirty", { checkout: adv.checkout }, commit)
+      : adv.reason === "dirty" ? refuse("dirty", { ...x, worktree: adv.worktree }, commit) : gitError(adv.err, commit);
+    return { ...no, reviewId };
+  }
+  Object.assign(seen, { base: target.sha, target: target.name, repo, repoId: await repoIdOf(git, repo) }); // LOG-1: what a revert needs
+  let detail = `merged ${branch} into ${target.name} at ${commit.slice(0, 7)}${adv.push}`;
   const pushed = adv.pushed;
+  // TREE-11: the node is merged (its parent counts it), one op and one `node` line
+  const node = p.nodes && nodeOfBranch(p.nodes.tree.tree(), branch);
+  if (p.nodes && node && p.nodes.tree.apply({ op: "state", node: node.id, state: "merged" }) === undefined) {
+    const now = nodeOf(p.nodes.tree.tree(), node.id);
+    if (now) p.nodes.log.node(nodeLine(now));
+  }
   // A branch the router made becomes `merged` and is cleaned up; one made by hand (D40, with or without a hand-made record of its
   // rejections) is left as it is (review F8).
   const now = p.branches.get(repo, branch);
@@ -478,7 +498,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     const merged: BranchRecord = { ...now, state: "merged" };
     p.branches.put(merged);
     if (s.worktrees.removeAfterMerge) {
-      const why = await cleanupBranch({ git, store: p.branches, settings: s }, merged, main.name);
+      const why = await cleanupBranch({ git, store: p.branches, settings: s }, merged, target.name);
       if (why) detail += `; ${why}`;
     }
   }
