@@ -678,6 +678,7 @@ session branch; never in the model's context):
 | `task-router/approval` | `{repo, branch, commit, tree, reviewId}` |
 | `task-router/main-ref` | `{repo, branch, sha}`, the last main tip the router knows |
 | `task-router/plan` | `{slug, repo, file, skeletonHash, approvedBy, triggers: [{id, kind, task?, open, rejected?}]}` |
+| `task-router/arms` | `{v: 1, sessionId, experiments: {seed, cloudOnlyShare, factors: {<id>: {enabled, weights}}}, routerVersion, arms: {<id>: level}}`, once per main session, in default mode too (Experiments, below); `arms` holds the session's draws of its enabled factors (E0's is on the `session` line) |
 
 A steer review's result reaches the main session as a displayed message of
 type `task-router/steer`.
@@ -715,7 +716,7 @@ verdict slot.
 | main moved outside the gate | `gatebypass` line, a warning and a `<router-hint trip="gatebypass">`; nothing is reverted |
 | a hook of the hint engine fails | reported once (`task-router: hint engine: …`); the tool result is unchanged |
 
-## Experiments (local-first E0)
+## Experiments (the router's randomizer)
 
 The router randomizes its own levers and reads no experiments package
 (since 2026-11-26, local-first plan LF1; before, pi-economics' experiments arm
@@ -727,13 +728,56 @@ could set `routing`, `verifyGate`, `autoEscalate`, `freshOnCold` and
 |---|---|---|---|
 | `experiments.seed` | `"task-router"` | string | the draws' seed |
 | `experiments.cloudOnlyShare` | 0.1 | share of cloud-first sessions, [0, 1] | E0's cloud-only arm; 0 turns E0 off |
-| `experiments.factors.<id>` | `{}` | `{enabled?, weights?}` | reserved for the local-first factors; none runs yet |
+| `experiments.factors.<id>` | none: every factor off | `{enabled?: boolean, weights?: number[]}` | switches a factor of the registry on and weights its levels |
+
+**Factors.** The registry `FACTORS` (`packages/task-router/core/strategy/arms.ts`)
+fixes each factor's id, its unit (what one draw is for: a session, a review,
+a package child, a request, a node, a package, a ladder entry), its levels
+(the first is the default) and `from`, the first release whose mechanism runs
+it. Every factor ships off, in every release: no release turns one on in
+code. The owner turns a factor on in settings once E0 and E1 have data
+(at least two weeks of E0), for example
+`"experiments": {"factors": {"E2": {"enabled": true, "weights": [2, 1, 1]}}}`;
+without `weights` the levels are drawn with equal weights, and one-hot
+weights (`[0, 1, 0]`) conclude a factor at a level. Settings never invent
+levels. Each of these is a problem at `session_start` and keeps the default:
+an unknown id; E0 (it runs by `cloudOnlyShare`); a value that is no object;
+`enabled` that is no boolean; `weights` that are not one non-negative number
+per level, or all 0; an unknown key; and `enabled` before the factor's
+release (`experiments.factors.E2 is available from 0.4.0`; the factor stays
+off). Until local-first (later releases) no factor has a mechanism.
+
+**The draw** (D61). A unit's level of a factor is
+`pick(levels, weights, u)` with `u` the first 53 bits of
+`sha256(seed ‖ 0 ‖ id ‖ 0 ‖ unit)` over 2^53
+(`packages/task-router/core/strategy/draw.ts`): the same seed, factor and
+unit always give the same level, and two factors drawn for one unit are
+independent. A factor that is off gives its first level and no arm.
+
+**The snapshot.** At the first `session_start` of a main session the router
+stores the effective experiments settings in the session entry
+`task-router/arms`: the seed, `cloudOnlyShare`, and for every factor of the
+registry its effective `enabled` and `weights` (code defaults included),
+with the router's version and the session's own draws. Every later draw of
+the session reads it, so a resume, a reload, a settings edit or an upgrade
+that changes a default never changes an arm of a running session. A child
+session, a session without an id and legacy local mode take none (they draw
+nothing).
+
+**Arms on lines.** A local-first session (later releases) will carry `arms`,
+the sorted `id=level` of its enabled factors, on every outcome line; a
+cloud-first session carries `arms` on its `session` line only, and only
+E0's (`["E0=as-used"]` or `["E0=cloud-only"]`) while E0 is drawn
+(`docs/outcome-log.md`).
 
 **E0, the cloud-only reference.** At a cloud-first `session_start`, while
-`cloudOnlyShare` is above 0, the router draws the session's arm
-deterministically from the seed and the session id
-(`packages/task-router/core/strategy/draw.ts`): `cloud-only` with
-probability `cloudOnlyShare`, else `as-used`. In a `cloud-only` session
+the snapshot's `cloudOnlyShare` is above 0, the router draws the session's
+arm through the registry from the seed and the session id: `cloud-only`
+with probability `cloudOnlyShare`, else `as-used`. The share defaults to 0.1
+from the first release, so a default install writes a `session` line per
+session and routes one session in ten to cloud members only; set
+`"experiments": {"cloudOnlyShare": 0}` to turn E0 off (no draw, no `session`
+line, routing as before). In a `cloud-only` session
 the router routes no spawn to a `route: "local"` member: the plan, the
 selection and the failover see those members as blank (`model = ""`). A
 force is the owner's override and keeps its member (`/force` or the settings
@@ -742,14 +786,15 @@ analysis of E0 leaves forced spawns out). An explicit `model` that names a
 local member is refused ("cloud-only session (E0): local members are off"),
 and so is a card whose level only a local member reaches. An `as-used`
 session routes as before. Either way the session writes a `session` line
-(`localMembers` `"off"` or `"on"`); with the share at 0 nothing is drawn
-and no `session` line is written.
+(`localMembers` `"off"` or `"on"`, `arms` `["E0=cloud-only"]` or
+`["E0=as-used"]`); with the share at 0 nothing is drawn and no `session`
+line is written.
 
 A session is in E0 only when it is a main session with an id, routing is on
 (`routing`, and the actor's spawn-policy API is there) and the member table
 has at least one enabled cloud member (a `route` other than `local`; a
 table of local members only has no cloud-only arm). Any other session draws
-nothing and writes its `session` line without `localMembers`; a child
+nothing and writes its `session` line without `localMembers` and `arms`; a child
 session that loads the router writes none. Local mode is not part of E0: it
 writes its `session` line with `profile: "local-mode"` and never draws.
 

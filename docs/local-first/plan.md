@@ -653,7 +653,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: E0's level from `assign(snap, "E0", sid)` equals LF1.T9's draw for 1 000 session ids; `arms` holds `E0=…` while share > 0 in an eligible session (D93).
 - GREEN: replace the inline pick by `assign` (E0's weights = `[1-s, s]`).
 
-#### LF2.T8 Docs `[ ] todo`
+#### LF2.T8 Docs `[x] done`
 - Files: `docs/task-router.md`, `docs/outcome-log.md` (`arms`).
 - GREEN: the randomizer (D61–D63), the snapshot, factor settings, E0's default share and how to set it to 0. Then PE-1 and release R1 (§15.3).
 

@@ -44,19 +44,28 @@ events and new values, which need no further bump:
   while E0 runs (`experiments.cloudOnlyShare` above 0);
 - the `merge` fields `base`, `target`, `repo` and `repoId`, which join a
   merge to a later revert;
+- the field `arms` (string[], below), the levels of the router's own
+  randomized factors that apply to a line: on every line of a local-first
+  session (later releases), and in a cloud-first session on its `session`
+  line only, E0's (`["E0=as-used"]` or `["E0=cloud-only"]`) while E0 is
+  drawn;
 - the exports a reader takes its lists from instead of copying them:
   `EVENTS_V2` (the events v2 added), `ENUMS_V2` (`"<event>.<field>"` → the
   field's values; only fields v2 added, the values of the v1 fields stay in
   `TRIPS`, `ROLES`, `REASONS`, `TRIGGERS` and `FALLBACKS`, `review.fallback`), all in
   `packages/task-router/core/outcome.ts`, beside `TRIPS`, `ROLES`,
-  `REASONS`, `TRIGGERS`, `PLAN_TYPE` and `BRANCH_TYPE`. They only grow.
+  `REASONS`, `TRIGGERS`, `PLAN_TYPE` and `BRANCH_TYPE`; and `FACTORS`
+  (`packages/task-router/core/strategy/arms.ts`), the factor registry: each
+  factor's id, unit, levels (the first is the default) and `from` release.
+  They only grow.
 
 A reader keeps reading `v` ≤ 1 lines as before (with `arm`), and v2 lines
 without it.
 
 Consumer break (pi-economics, until its PE-1): `v: 2` on every line, spawn
 lines without `arm` and the new `session` event fail a reader that expects
-`v` 1, `arm` on a spawn and the v1 event set.
+`v` 1, `arm` on a spawn and the v1 event set; a reader that rejects unknown
+fields must also take the optional `arms` (on `session` lines from 0.3.0).
 
 ## Join keys
 
@@ -71,8 +80,14 @@ lines without `arm` and the new `session` event fail a reader that expects
   of a session writes a line (a resume or a reload repeats it, with the same
   `localMembers`, because the draw depends on the session id only): a reader
   keeps the first line per `taskId`. A session whose lines disagree on
-  `localMembers` (its experiments settings changed across a resume, before
-  the arm is stored with the session) is left out of E0.
+  `localMembers` is left out of E0. Since the arm is drawn from the
+  session's stored experiments settings (the session entry `task-router/arms`,
+  from 0.3.0), a settings change across a resume no longer changes it.
+- **Arms.** `arms` lists `"<id>=<level>"`, sorted, of the factors enabled
+  for the line's session and unit; an absent factor ran at its default (its
+  first level in `FACTORS`) or was not enabled. A factor counts for a session
+  only while it is listed; the session's `session` line carries the session's
+  arms.
 
 ## Events
 
@@ -83,7 +98,7 @@ on `review` lines; the branch on `merge` lines; the main branch on `gatebypass` 
 | event | fields (required **bold**) | meaning |
 | --- | --- | --- |
 | `spawn` | **`kind`**, **`workerTier`** (`qwen` \| `haiku` \| `T1` \| `T2` \| …), **`workerEffort`**, `reviewTier`, `reviewEffort`, `cardHash`, `base`, `importance`, `reasons` (string[]), `arm`* (`v` ≤ 1), **`sessionId`** (child), **`parentSessionId`**, `attemptOf`, `assigned`† (`router` \| `random`), `routeBase`† (tier), `unresolved`† (`true`), `reviewOf`†, `ability`†, `level`† (int ≥ 0), `draft`† (`true`), `workerLevel`†, `reviewLevel`† (int ≥ 0), `workerMember`†, `workerModel`†, `startEffort`†, `waitMs`† (≥ 0), `forced`‡ (`true`), `forceSource`‡ (`command` \| `settings`), `routedModel`‡, `routedEffort`‡, `ticket`§ (`merge` \| `plan-author` \| `plan-review` \| `delta` \| `steer` \| `fixer`) | a routed (or unrouted) spawn; with `ticket`, the router's own child (§) |
-| `session` | **`profile`** (`cloud-first` \| `local-first` \| `local-mode`), **`mainModel`**, **`startSet`** (bool), **`localMembers`** (`on` \| `off`), **`routerVersion`** | v2: a main session started; `taskId` is its session id; `local-mode` = `mode: "local"`; `mainModel` is `provider/id` (`""` when unknown); `localMembers` is E0's arm: `off` = the router routed no spawn of the session to a `route: "local"` member (a forced spawn is excluded: it may run on one, and its `spawn` line has `forced`), `on` = it may; it is absent when the session is outside E0 (routing off, no enabled cloud member in the member table); `routerVersion` is the package's version |
+| `session` | **`profile`** (`cloud-first` \| `local-first` \| `local-mode`), **`mainModel`**, **`startSet`** (bool), **`localMembers`** (`on` \| `off`), **`routerVersion`**, `arms`∥ | v2: a main session started; `taskId` is its session id; `local-mode` = `mode: "local"`; `mainModel` is `provider/id` (`""` when unknown); `localMembers` is E0's arm: `off` = the router routed no spawn of the session to a `route: "local"` member (a forced spawn is excluded: it may run on one, and its `spawn` line has `forced`), `on` = it may; it is absent when the session is outside E0 (routing off, no enabled cloud member in the member table); `routerVersion` is the package's version |
 | `reroute` | **`from`**, **`to`**, `reason`, `fromModel`†, `toModel`† | provider fallback (rate limit, outage) |
 | `check` | **`exit`**, `durationMs` | the card's check ran after the child reported |
 | `corrective` | — | one corrective message to the child |
@@ -98,6 +113,11 @@ on `review` lines; the branch on `merge` lines; the main branch on `gatebypass` 
 | `gatebypass` | **`from`**, **`to`** (shas), `repo` | a main branch moved outside the merge gate (task-router local mode; detected after a main-session `bash` result or a child's turn): `taskId` is the main branch, `repo` the repository's directory name (never a path); who moved it is unknown |
 
 \* `arm` is required on a `v` ≤ 1 spawn whose parent session (or its root) has an assignment; v2 removed it.
+
+∥ Optional, added with v2 (2026-11-26, from 0.3.0): `arms` (string[] of `"<id>=<level>"`, sorted; ids and levels from
+`FACTORS`). In a cloud-first session only its `session` line has it, `["E0=as-used"]` or `["E0=cloud-only"]`, and only
+while E0 is drawn (it agrees with `localMembers`: `cloud-only` = `off`); a `session` line without `localMembers` has no
+`arms`. A local-first session (later releases) will carry it on every line, `[]` included. Legacy local mode never does.
 
 ¶ Optional, added with v2 (2026-11-26, from 0.3.0) on a `merged` line: `base` the target branch's tip before the merge, `target`
 the branch merged into, `repo` the repository's directory name (never a path), `repoId` the first 12 hex of its root
@@ -164,10 +184,10 @@ rejected `request_merge`, a main branch moved outside the gate, and a plan appro
 ## Examples: version 2
 
 A cloud-first session drawn into E0's cloud-only arm, one outside E0 (routing
-off: no `localMembers`), and a merge with the fields a revert needs.
+off: no `localMembers`, no `arms`), and a merge with the fields a revert needs.
 
 ```jsonl
-{"v":2,"ts":"2026-11-30T09:00:00.000Z","event":"session","taskId":"s-main","profile":"cloud-first","mainModel":"anthropic/claude-opus-5-5","startSet":false,"localMembers":"off","routerVersion":"0.3.0"}
+{"v":2,"ts":"2026-11-30T09:00:00.000Z","event":"session","taskId":"s-main","profile":"cloud-first","mainModel":"anthropic/claude-opus-5-5","startSet":false,"localMembers":"off","routerVersion":"0.3.0","arms":["E0=cloud-only"]}
 {"v":2,"ts":"2026-11-30T09:10:00.000Z","event":"session","taskId":"s-plain","profile":"cloud-first","mainModel":"anthropic/claude-opus-5-5","startSet":false,"routerVersion":"0.3.0"}
 {"v":2,"ts":"2026-11-30T09:30:00.000Z","event":"merge","taskId":"lm/parser","base":"0123abc","outcome":"merged","commit":"89abcde","nLines":42,"nFiles":2,"reviewId":"rv-9a8b7c6d","repo":"app","target":"main","repoId":"a1b2c3d4e5f6"}
 ```
