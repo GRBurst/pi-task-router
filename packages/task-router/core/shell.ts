@@ -71,6 +71,9 @@ export type Deps = {
   git?: LocalDeps["git"];
   /** The factors' code defaults (test seam: another release's registry; default `FACTORS`). */
   factors?: Registry;
+  /** Whether this session's lines carry `arms` (RND-6): a local-first session. Default: none, until the profile store
+   *  (local-first plan LF3.T3) answers it. */
+  armed?: () => boolean;
 };
 
 const VERDICTS = ["accepted", "partial", "rejected"] as const;
@@ -94,7 +97,12 @@ export function install(pi: PiLike, deps: Deps) {
       console.warn(`task-router: outcome log write failed: ${(err as Error).message}`);
     }
   };
-  const log = createOutcomeLog({ append, now });
+  // The session's experiments snapshot (RND-5): every draw of the session reads it.
+  const arms = createArmStore((type, data) => pi.appendEntry?.(type, data), deps.factors);
+  // RND-6 (S33): an armed (local-first) session's lines carry its session's arms; the session line carries them always.
+  const armed = deps.armed ?? (() => false);
+  const sessionArms = (): string[] => (armed() ? arms.armsFor("session", sessionId ?? "") : []);
+  const log = createOutcomeLog({ append, now, armed, arms: sessionArms });
 
   const nowMs = () => now().getTime();
   const api = deps.api ?? (() => (globalThis as { __subagentsApi_v1?: SubagentsApiV1 }).__subagentsApi_v1);
@@ -108,8 +116,6 @@ export function install(pi: PiLike, deps: Deps) {
   const counter = createMemberCounter(join(deps.agentDir, "task-router", "member-count.json"), now);
   // The force override (design §3.6): `/force` and the settings force; the policy reads its port (plan D7).
   const force = installForce(pi, { settings, log, onChange: (ctx) => { ui = ctx?.ui ?? ui; render(); } });
-  // The session's experiments snapshot (RND-5): every draw of the session reads it.
-  const arms = createArmStore((type, data) => pi.appendEntry?.(type, data), deps.factors);
   // E0 (local-first spec §6, MEAS-2, D61): drawn at a cloud-first session_start while the share is above 0; else as used.
   let e0: "as-used" | "cloud-only" = "as-used";
   const pd: PolicyDeps = {
@@ -251,8 +257,9 @@ export function install(pi: PiLike, deps: Deps) {
     if (sessionId && !isChild(ctx) && (local || x.cloudOnlyShare > 0)) {
       const eligible = settings.routing && active && enabled(settings.models).some((m) => m.route !== "local");
       if (!local && eligible) e0 = pick(["as-used", "cloud-only"], [1 - x.cloudOnlyShare, x.cloudOnlyShare], draw(x.seed, "E0", sessionId));
-      append(sessionEvent({ now: now(), sessionId, profile: local ? "local-mode" : "cloud-first", mainModel: main ?? "", startSet: false,
-        ...(local || eligible ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}), routerVersion: ROUTER_VERSION }));
+      append({ ...sessionEvent({ now: now(), sessionId, profile: local ? "local-mode" : "cloud-first", mainModel: main ?? "", startSet: false,
+        ...(local || eligible ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}), routerVersion: ROUTER_VERSION }),
+        ...(armed() || sessionArms().length ? { arms: sessionArms() } : {}) });
     }
     if (active) { connect(); registerVerdict(); }
     else warnOnce(ctx, "actor:task-router", actorMissing("task-router", "task-router routing is off (no task_verdict, no task_cards, no nudge); the effort guard and fresh-on-cold stay on"));

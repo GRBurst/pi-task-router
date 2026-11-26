@@ -65,3 +65,32 @@ test("RND-5", () => {
   lm.f.fire("session_start", { reason: "startup" }, { sessionManager: { getSessionId: () => "s-lm", getBranch: () => [] } });
   assert.deepEqual(lm.f.entries.filter((x) => x.type === "task-router/arms"), []);
 });
+
+// LF2.T6 (spec §2.4, RND-6, S33): every line of an armed (local-first) session carries `arms`, the sorted `id=level` of its
+// session's enabled factors; an unarmed session's lines carry none, its session line aside. The profile store (LF3.T3)
+// arms a local-first session; until then the case stubs the port.
+async function armedSession(armed: boolean) {
+  const h = harness({ extra: { settings: parseSettings({ experiments: { factors: { E2: { enabled: true }, E4: { enabled: true } } } }, LATER).settings,
+    armed: () => armed } as never });
+  h.f.fire("session_start", { reason: "startup" }, { sessionManager: { getSessionId: () => "s-armed", getBranch: () => [] } });
+  for (const name of ["q1", "q2"]) {
+    await h.a.spawn({ name, task: { kind: "implement", files: ["src/a.ts"], check: "npm test", acceptance: ["ok"], t2: [],
+      t0: { bounded: true, specified: true, verifiable: true, lowRisk: true, small: true, linear: true } } });
+    h.a.emit({ type: "spawn", name, by: "main", parent: "main", childSessionId: `s-${name}`, ts: 1 });
+  }
+  await h.f.callTool("task_verdict", { name: "q1", verdict: "accepted" });
+  h.a.emit({ type: "kill", name: "q2", ts: 2 }); // unjudged
+  return h.lines();
+}
+
+test("RND-6", async () => {
+  const on = await armedSession(true);
+  assert.deepEqual(on.map((l) => l.event).sort(), ["session", "spawn", "spawn", "verdict", "verdict"]);
+  for (const l of on) {
+    assert.ok(Array.isArray(l.arms) && l.arms.some((a: string) => a.startsWith("E2=")) && l.arms.some((a: string) => a.startsWith("E4=")), JSON.stringify(l));
+    assert.deepEqual(l.arms, [...l.arms].sort());
+  }
+  const off = await armedSession(false);
+  assert.deepEqual(off.map((l) => l.event).sort(), ["session", "spawn", "spawn", "verdict", "verdict"]);
+  assert.deepEqual(off.filter((l) => l.event !== "session" && "arms" in l), [], "unarmed: only the session line may carry arms (E0)");
+});

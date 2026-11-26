@@ -3,12 +3,16 @@ import { checkEvent, correctiveEvent, escalateEvent, forceEvent, gatebypassEvent
 import type { EscalateFields, HintStage, MergeInput, OutcomeEvent, PlanLogInput, ReviewInput, Verdict } from "./outcome.ts";
 import type { Trip } from "./local/tripwires.ts";
 
-export type OutcomeLogDeps = { append: (e: OutcomeEvent) => void; now: () => Date };
+export type OutcomeLogDeps = {
+  append: (e: OutcomeEvent) => void; now: () => Date;
+  /** Local-first spec §2.4, RND-6 (S33): an armed (local-first) session's lines carry `arms`, its session's `id=level`. */
+  armed?: () => boolean; arms?: () => string[];
+};
 
 export function createOutcomeLog(d: OutcomeLogDeps) {
   const open = new Set<string>(); // spawned, no verdict yet
   const known = new Set<string>();
-  const w = (e: OutcomeEvent) => d.append(e);
+  const w = (e: OutcomeEvent) => d.append(d.armed?.() ? { ...e, arms: [...new Set(d.arms?.() ?? [])].sort() } : e);
   return {
     spawn(i: Omit<Parameters<typeof spawnEvent>[0], "now">) { known.add(i.taskId); open.add(i.taskId); w(spawnEvent({ ...i, now: d.now() })); },
     reroute(taskId: string, from: string, to: string, reason: string, fromModel?: string, toModel?: string) {

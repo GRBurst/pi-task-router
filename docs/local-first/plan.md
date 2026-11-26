@@ -643,7 +643,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: settings change between two `session_start`s of one session (`fake-pi` branch with the entry) → the draws equal the first snapshot's (property over 50 sessions); the same for a changed code default (the deps inject a `FACTORS` copy with E2 enabled) — the snapshot holds the effective set.
 - GREEN: `createArmStore(append, factors = FACTORS)`: at `session_start` restore `task-router/arms` or write one holding, for every factor id, the effective `{enabled, weights}` (code default merged with settings) plus `seed` and `cloudOnlyShare`; `armsFor(unitKind, unit)`.
 
-#### LF2.T6 Arms on lines (RND-6) `[ ] todo`
+#### LF2.T6 Arms on lines (RND-6) `[x] done`
 - Files: `core/log.ts`, `core/shell.ts`; test `lf-arms-shell` "RND-6".
 - RED: with E2 enabled and the log's `armed()` port stubbed `true` (the profile store arrives in LF3; legacy local-mode sessions stay unarmed, NR-7), every line carries `arms` containing `"E2=…"`, sorted; `armed()` false → no `arms` key except on the `session` line (E0, NR-2).
 - GREEN: S33; the shell wires `armed = () => false` until LF3.T3 replaces it.
