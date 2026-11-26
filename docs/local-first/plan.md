@@ -576,7 +576,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: legacy local-mode harness session → one `session` line (`profile: "local-mode"`); cloud-first with share 0 → none; with the default share (0.1) → one, carrying `arms: ["E0=<level>"]` (LF2.T7; until then without `arms`).
 - GREEN: write it in the `session_start` handler (inside the guarded body); `routerVersion` from the package manifest's version constant.
 
-#### LF1.T6 Merge-line fields for reverts: builder (LOG-1) `[ ] todo`
+#### LF1.T6 Merge-line fields for reverts: builder (LOG-1) `[x] done`
 - Files: `core/outcome.ts`; test `lf-merge-log` (new) "LOG-1 builder".
 - RED: `mergeEvent({…, base, target, repoId})` drops the fields.
 - GREEN: optional fields `base`, `target`, `repoId`, `class`, `tier`, `actualTier`, `node` (the last four filled from LF5/LF6).

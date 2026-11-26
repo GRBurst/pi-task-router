@@ -34,6 +34,8 @@ const KEYS = [
   "trigger", "nTasks", "full",
   // outcome log v2 (local-first spec §2.4): the session line
   "profile", "mainModel", "startSet", "localMembers", "routerVersion",
+  // outcome log v2: what a revert needs on a merge line (LOG-1); class, tier, actualTier, node from LF5/LF6
+  "target", "repoId", "class", "tier", "actualTier", "node",
 ];
 const MAX_STR = 256;
 const MAX_ITEMS = 20;
@@ -117,11 +119,15 @@ export const ticketSpawnEvent = (i: { now: Date; taskId: string; role: TicketRol
   });
 export type MergeOutcome = "merged" | "refused" | "revise" | "fixer" | "failed";
 export type MergeInput = { branch: string; outcome: MergeOutcome; reason?: MergeReason; commit?: string; nLines?: number; nFiles?: number;
-  reviewId?: string; pushed?: boolean };
+  reviewId?: string; pushed?: boolean;
+  /** v2 (LOG-1): the target's tip before the merge, the branch merged into, the repository (a path: logged as its basename)
+   *  and its root commit (12 hex); the node's size class and tiers. */
+  base?: string; target?: string; repo?: string; repoId?: string; class?: string; tier?: string; actualTier?: string; node?: string };
 /** One `request_merge` call (design §3.0.3): `taskId` is the branch; the fixed reason code, never the detail text. */
 export const mergeEvent = (i: MergeInput & { now: Date }) =>
   finish({ ...base("merge", i.now, i.branch), outcome: i.outcome, reason: i.reason, commit: i.commit, nLines: i.nLines, nFiles: i.nFiles,
-    reviewId: i.reviewId, pushed: i.pushed });
+    reviewId: i.reviewId, pushed: i.pushed, base: i.base, target: i.target, repo: i.repo === undefined ? undefined : basename(i.repo),
+    repoId: i.repoId, class: i.class, tier: i.tier, actualTier: i.actualTier, node: i.node });
 /** Main moved outside the gate (design §3.4.6): `taskId` is the main branch, `from`/`to` its shas, `repo` the repository's
  *  basename, never a path (D35). */
 export const gatebypassEvent = (i: { now: Date; branch: string; from: string; to: string; repo?: string }) =>
