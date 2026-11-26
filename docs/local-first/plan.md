@@ -734,7 +734,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: ops written through the store, a fold (entries kept, messages dropped) and a resume → the restored tree deep-equals the live one.
 - GREEN: S36; `TREE_TYPE = "task-router/tree"` exported (log-contract may import it).
 
-#### LF4.T4 Split validation (TREE-4 rules) `[ ] todo`
+#### LF4.T4 Split validation (TREE-4 rules) `[x] done`
 - Files: `core/local/split.ts` (new); test `lf-split` (new).
 - RED: one case per S37 rule → exactly that reason; a valid plan → `[]`; the canonical rendering is byte-stable (sorted keys, 2 spaces, trailing newline).
 - GREEN: `validateSplit`, `renderSplit`, `SplitPlan`/`SplitChild` types.
