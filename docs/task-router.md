@@ -1,7 +1,7 @@
 # `programs.piTaskRouter` (`modules/task-router.nix`)
 
-The module contract: every option, its default and its effect, local mode
-and the scout gate. Extracted from pi-economics' `docs/pi-economics.md`
+The module contract: every option, its default and its effect, the routing
+profiles, local mode and the scout gate. Extracted from pi-economics' `docs/pi-economics.md`
 (section `taskRouter`) at `3d0f2e1`; the options moved from
 `programs.piEconomics.taskRouter` to `programs.piTaskRouter`, the actor from
 `programs.piEconomics.actorSubagents` to pi-setup's
@@ -35,6 +35,7 @@ on. Spawns, moves, escalations and verdicts go to the outcome log
 | `enable` | `false` | entry `task-router` of pi-setup's registry `programs.pi.extensions` (pi-setup links `<agentDir>/extensions/task-router` → the package; `forChildren = false`); asserts `programs.pi.actorSubagents` (below) |
 | `package` | the flake's `packages/task-router` | the extension (`package.json`, `index.ts`, `core/`); its tests run when it builds |
 | `settings` | `{}` | written to `<agentDir>/task-router/settings.json` when non-empty (`<agentDir>` = `programs.pi.agentDir`); free-form, the schema and defaults are `packages/task-router/core/settings.ts` (`models` and `importanceTable` merge over the defaults: `models.<member>` field by field, `model = ""` removes the member; a given table cell replaces the default cell); the rollback to the routing before the new defaults is `lib.importJSON` of `packages/task-router/test/fixtures/today-config.json`; pi-setup's `programs.pi.router.localHealthUrl`, when set, is `models.qwen-local.health` |
+| `profile` | `"cloud-first"` | the routing profile a session starts with ("Routing profiles", below): `"local-first"` defines `settings.profile = lib.mkDefault "local-first"` (a `settings.profile` given in `settings` wins); the default writes nothing; before 0.5.0 local-first needs `settings.localFirst.experimental = true` |
 | `localMode.enable` | `false` | local mode (below): defines `settings.mode = lib.mkDefault "local"`, so the settings file is written even for `settings = {}`; asserts `enable` (`pi-task-router: programs.piTaskRouter.localMode.enable requires programs.piTaskRouter.enable`) and that a given `settings.mode` is `"local"` (`pi-task-router: programs.piTaskRouter.localMode.enable needs programs.piTaskRouter.settings.mode = "local" (found …)`) |
 
 Models are configured through `settings.models`, as in the option's example:
@@ -52,6 +53,63 @@ programs.piTaskRouter.settings = {
 `packages/task-router/test/fixtures/models-example.json` (every member written
 out) is read by the package's settings test and by the `module-eval` case
 `task-router-models`.
+
+## Routing profiles
+
+A session runs under one routing profile (local-first plan LF3; the design:
+`docs/local-first/design.md` §5.1). `cloud-first` is the routing by task card
+this document describes, and the default. `local-first` makes the main session
+a coordinator whose local children do the work, one fresh child per package;
+its mechanism arrives over the next releases, so it is a preview: before 0.5.0
+it needs `"localFirst": {"experimental": true}`. Without it the settings check
+reports `profile local-first is experimental before 0.5.0; set
+localFirst.experimental` and drops the key, and `/profile local-first` answers
+with the same notice.
+
+**Two kinds of profile.** The routing profile is the settings key `profile`
+(singular, `"cloud-first"` or `"local-first"`). The card-kind profiles are
+`profiles.<kind>` (plural, keyed by a card kind: its tools, skills and report),
+unchanged. An object under `profile` is reported (`profile takes cloud-first |
+local-first; card-kind profiles go under profiles.<kind>`) and dropped. A
+card kind's place in a local-first session is
+`profiles.<kind>.localFirst = {placement: "local" | "cloud"}`: the built-in
+`scout`, `lookup`, `mechanical`, `implement` and `debug-design` are `local`,
+`review` and `plan` `cloud`; another value is reported
+(`profiles.<kind>.localFirst: must be {placement: "local" | "cloud"};
+dropped`). Cloud-first ignores it.
+
+**Profile and local mode.** A valid `profile` wins over the legacy `mode:
+"local"` (local mode below): the session is cloud-first or local-first. Without
+`profile`, `mode: "local"` is the session profile `local-mode` (outcome lines
+and `/profile` name it so); local mode is unchanged.
+
+**Per session.** The settings give the profile a session starts with; the
+session entry `task-router/profile` (`{v: 1, profile, by: "settings" |
+"command", at}`) keeps a switch, and every `session_start` restores the last
+one (none: the settings). The first local-first start records the settings'
+choice. `/profile` shows the session's profile; `/profile cloud-first` or
+`/profile local-first` switches it from then on: one entry, one `profile` line
+(`from`, `to`, `by`, `docs/outcome-log.md`) and the status line
+(`local-first`; cloud-first leaves it alone). A switch keeps the session's E0
+arm. Under local-first:
+
+- *The main model.* At the start of a local-first main session the router sets
+  the model of the member `localFirst.startMember` (default `qwen-local`) with
+  thinking `xhigh`, unless the user chose one: `--model` or `--models` on pi's
+  command line, or a resumed session pi restores a model for. A reload sets
+  nothing; a model the registry does not know leaves pi's default with one
+  notice. The router never sets the main model again.
+- *The section.* The main gets the coordinator section instead of the task
+  cards: the session's tier budget (`standard` = `localFirst.tiers.standard`
+  changed lines per package), the tree caps (`localFirst.tree`) and the
+  do-or-split rule.
+- *Tools and hooks.* The local components whose switch is `auto`
+  (`worktrees`, `mergeGate`, `plans`, `hints`) are on, as in local mode:
+  `start_branch`, `request_merge`, `plan_request` and `amend_plan` register at
+  the session's first local-first moment (a cloud-first session has none).
+  Back in cloud-first they leave the active tool set (pi cannot unregister a
+  tool), the hooks of those components stand still and the card section
+  returns.
 
 ## Local mode
 

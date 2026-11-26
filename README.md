@@ -9,11 +9,19 @@ and verdicts to an outcome log. `/force` fixes the model for the next spawns.
 Local mode serves a main session that runs on a local model: hints, an Opus
 overseer, worktree branches, a merge gate and plans.
 
+Each session runs under a routing profile: `cloud-first` (the default, the
+routing above) or `local-first` (a local coordinator with local children; a
+preview until 0.5.0, behind `settings.localFirst.experimental = true`). The
+module option `programs.piTaskRouter.profile` sets the start, `/profile`
+switches it in a session. It is not the card-kind `profiles.<kind>`, which
+gain `localFirst.placement`.
+
 A Home Manager module (`programs.piTaskRouter`) and a pi package. Extracted
 from [pi-economics](https://github.com/GRBurst/pi-economics) at `3d0f2e1`,
 with its history.
 
-Every option, its default and its effect, local mode and the scout gate:
+Every option, its default and its effect, the routing profiles, local mode and
+the scout gate:
 [`docs/task-router.md`](docs/task-router.md). The outcome log's format:
 [`docs/outcome-log.md`](docs/outcome-log.md). The local-first design (not built):
 [`docs/local-first/design.md`](docs/local-first/design.md).

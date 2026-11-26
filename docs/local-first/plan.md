@@ -714,7 +714,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: the case sets `programs.piTaskRouter.profile = "local-first"` (and `settings.localFirst.experimental = true`, PRO-9) and expects `settings.profile = "local-first"` in the rendered settings → fails (no option).
 - GREEN: `profile = lib.mkOption { type = lib.types.enum ["cloud-first" "local-first"]; default = "cloud-first"; }`; `settings.profile = lib.mkDefault cfg.profile` only when not the default (the default render unchanged: KG-M `readme`, `task-router`).
 
-#### LF3.T10 Docs `[ ] todo`
+#### LF3.T10 Docs `[x] done`
 - Files: `docs/task-router.md`, `README.md` (the routing profile vs the card-kind `profiles`, `profiles.<kind>.localFirst`, `/profile`, the module option, `localFirst.experimental` until R3).
 
 ### LF4 — Packages, nodes and the tree (design §5.2; gaps 4, 5, 18)
