@@ -237,7 +237,7 @@ factors with `enabled` by settings.
 | `lf-session-log` | the draw uses `Math.random` | "MEAS-1 resume" | [x] |
 | `lf-seams` NR-6 | `core/local/merge.ts` imports `core/strategy/tiers.ts` | the import scan | [x] |
 | `lf-settings` PRO-1 | `mode: "local"` overrides `profile` | PRO-1 | [x] |
-| `lf-profile` | restore takes the first entry | PRO-3 | [ ] |
+| `lf-profile` | restore takes the first entry | PRO-3 | [x] |
 | `lf-start-model` | `setModel` also on `model_select` | PRO-5 | [ ] |
 | `lf-prompt` | the section omits the tier budget | PRO-8/SIZE-9 | [ ] |
 | `lf-tree` | `maxDepth` compared with `<` instead of `≤` | TREE-2 | [ ] |
@@ -676,7 +676,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `profiles.scout.localFirst = {placement: "cloud"}` parsed; `{placement: "x"}` → one problem; `BUILTIN_PROFILES.<kind>.localFirst` per S34b; property: for every built-in kind and random overrides without `localFirst`, `profileFor(kind, s)` minus `localFirst` deep-equals the value before this task (a snapshot taken in the RED commit).
 - GREEN: `Profile.localFirst?: { placement: "local" | "cloud" }` (optional, so every existing literal type-checks); built-in values per S34b; validation accepts the field (`mapLegacyProfiles` passes it through). Migration: none; existing `profiles.<kind>` entries keep their meaning, the field is read only in a local-first session (LF4.T12).
 
-#### LF3.T3 Profile store (PRO-3) `[ ] todo`
+#### LF3.T3 Profile store (PRO-3) `[x] done`
 - Files: `core/profile.ts` (extended: new exports beside `profileFor`, `skillBlocks`, `skillNames` and the re-exported `BUILTIN_PROFILES`, which stay unchanged), `core/shell.ts` (the log's `armed()` port from LF2.T6 = `current() === "local-first"`); test `lf-profile` (new) "PRO-3".
 - Keep green: the `Profile` readers listed under LF3.T2a.
 - RED: property over random entry sequences: restored = the last entry's profile; none → settings.

@@ -35,6 +35,7 @@ import { createPolicy } from "./policy.ts";
 import { assign } from "./strategy/arms.ts";
 import { spotCheckDue, spotCheckText } from "./spotcheck.ts";
 import type { Child, PolicyDeps } from "./policy.ts";
+import { createRoutingProfile } from "./profile.ts";
 import type { SkillPort } from "./profile.ts";
 import type { ThinkingLevel } from "./types.ts";
 import type { FsPort } from "./verify.ts";
@@ -71,8 +72,7 @@ export type Deps = {
   git?: LocalDeps["git"];
   /** The factors' code defaults (test seam: another release's registry; default `FACTORS`). */
   factors?: Registry;
-  /** Whether this session's lines carry `arms` (RND-6): a local-first session. Default: none, until the profile store
-   *  (local-first plan LF3.T3) answers it. */
+  /** Whether this session's lines carry `arms` (RND-6): a local-first session. Default: the profile store (LF3.T3). */
   armed?: () => boolean;
 };
 
@@ -99,12 +99,14 @@ export function install(pi: PiLike, deps: Deps) {
   };
   // The session's experiments snapshot (RND-5): every draw of the session reads it.
   const arms = createArmStore((type, data) => pi.appendEntry?.(type, data), deps.factors);
+  // The session's routing profile (PRO-3): restored at every session_start from its `task-router/profile` entries.
+  const profile = createRoutingProfile(settings, (type, data) => pi.appendEntry?.(type, data), now);
   // E0 (local-first spec §6, MEAS-2, D61, D93): drawn from the snapshot at the start of an eligible cloud-first session; else as used.
   type E0Level = "as-used" | "cloud-only";
   let e0: E0Level = "as-used", e0drawn = false;
   // RND-6 (S33): an armed (local-first) session's lines carry its session's arms; the session line carries them always (E0's
   // arm while it is drawn).
-  const armed = deps.armed ?? (() => false);
+  const armed = deps.armed ?? (() => profile.current() === "local-first");
   const sessionArms = (): string[] => [...(e0drawn ? [`E0=${e0}`] : []), ...(armed() ? arms.armsFor("session", sessionId ?? "") : [])].sort();
   const log = createOutcomeLog({ append, now, armed, arms: sessionArms });
 
@@ -252,18 +254,23 @@ export function install(pi: PiLike, deps: Deps) {
     // outside it the line has no `localMembers`.
     e0 = "as-used";
     e0drawn = false;
-    const local = isLocal(settings), sid = sessionId && !isChild(ctx) ? sessionId : undefined;
-    // The experiments snapshot (RND-5), read by every draw of the session: a main session with an id only, and not in legacy
-    // local mode, which draws nothing and keeps its entries (NR-7).
+    const sid = sessionId && !isChild(ctx) ? sessionId : undefined;
     let branch: unknown[] = [];
     try { branch = ctx?.sessionManager?.getBranch?.() ?? []; } catch { branch = []; }
-    arms.start(local ? undefined : sid, Array.isArray(branch) ? branch : [], settings.experiments, ROUTER_VERSION);
+    if (!Array.isArray(branch)) branch = [];
+    // PRO-3 (spec §2.2): the last profile entry, else the settings; the first local-first start records the settings' choice.
+    if (!profile.restore(branch) && sid && profile.current() === "local-first") profile.set("local-first", "settings");
+    const p = profile.current(), local = p === "local-mode";
+    // The experiments snapshot (RND-5), read by every draw of the session: a main session with an id only, and not in legacy
+    // local mode, which draws nothing and keeps its entries (NR-7).
+    arms.start(local ? undefined : sid, branch, settings.experiments, ROUTER_VERSION);
     const x = arms.snapshot() ?? settings.experiments;
-    if (sid && (local || x.cloudOnlyShare > 0)) {
+    // E0 is a cloud-first arm (design §6): a local-first session, like the legacy local mode, draws none and keeps its members.
+    if (sid && (p !== "cloud-first" || x.cloudOnlyShare > 0)) {
       const eligible = settings.routing && active && enabled(settings.models).some((m) => m.route !== "local");
-      if (!local && eligible) { e0 = assign(x, "E0", sid) as E0Level; e0drawn = true; }
-      append({ ...sessionEvent({ now: now(), sessionId: sid, profile: local ? "local-mode" : "cloud-first", mainModel: main ?? "", startSet: false,
-        ...(local || eligible ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}), routerVersion: ROUTER_VERSION }),
+      if (p === "cloud-first" && eligible) { e0 = assign(x, "E0", sid) as E0Level; e0drawn = true; }
+      append({ ...sessionEvent({ now: now(), sessionId: sid, profile: p, mainModel: main ?? "", startSet: false,
+        ...(p !== "cloud-first" || eligible ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}), routerVersion: ROUTER_VERSION }),
         ...(armed() || sessionArms().length ? { arms: sessionArms() } : {}) });
     }
     if (active) { connect(); registerVerdict(); }
@@ -314,5 +321,5 @@ export function install(pi: PiLike, deps: Deps) {
     else delete sections.task_cards;
   });
 
-  return { log, settings, arms, tickets, overseer: lm.overseer, budget: lm.budget, branches: lm.branches, approvals: lm.approvals, fixer: lm.fixer, ready: lm.ready, settled: lm.settled };
+  return { log, settings, arms, profile, tickets, overseer: lm.overseer, budget: lm.budget, branches: lm.branches, approvals: lm.approvals, fixer: lm.fixer, ready: lm.ready, settled: lm.settled };
 }
