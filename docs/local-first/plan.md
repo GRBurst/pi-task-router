@@ -1481,6 +1481,15 @@ commit: "local mode retired (D59); superseded by REQ-…".
 - RED: the scan finds `isLocal(` in both; `local-default` and `policy` green.
 - GREEN: read `profile.current()` (the per-session store) instead; the install-time `model_select` and section
   choice become per-session (PRO-7 already covers local-first).
+- Also (LF3 review, open decision 2): the scan of `isLocal(` misses the callers of `componentOn(settings, c)` that take its
+  default `local = isLocal(s)`. Two are named here: `activeWorktree` in `core/shell.ts:139` (`componentOn(settings, "worktrees")`)
+  and the routed child's hint trips in `core/policy.ts:208` (`componentOn(s, "hints")`, next to its `isLocal`). Both read
+  `profile.current() !== "cloud-first"` as the `local` argument; the scan also flags a `componentOn(` or `activeSet(` call without
+  its `local` argument in the two files.
+- Until then (interim, LF3 review): a local-first session that has used `start_branch` (active since LF3.T7) spawns its
+  children without the branch's worktree as their `cwd` (`activeWorktree` reads the settings, not the profile), and the
+  delegation nudge (`core/shell.ts:343`, `!isLocal(settings)`) keeps telling the coordinator to use task cards, which contradicts
+  S41's coordinator section.
 
 #### LF19.T6b No `isLocal` in the local install and settings (RET-1 f) `[ ] todo`
 - Files: `core/local/install.ts`, `core/local/settings.ts`; test `lf-seams` "RET-1 no isLocal" (+ the two files).
