@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cardHash, checkEvent, correctiveEvent, escalateEvent, outcomeFile, rerouteEvent, serializeEvent, spawnEvent, spotcheckEvent, verdictEvent } from "../core/outcome.ts";
+import { SCHEMA_VERSION, cardHash, checkEvent, correctiveEvent, escalateEvent, outcomeFile, rerouteEvent, serializeEvent, spawnEvent, spotcheckEvent, ticketSpawnEvent, verdictEvent } from "../core/outcome.ts";
 import { createOutcomeLog } from "../core/log.ts";
 import type { Card, Plan } from "../core/types.ts";
 
 const K_ALLOWED = new Set([
   "v", "ts", "event", "taskId", "cardHash", "kind", "workerTier", "workerEffort", "reviewTier", "reviewEffort",
-  "base", "importance", "reasons", "arm", "sessionId", "parentSessionId", "attemptOf", "from", "to", "reason",
+  "base", "importance", "reasons", "sessionId", "parentSessionId", "attemptOf", "from", "to", "reason",
   "exit", "durationMs", "verdict", "note", "unresolved", "assigned", "routeBase", "reviewOf", "requested",
   // T4.1 (spec §6.4, AC4, RD2)
   "ability", "level", "draft", "workerLevel", "reviewLevel", "workerMember", "workerModel", "startEffort", "waitMs",
@@ -32,7 +32,7 @@ const start = { member: "sonnet", model: "anthropic/claude-sonnet-5-5", effort: 
 const ESC = { fromModel: "openrouter/qwen/free", toModel: "anthropic/claude-sonnet-5-5", ability: "write", fromLevel: 0, toLevel: 1 };
 
 const sample = () => [
-  spawnEvent({ now: NOW, taskId: "t1", card, plan, arm: "a1", sessionId: "s1", parentSessionId: "p1", attemptOf: "t0" }),
+  spawnEvent({ now: NOW, taskId: "t1", card, plan, sessionId: "s1", parentSessionId: "p1", attemptOf: "t0" }),
   rerouteEvent({ now: NOW, taskId: "t1", from: "cloud", to: "T1", reason: "429 free cap", fromModel: "openrouter/qwen/free", toModel: "anthropic/claude-sonnet-5-5" }),
   checkEvent({ now: NOW, taskId: "t1", exit: 1, durationMs: 1234 }),
   correctiveEvent({ now: NOW, taskId: "t1" }),
@@ -46,7 +46,7 @@ test("every builder: event name, ts, taskId; keys ⊆ allowlist", () => {
   const names = ["spawn", "reroute", "check", "corrective", "escalate", "verdict", "spotcheck", "spawn"];
   sample().forEach((e, i) => {
     assert.equal(e.event, names[i]);
-    assert.equal(e.v, 1, "schema version (LOGS.md)");
+    assert.equal(e.v, 2, "schema version (docs/outcome-log.md)");
     assert.equal(e.ts, NOW.toISOString());
     assert.equal(e.taskId, "t1");
     for (const k of Object.keys(e)) assert.ok(K_ALLOWED.has(k), `${e.event}: unexpected key ${k}`);
@@ -56,7 +56,7 @@ test("every builder: event name, ts, taskId; keys ⊆ allowlist", () => {
 test("R2: no card or prompt text reaches an event; strings and lists are bounded", () => {
   assert.ok(!sample().map((e) => JSON.stringify(e)).join("\n").includes(SECRET));
   const big = [
-    spawnEvent({ now: NOW, taskId: long, card: { ...card, kind: long }, plan: { ...plan, reasons: [long, long] }, arm: long, sessionId: long }),
+    spawnEvent({ now: NOW, taskId: long, card: { ...card, kind: long }, plan: { ...plan, reasons: [long, long] }, sessionId: long }),
     rerouteEvent({ now: NOW, taskId: long, from: long, to: long, reason: long }),
     verdictEvent({ now: NOW, taskId: long, verdict: "partial", note: long }),
   ];
@@ -69,12 +69,12 @@ test("R2: no card or prompt text reaches an event; strings and lists are bounded
   }
 });
 
-test("spawn event carries route, reasons, importance, arm, session ids", () => {
+test("spawn event carries route, reasons, importance, session ids", () => {
   const e = sample()[0];
   assert.deepEqual(
     { ...e, cardHash: undefined },
-    { v: 1, ts: NOW.toISOString(), event: "spawn", taskId: "t1", cardHash: undefined, kind: "implement", workerTier: "qwen", workerEffort: "xhigh",
-      reviewTier: "T1", reviewEffort: "high", base: "qwen", importance: "high", reasons: ["all t0 criteria hold"], arm: "a1",
+    { v: 2, ts: NOW.toISOString(), event: "spawn", taskId: "t1", cardHash: undefined, kind: "implement", workerTier: "qwen", workerEffort: "xhigh",
+      reviewTier: "T1", reviewEffort: "high", base: "qwen", importance: "high", reasons: ["all t0 criteria hold"],
       sessionId: "s1", parentSessionId: "p1", attemptOf: "t0" },
   );
 });
@@ -84,7 +84,7 @@ test("spawn event carries the optional T5.20\u2013T5.22 fields only when set; sp
   assert.deepEqual([e.assigned, e.routeBase, e.unresolved, e.reviewOf], ["random", "qwen", true, "t1"]);
   const none = spawnEvent({ now: NOW, taskId: "t3", card, plan, unresolved: false });
   for (const k of ["assigned", "routeBase", "unresolved", "reviewOf"]) assert.ok(!(k in none), k);
-  assert.deepEqual(spotcheckEvent({ now: NOW, taskId: "t1" }), { v: 1, ts: NOW.toISOString(), event: "spotcheck", taskId: "t1", requested: true });
+  assert.deepEqual(spotcheckEvent({ now: NOW, taskId: "t1" }), { v: 2, ts: NOW.toISOString(), event: "spotcheck", taskId: "t1", requested: true });
 });
 
 test("T4.1 spawn line: requirement, plan levels, the started member, model and effort, the wait; workerEffort stays planned (AC4, RD2)", () => {
@@ -117,6 +117,17 @@ test("T4.3 reroute line: fromModel/toModel when given; without them only from/to
 test("T4.1 an unrouted spawn line has none of the new fields", () => {
   const e = spawnEvent({ now: NOW, taskId: "u1", card, plan });
   for (const k of NEW_SPAWN_KEYS) assert.ok(!(k in e), k);
+});
+
+test("RND-8 v2", () => {
+  // v2: the experiments arm is retired (NR-3); a stray `arm` in a builder's input never reaches a line.
+  assert.equal(SCHEMA_VERSION, 2);
+  const stray = { arm: "a1" };
+  const lines = [
+    spawnEvent({ ...stray, now: NOW, taskId: "t1", card, plan, sessionId: "s1" }),
+    ticketSpawnEvent({ ...stray, now: NOW, taskId: "r1", role: "merge", member: "opus", tier: "T2", model: "anthropic/opus", effort: "high", sessionId: "s1" }),
+  ];
+  for (const e of lines) assert.deepEqual([e.event, e.v, "arm" in e], ["spawn", 2, false]);
 });
 
 test("cardHash: 16 hex chars, stable, sensitive to the card", () => {

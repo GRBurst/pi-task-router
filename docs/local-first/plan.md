@@ -219,7 +219,7 @@ factors with `enabled` by settings.
 | Check (test file) | Plant | Must FAIL | Seen |
 |---|---|---|---|
 | `lf-default` NR-3 | a comment-free `globalThis.__piExperimentsApi_v1` read left in `shell.ts` | the source scan | [x] |
-| `lf-default` NR-2 | `spawnEvent` keeps `arm` | "NR-2 cloud-first lines" | [ ] |
+| `lf-default` NR-2 | `spawnEvent` keeps `arm` | "NR-2 cloud-first lines" | [x] |
 | `lf-outcome` | a builder copies `goal` text into a field | LOG-3 text-free | [ ] |
 | `lf-session-log` | write `session` in cloud-first with share 0 | MEAS-1 | [ ] |
 | `lf-merge-log` | `repoId` from `HEAD` instead of the root commit | LOG-1 | [ ] |
@@ -549,7 +549,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: "NR-3 no experiments read" scans `core/**/*.ts` for `__piExperimentsApi_v1|ExperimentsApi` → hits `shell.ts:56–83`.
 - GREEN: `withFlags` returns the settings value; remove `ExperimentsApi`, `armOf` and the `arm` argument at the spawn line.
 
-#### LF1.T2 Outcome log v2 (RND-8, NR-2 b) `[ ] todo`
+#### LF1.T2 Outcome log v2 (RND-8, NR-2 b) `[x] done`
 - Files: `core/outcome.ts`; tests `lf-default` "NR-2 cloud-first lines", `outcome` (X37b literals).
 - RED: LF1.T1a's session → every line = its fixture line with `v: 2` and without `arm` → fails on `v: 1`.
 - GREEN: `SCHEMA_VERSION = 2`; drop `arm` from `spawnEvent`'s input type and output.

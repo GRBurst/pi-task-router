@@ -10,11 +10,12 @@ import type { Card, LoggedPlan, Start, ThinkingLevel } from "./types.ts";
 export type OutcomeEvent = Record<string, string | number | boolean | string[]>;
 export type Verdict = "accepted" | "partial" | "rejected" | "unjudged";
 
-/** Schema version of an outcome event (LOGS.md); readers treat an absent `v` as 0 (legacy). */
-export const SCHEMA_VERSION = 1;
+/** Schema version of an outcome event (docs/outcome-log.md); readers treat an absent `v` as 0 (legacy). 2: the
+ *  experiments `arm` is retired (local-first spec RND-8, NR-3). */
+export const SCHEMA_VERSION = 2;
 const KEYS = [
   "v", "ts", "event", "taskId", "cardHash", "kind", "workerTier", "workerEffort", "reviewTier", "reviewEffort",
-  "base", "importance", "reasons", "arm", "sessionId", "parentSessionId", "attemptOf", "from", "to", "reason",
+  "base", "importance", "reasons", "sessionId", "parentSessionId", "attemptOf", "from", "to", "reason",
   "exit", "durationMs", "verdict", "note",
   // optional, T5.20
   "unresolved", "assigned", "routeBase", "reviewOf", "requested",
@@ -55,7 +56,7 @@ export const cardHash = (c: Card): string => createHash("sha256").update(JSON.st
 
 /** `workerTier`/`workerEffort` are the planned leg (RD2); `start` is what the child started on (a routed spawn only; a forced
  *  non-member has no member, so no `workerMember`, plan D10); `forced`: the force it ran under and the routed counterfactual. */
-export const spawnEvent = (i: { now: Date; taskId: string; card: Card; plan: LoggedPlan; start?: Start; arm?: string; sessionId?: string; parentSessionId?: string; attemptOf?: string; unresolved?: boolean; forced?: Forced }) =>
+export const spawnEvent = (i: { now: Date; taskId: string; card: Card; plan: LoggedPlan; start?: Start; sessionId?: string; parentSessionId?: string; attemptOf?: string; unresolved?: boolean; forced?: Forced }) =>
   finish({
     ...base("spawn", i.now, i.taskId), cardHash: cardHash(i.card), kind: i.card.kind,
     workerTier: i.plan.worker.tier, workerEffort: i.plan.worker.effort,
@@ -63,7 +64,7 @@ export const spawnEvent = (i: { now: Date; taskId: string; card: Card; plan: Log
     ability: i.plan.ability, level: i.plan.level, draft: i.plan.draft, workerLevel: i.plan.worker.level, reviewLevel: i.plan.review?.level,
     workerMember: i.start?.member || undefined, workerModel: i.start?.model, startEffort: i.start?.effort, waitMs: i.start?.waitMs,
     base: i.plan.base, importance: i.plan.importance, reasons: i.plan.reasons,
-    arm: i.arm, sessionId: i.sessionId, parentSessionId: i.parentSessionId, attemptOf: i.attemptOf ?? i.card.attemptOf,
+    sessionId: i.sessionId, parentSessionId: i.parentSessionId, attemptOf: i.attemptOf ?? i.card.attemptOf,
     assigned: i.plan.assigned, routeBase: i.plan.routeBase, unresolved: i.unresolved || undefined, reviewOf: i.card.reviewOf,
     ...(i.forced ? { forced: true, forceSource: i.forced.source, routedModel: i.forced.routedModel, routedEffort: i.forced.routedEffort } : {}),
   });
@@ -106,10 +107,10 @@ export const reviewEvent = (i: ReviewInput & { now: Date }) =>
     commit: i.commit, branch: i.branch,
   });
 /** A ticket child's spawn line (D26): no card, so no `cardHash`; kind `overseer` (a fixer: `implement`), `ticket` its role. */
-export const ticketSpawnEvent = (i: { now: Date; taskId: string; role: TicketRole; member: string; tier: string; model: string; effort: ThinkingLevel; arm?: string; sessionId?: string; parentSessionId?: string; forced?: Forced }) =>
+export const ticketSpawnEvent = (i: { now: Date; taskId: string; role: TicketRole; member: string; tier: string; model: string; effort: ThinkingLevel; sessionId?: string; parentSessionId?: string; forced?: Forced }) =>
   finish({
     ...base("spawn", i.now, i.taskId), kind: i.role === "fixer" ? "implement" : "overseer", ticket: i.role,
-    workerTier: i.tier, workerEffort: i.effort, workerMember: i.member, workerModel: i.model, arm: i.arm, sessionId: i.sessionId, parentSessionId: i.parentSessionId,
+    workerTier: i.tier, workerEffort: i.effort, workerMember: i.member, workerModel: i.model, sessionId: i.sessionId, parentSessionId: i.parentSessionId,
     ...(i.forced ? { forced: true, forceSource: i.forced.source, routedModel: i.forced.routedModel, routedEffort: i.forced.routedEffort } : {}),
   });
 export type MergeOutcome = "merged" | "refused" | "revise" | "fixer" | "failed";

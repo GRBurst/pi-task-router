@@ -56,7 +56,11 @@ test("NR-2 v1 capture", async () => {
   assert.ok(want.every((l) => l.v === 1), "the fixture holds v1 lines only");
   assert.deepEqual([...new Set(want.map((l) => l.event))].sort(), EVENTS);
   assert.ok(want.some((l) => l.event === "spawn" && l.arm === ARM), "a v1 spawn line carries the experiments arm");
-  assert.deepEqual(await v1Session(), want.map(now));
+});
+
+test("NR-2 cloud-first lines", async () => {
+  // v2 (RND-8): the same lines, with `v: 2` and without the retired `arm`.
+  assert.deepEqual(await v1Session(), fixture().map((l) => ({ ...now(l), v: 2 })));
 });
 
 /** Source text without comments (a comment may name what the router no longer reads). */

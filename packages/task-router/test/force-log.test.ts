@@ -28,9 +28,9 @@ const MODEL_REF = /^[^\s/]+\/\S+$/;
 test("forceEvent: every action is a force line with taskId \"\"; model, effort and reason only when given", () => {
   for (const action of ACTIONS) for (const source of SOURCES) {
     const bare = forceEvent({ now: NOW, action, source });
-    assert.deepEqual(bare, { v: 1, ts: NOW.toISOString(), event: "force", taskId: "", action, source });
+    assert.deepEqual(bare, { v: 2, ts: NOW.toISOString(), event: "force", taskId: "", action, source });
     const full = forceEvent({ now: NOW, action, source, model: "anthropic/claude-sonnet-5-5", effort: "high", reason: "unknown-model" });
-    assert.deepEqual(full, { v: 1, ts: NOW.toISOString(), event: "force", taskId: "", action, source, model: "anthropic/claude-sonnet-5-5", effort: "high", reason: "unknown-model" });
+    assert.deepEqual(full, { v: 2, ts: NOW.toISOString(), event: "force", taskId: "", action, source, model: "anthropic/claude-sonnet-5-5", effort: "high", reason: "unknown-model" });
   }
 });
 

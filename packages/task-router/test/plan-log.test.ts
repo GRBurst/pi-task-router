@@ -16,7 +16,7 @@ const ACTIONS = ["skeleton", "approve", "trigger", "amend", "reject"];
 const ENUMS = new Set<string>(["plan", ...ACTIONS, ...TRIGGERS]);
 
 test("planEvent: taskId = the slug, the action; the optional keys only when given", () => {
-  const head = { v: 1, ts: NOW.toISOString(), event: "plan", taskId: "parser", action: "skeleton" };
+  const head = { v: 2, ts: NOW.toISOString(), event: "plan", taskId: "parser", action: "skeleton" };
   assert.deepEqual(planEvent({ now: NOW, slug: "parser", action: "skeleton" }), head);
   assert.deepEqual(planEvent({ now: NOW, slug: "parser", action: "amend", trigger: "over-budget", nTasks: 3, reviewId: "rv-2", full: true }),
     { ...head, action: "amend", trigger: "over-budget", nTasks: 3, reviewId: "rv-2", full: true });

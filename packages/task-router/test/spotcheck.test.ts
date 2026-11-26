@@ -36,7 +36,7 @@ test("drawn accepted verdict → spotcheck event + instruction in the tool resul
   assert.match(text(r), /^verdict accepted recorded for q1/);
   assert.ok(text(r).includes('Spot check: spawn a fresh `review` card with `reviewOf: "q1"` for this task\'s diff/report before moving on.'), text(r));
   const [e] = spots(h);
-  assert.deepEqual({ event: e.event, taskId: e.taskId, requested: e.requested, v: e.v }, { event: "spotcheck", taskId: "q1", requested: true, v: 1 });
+  assert.deepEqual({ event: e.event, taskId: e.taskId, requested: e.requested, v: e.v }, { event: "spotcheck", taskId: "q1", requested: true, v: 2 });
 });
 
 test("property: share 0 or disabled never spot-checks; share 1 only on accepted", async () => {

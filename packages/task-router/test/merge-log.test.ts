@@ -17,14 +17,14 @@ const OUTCOMES = ["merged", "refused", "revise", "fixer", "failed"];
 const ENUMS = new Set<string>(["merge", "gatebypass", ...OUTCOMES, ...REASONS]);
 
 test("mergeEvent: taskId = the branch, the outcome; the optional keys only when given", () => {
-  const head = { v: 1, ts: NOW.toISOString(), event: "merge", taskId: "lm/x", outcome: "refused" };
+  const head = { v: 2, ts: NOW.toISOString(), event: "merge", taskId: "lm/x", outcome: "refused" };
   assert.deepEqual(mergeEvent({ now: NOW, branch: "lm/x", outcome: "refused" }), head);
   assert.deepEqual(mergeEvent({ now: NOW, branch: "lm/x", outcome: "merged", reason: "git", commit: SHA, nLines: 12, nFiles: 2, reviewId: "rv-1", pushed: false }),
     { ...head, outcome: "merged", reason: "git", commit: SHA, nLines: 12, nFiles: 2, reviewId: "rv-1", pushed: false });
 });
 
 test("gatebypassEvent: taskId = the main branch, from, to; repo the basename, never a path (D35)", () => {
-  const head = { v: 1, ts: NOW.toISOString(), event: "gatebypass", taskId: "main", from: SHA, to: OTHER };
+  const head = { v: 2, ts: NOW.toISOString(), event: "gatebypass", taskId: "main", from: SHA, to: OTHER };
   assert.deepEqual(gatebypassEvent({ now: NOW, branch: "main", from: SHA, to: OTHER }), head);
   assert.deepEqual(gatebypassEvent({ now: NOW, branch: "main", from: SHA, to: OTHER, repo: "/srv/u/my-repo" }), { ...head, repo: "my-repo" });
 });

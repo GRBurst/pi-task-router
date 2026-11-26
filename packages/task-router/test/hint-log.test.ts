@@ -13,9 +13,9 @@ const STAGES = ["hint", "steer", "parent"] as const;
 
 test("hintEvent: trip and stage; count and sessionId only when given", () => {
   assert.deepEqual(hintEvent({ now: NOW, taskId: "main", trip: "identical-call", stage: "hint" }),
-    { v: 1, ts: NOW.toISOString(), event: "hint", taskId: "main", trip: "identical-call", stage: "hint" });
+    { v: 2, ts: NOW.toISOString(), event: "hint", taskId: "main", trip: "identical-call", stage: "hint" });
   assert.deepEqual(hintEvent({ now: NOW, taskId: "c1", trip: "alternation", stage: "parent", count: 3, sessionId: "s-main" }),
-    { v: 1, ts: NOW.toISOString(), event: "hint", taskId: "c1", trip: "alternation", stage: "parent", count: 3, sessionId: "s-main" });
+    { v: 2, ts: NOW.toISOString(), event: "hint", taskId: "c1", trip: "alternation", stage: "parent", count: 3, sessionId: "s-main" });
 });
 
 test("AC-L2: every string value of a hint line is an enum value, the task id or the session id; no hint text reaches it", () => {

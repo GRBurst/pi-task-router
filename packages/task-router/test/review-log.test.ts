@@ -16,7 +16,7 @@ const SHA = "0123456789abcdef0123456789abcdef01234567";
 
 test("reviewEvent: the required keys; the optional ones only when given", () => {
   const req = { reviewId: "rv-0000abcd", role: "merge" as const, member: "opus", model: OPUS, outcome: "approve" as const, attempt: 1, durationMs: 2000 };
-  const head = { v: 1, ts: NOW.toISOString(), event: "review", taskId: "rv-0000abcd", role: "merge", member: "opus", model: OPUS, outcome: "approve", attempt: 1, durationMs: 2000 };
+  const head = { v: 2, ts: NOW.toISOString(), event: "review", taskId: "rv-0000abcd", role: "merge", member: "opus", model: OPUS, outcome: "approve", attempt: 1, durationMs: 2000 };
   assert.deepEqual(reviewEvent({ now: NOW, ...req }), head);
   assert.deepEqual(reviewEvent({ now: NOW, ...req, fallback: "budget", findings: 3, blocking: 1, inconsistent: true, commit: SHA, branch: "wt/a-b" }),
     { ...head, fallback: "budget", findings: 3, blocking: 1, inconsistent: true, commit: SHA, branch: "wt/a-b" });
@@ -24,7 +24,7 @@ test("reviewEvent: the required keys; the optional ones only when given", () => 
 
 test("ticketSpawnEvent: kind overseer (a fixer: implement), the ticket's role, the member's tier, model and effort", () => {
   const i = { now: NOW, taskId: "ovs-merge-1", role: "merge" as const, member: "opus", tier: "T2", model: OPUS, effort: "high" as const, sessionId: "s-ovs-merge-1", parentSessionId: "s-main" };
-  const line = { v: 1, ts: NOW.toISOString(), event: "spawn", taskId: "ovs-merge-1", kind: "overseer", ticket: "merge", workerTier: "T2", workerEffort: "high",
+  const line = { v: 2, ts: NOW.toISOString(), event: "spawn", taskId: "ovs-merge-1", kind: "overseer", ticket: "merge", workerTier: "T2", workerEffort: "high",
     workerMember: "opus", workerModel: OPUS, sessionId: "s-ovs-merge-1", parentSessionId: "s-main" };
   assert.deepEqual(ticketSpawnEvent(i), line);
   assert.deepEqual(ticketSpawnEvent({ ...i, role: "fixer", taskId: "fix-1" }), { ...line, taskId: "fix-1", kind: "implement", ticket: "fixer" });
@@ -40,10 +40,10 @@ test("a run logs one review line per attempt and the shell one ticket spawn line
   const ls = r.h.lines();
   const ts = (t: number) => new Date(t).toISOString();
   assert.deepEqual(ls.find((l) => l.event === "spawn"), {
-    v: 1, ts: ls[0]!.ts, event: "spawn", taskId: "ovs-merge-1", kind: "overseer", ticket: "merge", workerTier: "T2", workerEffort: "high",
+    v: 2, ts: ls[0]!.ts, event: "spawn", taskId: "ovs-merge-1", kind: "overseer", ticket: "merge", workerTier: "T2", workerEffort: "high",
     workerMember: "opus", workerModel: OPUS, sessionId: "s-ovs-merge-1", parentSessionId: "s-main" });
   assert.deepEqual(ls.filter((l) => l.event === "review"), [{
-    v: 1, ts: ts(r.h.clock.t), event: "review", taskId: res.reviewId, role: "merge", member: "opus", model: OPUS, outcome: "revise",
+    v: 2, ts: ts(r.h.clock.t), event: "review", taskId: res.reviewId, role: "merge", member: "opus", model: OPUS, outcome: "revise",
     attempt: 1, durationMs: 2000, findings: 2, blocking: 1, inconsistent: true, commit: SHA, branch: "wt/a" }]);
   assert.deepEqual(ls.map((l) => l.event), ["spawn", "review"]);
 });
