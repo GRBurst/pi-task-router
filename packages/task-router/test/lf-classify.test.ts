@@ -134,6 +134,16 @@ test("CLS-1 an error fails closed: elevated, why [error]", () => {
   assert.deepEqual([bad.cls, bad.why], ["elevated", ["error"]]);
 });
 
+test("CLS-1 an invalid componentDepth is an error, not depth 1 (LF6 review m4)", () => {
+  for (const d of [0, -1, 1.5, NaN, Infinity, "2" as unknown as number, undefined as unknown as number]) {
+    for (const paths of [["src/a.ts"], ["docs/a.md"], [] as string[]]) {
+      const r = run(paths, { ...POLICY, componentDepth: d });
+      assert.deepEqual([String(d), r.cls, r.why, r.inertLike], [String(d), "elevated", ["error"], false], JSON.stringify(paths));
+    }
+  }
+  assert.equal(run(["src/a.ts"], { ...POLICY, componentDepth: 3 }).cls, "standard");
+});
+
 test("split files: <plans.dir>/split/** is router-owned, dropped before the rules (D85)", () => {
   // alone: not elevated by the config rule or any other; the empty remainder is standard (no files, no check yet)
   const only = run(["docs/plans/split/n1.json"]);

@@ -25,7 +25,8 @@ function classifyFiles(all: readonly FileFact[], p: Policy, ctx: ClassifyContext
   // D85: the router owns `<plans.dir>/split/**`; it never counts toward class, size or scope
   const files = all.filter((x) => !ctx.glob(`${ctx.plansDir}/split/**`, x.path));
   const any = (globs: readonly string[], path: string): boolean => globs.some((g) => ctx.glob(g, path));
-  const depth = Number.isInteger(p.componentDepth) && p.componentDepth >= 1 ? p.componentDepth : 1;
+  const depth = p.componentDepth;
+  if (!Number.isInteger(depth) || depth < 1) throw new Error("componentDepth must be an integer >= 1"); // fail closed, never depth 1
   const why = new Set<string>();
   const proxy = (name: string, fired: boolean): boolean => { if (fired) why.add(name); return fired; };
   const configFiles: string[] = [], codeFiles: string[] = [];
