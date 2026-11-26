@@ -269,7 +269,7 @@ export function install(pi: PiLike, deps: Deps) {
     try { branch = ctx?.sessionManager?.getBranch?.() ?? []; } catch { branch = []; }
     if (!Array.isArray(branch)) branch = [];
     // PRO-3 (spec §2.2): the last profile entry, else the settings; the first local-first start records the settings' choice.
-    if (!profile.restore(branch) && sid && profile.current() === "local-first") profile.set("local-first", "settings");
+    if (!profile.restore(branch, (t) => ctx?.ui?.notify?.(t, "warning")) && sid && profile.current() === "local-first") profile.set("local-first", "settings");
     ensureLocalTools();
     force.start(ctx, problems); // plan D8: its problem joins the one notification below
     lm.start(ctx); // the Opus budget (D30) before the status line shows it

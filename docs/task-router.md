@@ -88,8 +88,9 @@ refuses a switch (`task-router: /profile is not available in local mode (mode:
 **Per session.** The settings give the profile a session starts with; the
 session entry `task-router/profile` (`{v: 1, profile, by: "settings" |
 "command", at}`) keeps a switch, and every `session_start` restores the last
-one (none: the settings). The first local-first start records the settings'
-choice. `/profile` shows the session's profile; `/profile cloud-first` or
+one (none: the settings; a stored local-first entry the gate above refuses
+counts as none, with its notice). The first local-first start records the
+settings' choice. `/profile` shows the session's profile; `/profile cloud-first` or
 `/profile local-first` switches it from then on: one entry, one `profile` line
 (`from`, `to`, `by`, `docs/outcome-log.md`) and the status line
 (`local-first`; cloud-first leaves it alone). A switch keeps the session's E0

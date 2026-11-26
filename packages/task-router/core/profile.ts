@@ -1,6 +1,6 @@
 // Profiles (spec §5.2.3): a card kind names a profile; skills are inlined into the brief.
 // The session's routing profile (local-first spec §2.2, PRO-3, D82, S34) lives here too, beside the card-kind profiles.
-import { BUILTIN_PROFILES } from "./settings.ts";
+import { BUILTIN_PROFILES, localFirstGate } from "./settings.ts";
 import type { RoutingProfile } from "./strategy/types.ts";
 import type { Profile, Result, RouterSettings } from "./types.ts";
 
@@ -50,14 +50,19 @@ const isEntry = (e: unknown): e is { data: ProfileEntry } => {
 };
 
 /** S34: `restore` takes the branch's last `task-router/profile` entry (a malformed one counts as absent), none → the settings;
- *  `set` switches and appends the entry. The legacy local mode has no switch (D59): `restore` ignores its entries there. */
+ *  `set` switches and appends the entry. The legacy local mode has no switch (D59): `restore` ignores its entries there. PRO-9 holds
+ *  for a stored entry too: a local-first one the gate refuses (no `localFirst.experimental` before 0.5.0) counts as absent and
+ *  `say` gets the gate's text. */
 export function createRoutingProfile(settings: RouterSettings, append: (type: string, data: unknown) => void, now = () => new Date()) {
   let cur: SessionProfile = fromSettings(settings);
   return {
     current: (): SessionProfile => cur,
     /** true iff an entry decided. */
-    restore(branch: readonly unknown[]): boolean {
-      const base = fromSettings(settings), last = base === "local-mode" ? undefined : branch.filter(isEntry).at(-1);
+    restore(branch: readonly unknown[], say?: (text: string) => void): boolean {
+      const base = fromSettings(settings), found = base === "local-mode" ? undefined : branch.filter(isEntry).at(-1);
+      const refused = found?.data.profile === "local-first" ? localFirstGate(settings) : undefined;
+      if (refused !== undefined) say?.(refused);
+      const last = refused === undefined ? found : undefined;
       cur = last?.data.profile ?? base;
       return last !== undefined;
     },
