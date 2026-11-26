@@ -241,7 +241,7 @@ factors with `enabled` by settings.
 | `lf-start-model` | `setModel` also on `model_select` | PRO-5 | [x] |
 | `lf-prompt` | the section omits the tier budget | PRO-8/SIZE-9 | [x] |
 | `lf-tree` | `maxDepth` compared with `<` instead of `≤` | TREE-2 | [x] |
-| `lf-split` / `lf-split-git` | the commit takes every staged file (`commit -a`) | TREE-4 commit (a staged unrelated file stays uncommitted) | [ ] |
+| `lf-split` / `lf-split-git` | the commit takes every staged file (`commit -a`) | TREE-4 commit (a staged unrelated file stays uncommitted) | [x] |
 | `lf-tree-git` | the base stays the main tip | TREE-1 | [ ] |
 | `lf-start-child` | a slug may start twice | TREE-5 | [ ] |
 | `lf-placement` | `cwd` = the main's cwd | TREE-6 | [ ] |
@@ -739,7 +739,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: one case per S37 rule → exactly that reason; a valid plan → `[]`; the canonical rendering is byte-stable (sorted keys, 2 spaces, trailing newline).
 - GREEN: `validateSplit`, `renderSplit`, `SplitPlan`/`SplitChild` types.
 
-#### LF4.T5 Split commit (TREE-4 commit) `[ ] todo`
+#### LF4.T5 Split commit (TREE-4 commit) `[x] done`
 - Files: `core/local/split.ts`, `core/local/gitcmd.ts` (if a port is missing); test `lf-split-git` (new).
 - RED: real git: worktree with an unrelated staged file → after `commitSplit`, HEAD's tree has `<plans.dir>/split/<node>.json` = the rendering, the unrelated file is still staged and uncommitted; a failing `pre-commit` hook → refusal with its output.
 - GREEN: D66.

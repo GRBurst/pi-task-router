@@ -1,5 +1,9 @@
 // Split plans (local-first spec §2.3, TREE-4; plan S37, D66): the router validates a node's split (one reason per violation,
 // in S37's order) and renders it as canonical JSON, the file `<plans.dir>/split/<node>.json` it commits on the node's branch.
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import type { Result } from "../types.ts";
+import type { Git } from "./git.ts";
 import type { Caps, Node, SplitChild, SplitPlan } from "./tree.ts";
 /** spec §2.3 (the same pattern as `start_branch`'s slug; kept here so that worktree.ts may import this file). */
 const SLUG = /^[a-z0-9-]{1,40}$/;
@@ -59,3 +63,19 @@ const sorted = (x: unknown): unknown => Array.isArray(x) ? x.map(sorted)
 export const renderSplit = (node: string, p: SplitPlan): string => `${JSON.stringify(sorted({ v: 1, node, ...normalizeSplit(p) }), null, 2)}\n`;
 /** The plan file's repository-relative path (spec §2.3; router-owned, D85). */
 export const splitFile = (plansDir: string, node: string): string => `${plansDir.replace(/\/+$/, "")}/split/${node}.json`;
+
+/** D66: writes the plan's file in the node's worktree and commits it alone on the node's branch (`commitPath`); a failure (a
+ *  hook's refusal) gives its output and restores the file as it was. */
+export async function commitSplit(git: Pick<Git, "commitPath">, worktree: string, plansDir: string, node: string, plan: SplitPlan): Promise<Result<{ commit: string; file: string }>> {
+  const file = splitFile(plansDir, node), abs = join(worktree, file);
+  let old: string | undefined;
+  try { old = readFileSync(abs, "utf8"); } catch { old = undefined; }
+  try {
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, renderSplit(node, plan));
+  } catch (e) { return { ok: false, errors: [`split file: ${(e as Error).message}`] }; }
+  const r = await git.commitPath(worktree, file, `task-router: split ${node}`);
+  if (r.ok) return { ok: true, value: { commit: r.out, file } };
+  try { if (old === undefined) rmSync(abs, { force: true }); else writeFileSync(abs, old); } catch { /* best effort */ }
+  return { ok: false, errors: [`split commit refused: ${r.err}`] };
+}

@@ -74,6 +74,11 @@ export type Git = {
   /** D50: a commit on `parent` whose tree is `parent`'s with `path` set to `content`, built in a temporary index (plumbing),
    *  so the main checkout's index and files are never touched; no ref moves. `out` = the new commit. */
   commitFile(repo: string, parent: string, path: string, content: string, message: string): Promise<Res>;
+  // ── split plans (local-first D66) ──
+  /** A path-limited commit in the worktree `dir`: `git add -- path`, then `git commit --only -- path`, so other staged changes
+   *  stay staged and uncommitted; hooks run. On a failure the path is unstaged again and `err` holds the command's output (a
+   *  hook's, stdout and stderr). `out` = the new commit. */
+  commitPath(dir: string, path: string, message: string): Promise<Res>;
   /** The content of the file `path` at `rev` (a commit or branch; `git cat-file blob`); undefined for an unknown rev or path. */
   show(repo: string, rev: string, path: string): Promise<string | undefined>;
   // ── the merge line (local-first LOG-1) ──
@@ -199,6 +204,16 @@ export function createGit(run: GitRun): Git {
       } finally {
         if (tmp) rmSync(tmp, { recursive: true, force: true });
       }
+    },
+    async commitPath(dir, path, message) {
+      const add = res(await run(["add", "--", path], dir, SHORT_MS));
+      if (!add.ok) return add;
+      const c = await run(["commit", "--only", "-q", "-m", message, "--", path], dir, ADD_MS);
+      if (c.exit !== 0) {
+        await run(["reset", "-q", "--", path], dir, SHORT_MS);
+        return { ok: false, err: c.timedOut ? "git timed out" : `${c.out}\n${c.err}`.trim().slice(-ERR_TAIL) || `git exited ${c.exit}` };
+      }
+      return res(await run(["rev-parse", "HEAD"], dir, SHORT_MS));
     },
     async dirty(dir) {
       const r = await run(["status", "--porcelain"], dir, ADD_MS);

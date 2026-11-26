@@ -187,6 +187,21 @@ export function fakeGit(o: { repos?: { root: string; main?: string; sha?: string
       return files.filter((f) => { try { return holds(readFileSync(join(repo, f), "utf8")); } catch { return false; } });
     },
     async lsFiles(repo, n) { calls.push(`lsFiles ${repo} ${n}`); return (tracked.get(repo) ?? []).slice(0, n); },
+    /** A commit on the worktree's branch that adds `path` (its content from the disk when readable, else empty). */
+    async commitPath(dir, path, message) {
+      calls.push(`commitPath ${dir} ${path} ${message}`);
+      const bad = scripted("commitPath");
+      if (bad) return bad;
+      const r = repoOf(dir), w = wtOf(dir);
+      if (!r || !w) return { ok: false, err: `fatal: not a git repository: ${dir}` };
+      let content = "";
+      try { content = readFileSync(join(w.dir, path), "utf8"); } catch { /* a fake worktree has no files */ }
+      const parent = headOf(r, w), sha = (++shas).toString(16).padStart(40, "d");
+      commits.set(sha, { parent, stat: [{ path, added: content.split("\n").length - 1, deleted: 0 }] });
+      blobs.set(sha, { path, content });
+      if (w.branch !== undefined) r.refs.set(w.branch, sha); else w.head = sha;
+      return { ok: true, out: sha };
+    },
     async commitFile(repo, parent, path, content, message) {
       calls.push(`commitFile ${repo} ${parent} ${path} ${message}`);
       const bad = scripted("commitFile");
