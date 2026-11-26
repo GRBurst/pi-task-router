@@ -42,11 +42,13 @@ function classifyFiles(all: readonly FileFact[], p: Policy, ctx: ClassifyContext
     ];
     if (fired.includes(true)) elevated = true;
     const owned = any(INSTRUCTION_GLOBS, path) || ctx.glob(`${ctx.plansDir}/**`, path);
-    const inertFile = !owned && any(p.inertGlobs, path);
-    if (inertFile) inertFiles++;
-    if (inertFile || (!owned && any(p.testGlobs, path))) likeFiles++;
-    if (any(p.configGlobs, path)) configFiles.push(path);
-    else if (!any(p.inertGlobs, path) && !any(p.testGlobs, path)) codeFiles.push(path);
+    const isTest = any(p.testGlobs, path), isConfig = any(p.configGlobs, path), isInert = any(p.inertGlobs, path);
+    if (isInert && !owned) inertFiles++;
+    if ((isInert || isTest) && !owned) likeFiles++;
+    // one kind per file: a config file under a test glob is a test fixture; instruction and plan files are code, as they are
+    // never inert or inert-like (a plain doc or a test is not code)
+    if (isConfig && !isTest) configFiles.push(path);
+    else if (!isConfig && (owned || !(isInert || isTest))) codeFiles.push(path);
   }
   const components = (paths: string[]): number => new Set(paths.map((x) => component(x, depth))).size;
   if (proxy("coupled", codeFiles.length >= 3 && components(codeFiles) >= 2)) elevated = true;

@@ -69,6 +69,27 @@ test("CLS-1 coupled: ≥ 3 changed code files in ≥ 2 components is elevated", 
   assert.equal(run(["src/a.ts", "lib/b.ts", "docs/c.md", "test/d.test.ts"]).cls, "standard");
 });
 
+test("CLS-1 coupled: instruction and plan files are code, as they are for inert-like (LF6 review m3)", () => {
+  for (const owned of ["AGENTS.md", "CLAUDE.md", "skills/x/SKILL.md", "docs/plans/m1.md"]) {
+    const r = run([owned, "src/a.ts", "lib/b.ts"]);
+    assert.deepEqual([owned, r.cls, r.why], [owned, "elevated", ["coupled"]]);
+  }
+  // plain docs are not code; three plan files in one component are not coupled
+  assert.equal(run(["docs/a.md", "src/a.ts", "lib/b.ts"]).cls, "standard");
+  assert.equal(run(["docs/plans/m1.md", "docs/plans/m2.md", "docs/plans/m3.md"]).cls, "standard");
+});
+
+test("CLS-1 multi-component-config: config files under a test glob are tests, not config (LF6 review m3)", () => {
+  const p = { ...POLICY, testGlobs: ["**/test/**"], componentDepth: 2 };
+  const fixtures = ["packages/a/test/x.json", "packages/b/test/y.json"];
+  assert.deepEqual([run(fixtures, p).cls, run(fixtures, p).why, run(fixtures, p).inertLike], ["standard", [], true]);
+  // the same files outside a test glob are config in two components
+  assert.equal(run(["packages/a/x.json", "packages/b/y.json"], p).cls, "elevated");
+  // a fixture does not count as config next to one real config file, nor as code for coupled
+  assert.equal(run(["packages/a/test/x.json", "packages/b/y.json"], p).cls, "standard");
+  assert.equal(run([...fixtures, "packages/c/z.ts"], p).cls, "standard");
+});
+
 test("CLS-1 multi-component-config: config files in ≥ 2 components is elevated", () => {
   const r = run(["svc/a.json", "web/b.toml"]);
   assert.deepEqual([r.cls, r.why], ["elevated", ["multi-component-config"]]);
