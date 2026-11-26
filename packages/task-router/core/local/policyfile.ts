@@ -40,6 +40,22 @@ export const policyGit = (run: GitRun): PolicyGit => ({
   },
 });
 
+/** The built-in globs (not settings keys; the policy file overrides them): tests at any depth, CI and infrastructure (S38's list plus
+ *  `.ci/**`), config files at any depth (S38's extensions: its patterns are anchored, so `**\/` is what reaches below the root). */
+const TEST_GLOBS = ["**/test/**", "**/tests/**", "**/__tests__/**", "**/*.test.*", "**/*_test.*", "**/*.spec.*"];
+const CI_GLOBS = [".github/**", ".gitlab-ci.yml", ".ci/**", "flake.nix", "flake.lock", "**/Dockerfile"];
+const CONFIG_GLOBS = ["**/*.json", "**/*.toml", "**/*.yaml", "**/*.yml", "**/*.nix"];
+
+/** The settings the policy's fallback reads (a `RouterSettings` fits; `mergeGate.inertGlobs` is the spec §2.1 key). */
+export interface PolicySettings { riskGlobs: string[]; mergeGate: { inertGlobs: string[] }; plans: { publicApiGlobs: string[] } }
+
+/** The classifier's policy when the base holds no policy file: the settings' lists, the built-in test, CI and config globs, and
+ *  `componentDepth` 1 (S38). Fresh arrays: a caller may change the result. */
+export const settingsPolicy = (s: PolicySettings): Policy => ({
+  inertGlobs: [...s.mergeGate.inertGlobs], testGlobs: [...TEST_GLOBS], ciGlobs: [...CI_GLOBS], riskGlobs: [...s.riskGlobs],
+  configGlobs: [...CONFIG_GLOBS], publicApiGlobs: [...s.plans.publicApiGlobs], componentDepth: 1,
+});
+
 const GLOB_KEYS = ["inertGlobs", "testGlobs", "ciGlobs", "riskGlobs", "configGlobs", "publicApiGlobs"] as const;
 const KEYS = new Set<string>([...GLOB_KEYS, "componentDepth"]);
 

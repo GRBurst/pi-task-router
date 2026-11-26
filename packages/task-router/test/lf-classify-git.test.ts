@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gitRunner, type GitOut, type GitRun } from "../core/local/git.ts";
-import { policyGit, readPolicy } from "../core/local/policyfile.ts";
+import { policyGit, readPolicy, settingsPolicy } from "../core/local/policyfile.ts";
 import { classify } from "../core/strategy/classify.ts";
 import { globMatch } from "../core/glob.ts";
 import type { Policy } from "../core/strategy/types.ts";
@@ -148,4 +148,46 @@ test("CLS-2 a git failure is an error; only a proven absence falls back to the s
     const got = await read({ "ls-tree": ok(out), "cat-file": ok("{}") });
     assert.ok("error" in got, JSON.stringify([out, got]));
   }
+});
+
+// ── the settings' policy (spec §2.1, S38; LF6 review, deviation 2): the settings' lists plus the built-in test, CI and config globs
+const SETTINGS = { riskGlobs: ["**/auth/**"], mergeGate: { inertGlobs: ["**/*.md", "NOTICE"] }, plans: { publicApiGlobs: ["api/**"] } };
+const CTX = { plansDir: "docs/plans", policyFile: FILE, glob: globMatch, inertChecked: true };
+const kinds = (path: string) => {
+  const p = settingsPolicy(SETTINGS), at = (gs: string[]) => gs.some((g) => globMatch(g, path));
+  return [at(p.testGlobs) && "test", at(p.ciGlobs) && "ci", at(p.configGlobs) && "config"].filter(Boolean);
+};
+
+test("settingsPolicy: the settings' lists, the built-in test/CI/config globs, depth 1; fresh arrays each call", () => {
+  const p = settingsPolicy(SETTINGS);
+  assert.deepEqual([p.inertGlobs, p.riskGlobs, p.publicApiGlobs, p.componentDepth], [["**/*.md", "NOTICE"], ["**/auth/**"], ["api/**"], 1]);
+  p.testGlobs.push("x");
+  p.inertGlobs.push("y");
+  const again = settingsPolicy(SETTINGS);
+  assert.ok(!again.testGlobs.includes("x") && !SETTINGS.mergeGate.inertGlobs.includes("y"), "no shared state");
+});
+
+test("settingsPolicy: built-in test globs match at any depth", () => {
+  for (const f of ["test/a.ts", "packages/a/test/x.ts", "tests/x.py", "svc/tests/y/z.py", "src/__tests__/a.ts", "a.test.ts", "a/b/c.test.tsx",
+    "pkg/x_test.go", "x_test.go", "web/a.spec.js", "b.spec.ts"]) assert.deepEqual(kinds(f).includes("test"), true, f);
+  for (const f of ["src/contest/x.ts", "latest.ts", "src/testing.ts", "src/a.ts", "README.md", "protest/a.ts"]) assert.deepEqual(kinds(f).includes("test"), false, f);
+});
+
+test("settingsPolicy: built-in CI globs and config globs (S38; config at any depth)", () => {
+  for (const f of [".github/workflows/x.yml", ".gitlab-ci.yml", ".ci/run.sh", "flake.nix", "flake.lock", "svc/Dockerfile", "Dockerfile"]) assert.ok(kinds(f).includes("ci"), f);
+  for (const f of ["src/a.ts", "docs/ci.md", "x/.github/a.yml"]) assert.ok(!kinds(f).includes("ci"), f);
+  for (const f of ["a.json", "svc/a/b.toml", "x.yaml", "d/y.yml", "pkg/z.nix", "c/d/e.json"]) assert.ok(kinds(f).includes("config"), f);
+  for (const f of ["src/a.ts", "a.jsonl", "docs/a.md"]) assert.ok(!kinds(f).includes("config"), f);
+});
+
+test("settingsPolicy: classifies as S38 says, with the settings as the fallback of a missing policy file", async () => {
+  const r = rig();
+  const got = await readPolicy(r.port, r.dir, r.base(), FILE, settingsPolicy(SETTINGS));
+  assert.ok("policy" in got && got.source === "settings");
+  const c = (...files: string[]) => classify(files.map((path) => ({ path, added: 3, deleted: 1 })), got.policy, CTX);
+  assert.deepEqual([c("svc/a.json", "web/b.toml").cls, c("svc/a.json", "web/b.toml").why], ["elevated", ["multi-component-config"]]);
+  assert.deepEqual([c(".github/ci.yml").cls, c("src/auth/x.ts").cls, c("api/v1.ts").cls], ["elevated", "elevated", "elevated"]);
+  assert.equal(c("packages/a/test/x.json", "packages/b/test/y.json").cls, "standard", "fixtures are tests, not config");
+  assert.deepEqual([c("a.test.ts", "README.md").inertLike, c("src/a.ts").inertLike], [true, false]);
+  assert.equal(classify([{ path: "src/a.test.ts", added: 0, deleted: 9 }], got.policy, CTX).cls, "elevated", "weakened tests under the built-in glob");
 });
