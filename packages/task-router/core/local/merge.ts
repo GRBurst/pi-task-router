@@ -19,7 +19,8 @@ import type { Schema } from "./schema.ts";
 import { errorReply } from "./branchtool.ts";
 import { type Milestone, parsePlan, planBudget, type PlanRecord, type Skeleton, skeletonHash, type Task, tickOnly } from "./plan.ts";
 import { mergedUnits, type PlanStore } from "./plans.ts";
-import type { RouterTool } from "./branchtool.ts";
+import type { NodeDeps, RouterTool } from "./branchtool.ts";
+import { parentOf, type Node, type Tree } from "./tree.ts";
 
 export const REASONS = ["main-branch", "dirty", "behind", "fixer-running", "abandoned", "blocked", "size", "scope",
   "check", "main-dirty", "plan-changed", "no-worktree", "review-unavailable", "aborted", "git"] as const;
@@ -169,7 +170,20 @@ export type MergePorts = {
   fixerGone?(name: string | undefined): boolean;
   /** The approved plans while plans are active (L7); absent: a branch is merged as one without a plan. */
   plans?: PlanStore;
+  /** The work tree (local-first, TREE-7): a node merges into its parent node's branch; absent: every branch into the main branch. */
+  nodes?: Pick<NodeDeps, "tree" | "log">;
 };
+/** Where a merge goes (TREE-7 a): the parent node's branch and tip (`parent`), else the main branch. */
+export type Target = { name: string; sha: string; parent?: Node };
+/** TREE-7 a: the target of a merge of `branch`: its node's parent node (its branch's tip in `repo`); the root, a nodeless
+ *  branch, or no tree: the main branch. undefined: the parent's branch is gone. */
+export async function targetOf(git: Pick<Git, "sha">, repo: string, tree: Tree | undefined, branch: string,
+  main: { name: string; sha: string }): Promise<Target | undefined> {
+  const parent = tree && parentOf(tree, branch);
+  if (!parent) return main;
+  const sha = await git.sha(repo, parent.branch);
+  return sha === undefined ? undefined : { name: parent.branch, sha, parent };
+}
 /** What the pipeline learned before it returned, for the `merge` line. */
 type Seen = { branch?: string; nLines?: number; nFiles?: number; base?: string; target?: string; repo?: string; repoId?: string };
 /** A repository's id on the merge line (LOG-1): its root commit's first 12 hex, asked once per git port and repository. */
@@ -309,6 +323,9 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   let main: { name: string; sha: string } | undefined;
   for (const name of g.mainBranches) { const sha = await git.sha(repo, name); if (sha !== undefined) { main = { name, sha }; break; } }
   if (!main) return gitError(`none of the main branches (${g.mainBranches.join(", ")}) exists in ${repo}`);
+  // TREE-7 a: a node merges into its parent node's branch; the root and a nodeless branch into main
+  const target = await targetOf(git, repo, p.nodes?.tree.tree(), branch, main);
+  if (!target) return gitError(`the parent branch of ${branch} does not exist in ${repo}`);
   let rec = p.branches.get(repo, branch);
   if (rec?.state === "fixer" && p.fixerGone?.(rec.fixer)) { // review F5: a vanished fixer gives the branch back
     const { fixer: _gone, ...rest } = rec;

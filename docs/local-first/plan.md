@@ -245,7 +245,7 @@ factors with `enabled` by settings.
 | `lf-tree-git` | the base stays the main tip | TREE-1 | [x] |
 | `lf-start-child` | a slug may start twice | TREE-5 | [x] |
 | `lf-placement` | `cwd` = the main's cwd | TREE-6 | [ ] |
-| `lf-merge-target` | target = the main branch | TREE-7 | [ ] |
+| `lf-merge-target` | target = the main branch | TREE-7 | [x] |
 | `lf-tree-log` | `split` line without `depth` | TREE-11 | [x] |
 | `lf-top-plan` | the root split stored on the main branch | TREE-12 | [x] |
 | `lf-tiers` | elevated not capped | SIZE-1 | [ ] |
@@ -769,7 +769,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: switch to cloud-first while a node is `active` → its `request_merge` still runs the local-first gate; a new `start_branch` after the switch is not offered (tools inactive).
 - GREEN: `node.profile` stamped at `add`; mechanism reads it for that node's merges.
 
-#### LF4.T11a The merge target (TREE-7 a) `[ ] todo`
+#### LF4.T11a The merge target (TREE-7 a) `[x] done`
 - Files: `core/local/merge.ts`, `core/local/tree.ts`; test `lf-merge-target` (new) "TREE-7 target".
 - RED: fake git: a child node's `request_merge` resolves `target` = the parent node's branch and tip; the root → the main branch; a nodeless (legacy) branch → the main branch, its facts unchanged (`local-merge-*` green).
 - GREEN: `targetOf(node) = tree.parentBranch(node) ?? mainBranch`; `Facts` gains `target: {name, sha}` beside `main` (filled = `main` for nodeless branches).

@@ -280,7 +280,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
       const gated = (): { plans?: PlanStore } => (lfNode() ? activeSet(s, true) : act()).plans ? { plans } : {};
       register(requestMergeTool((signal) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,
         append: appendRef, tmp: redTmp, fixer: handle.fixer, log: (i) => d.log.merge(i), ...gated(),
-        exclusive, fixerGone, ...(signal && { signal }) }), () => ready), () => act().mergeGate || (!!d.nodes && openIn(d.nodes.tree.tree(), "local-first")));
+        exclusive, fixerGone, ...(d.nodes && { nodes: d.nodes }), ...(signal && { signal }) }), () => ready), () => act().mergeGate || (!!d.nodes && openIn(d.nodes.tree.tree(), "local-first")));
     }
     // plan_request and amend_plan (design §3.5.2, §3.5.4) while plans are active (D40); submit_plan is the plan author's child tool.
     if (x.plans) {
