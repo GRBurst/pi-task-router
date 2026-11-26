@@ -16,7 +16,7 @@ import type { Tickets } from "./local/overseer.ts";
 import { planSpawn } from "./pipeline.ts";
 import { profileFor, skillBlocks, skillNames } from "./profile.ts";
 import { pickMember } from "./select.ts";
-import { capToTable } from "./table.ts";
+import { NO_MEMBER, capToTable } from "./table.ts";
 import type { MemberState } from "./select.ts";
 import { cardRejection } from "./prompt.ts";
 import type { SkillPort } from "./profile.ts";
@@ -64,6 +64,9 @@ export type PolicyDeps = {
   /** E0's `cloud-only` arm (local-first MEAS-2): the session drew it at its start; absent = as used. */
   cloudOnly?: () => boolean;
 };
+
+/** The cause a cloud-only session (E0) gives for a refusal only its blank local members explain. */
+export const E0_OFF = "cloud-only session (E0): local members are off";
 
 const POLL_MS = 2000;
 /** A spawned or moved child holds its slot this long, listed or not (mi11). */
@@ -152,7 +155,7 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
   const cloud: PolicyDeps = { ...base, settings: { ...base.settings, models } };
   const reject = (errors: string[]) => ({ reject: errors.join("; ") });
   return async (args, caller: Caller) => {
-    const d = base.cloudOnly?.() ? cloud : base, s = d.settings;
+    const cloudOnly = base.cloudOnly?.() === true, d = cloudOnly ? cloud : base, s = d.settings;
     // D25 (design §3.2.2 step 3): the router's own spawn first, whatever routing and a force say; an unknown ticket is no card field.
     const t = d.tickets?.take((args.task as { ticket?: unknown } | undefined)?.ticket, args.name, caller.sessionId, d.now());
     if (t) {
@@ -177,8 +180,12 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     // A force (design §3.6.3, LD4): routed as usual for the counterfactual and the card's errors, without the explicit
     // arguments (the force replaces them), then run on the forced model; routing is on here (plan D12).
     const f = d.force?.active();
+    // A local member asked for by name in a cloud-only session: the cause is E0, not the settings (a force is the owner's override and skips this).
+    if (cloudOnly && !f && args.model !== undefined && byModel(base.settings.models, args.model)?.route === "local")
+      return reject([`model ${args.model} is not available: ${E0_OFF}`]);
     const sp = planSpawn(d, { taskId: args.name, card, verified: v, profile: prof.value, importance, model: f ? undefined : args.model, effort: f ? undefined : args.thinkingLevel });
-    if (!sp.ok) return reject(sp.errors);
+    // Its "blank or missing in the router settings" is untrue here: the blank members are E0's.
+    if (!sp.ok) return reject(cloudOnly ? sp.errors.map((e) => (e.startsWith(NO_MEMBER) ? `${e.split(" (")[0]} (${E0_OFF})` : e)) : sp.errors);
     const names = skillNames(prof.value, card);
     const blocks = names.length ? skillBlocks(names, d.skills() ?? { find: () => undefined, read: () => "" }) : { ok: true as const, value: "" };
     if (!blocks.ok) return reject(blocks.errors);

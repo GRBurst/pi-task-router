@@ -9,6 +9,7 @@ import { REASONS } from "../core/local/merge.ts";
 import { TRIGGERS } from "../core/local/plan.ts";
 import { PLAN_TYPE } from "../core/local/plans.ts";
 import { BRANCH_TYPE } from "../core/local/branches.ts";
+import { harness } from "./harness.ts";
 import { seeded } from "./rand.ts";
 import { textFree } from "./text-free.ts";
 
@@ -25,7 +26,7 @@ const LINES: Array<(rnd: Rnd) => Record<string, unknown>> = [
   (rnd) => sessionEvent({
     ...stray(rnd), now: NOW, sessionId: `s-${rnd(1e6).toString(16)}`, profile: one(rnd, ["cloud-first", "local-first", "local-mode"] as const),
     mainModel: one(rnd, ["anthropic/claude-opus-5-5", "local/qwen", "openrouter/qwen/free"]), startSet: rnd(2) === 1,
-    localMembers: one(rnd, ["on", "off"] as const), routerVersion: one(rnd, ["0.4.0", "0.5.0-rc.1"]),
+    ...(rnd(3) ? { localMembers: one(rnd, ["on", "off"] as const) } : {}), routerVersion: one(rnd, ["0.4.0", "0.5.0-rc.1"]),
   }),
 ];
 
@@ -60,22 +61,51 @@ const SNAPSHOT = {
   TRIGGERS: ["non-whitelisted", "interface-break", "regression", "over-budget", "remediation-failed"],
 };
 
+/** What each list must hold at least (they only grow: a later stage adds values, never takes one away). */
+const REQUIRED: Record<string, readonly string[]> = {
+  FALLBACKS: ["budget", "error"],
+  "session.profile": ["cloud-first", "local-first", "local-mode"],
+  "session.localMembers": ["on", "off"],
+};
+const lacking = (have: readonly (string | number)[], want: readonly string[]): string[] => want.filter((v) => !have.includes(v));
+
+/** The `session` lines the router itself writes, across the profiles and arms a session can start in. */
+function written(): Record<string, any>[] {
+  const ctx = { sessionManager: { getSessionId: () => "s-main" }, model: { provider: "anthropic", id: "claude-opus-5-5" } };
+  const runs: [Record<string, unknown>, boolean][] = [
+    [{ mode: "local" }, true], [{ experiments: { cloudOnlyShare: 1 } }, false], [{ experiments: { cloudOnlyShare: 0.1 } }, false],
+    [{ experiments: { cloudOnlyShare: 1 }, routing: false }, false],
+  ];
+  return runs.flatMap(([settings, apiExt]) => {
+    const h = harness({ settings: settings as never, apiExt });
+    h.f.fire("session_start", { reason: "startup" }, ctx);
+    return h.lines().filter((l) => l.event === "session");
+  });
+}
+
 test("LOG-4", () => {
   const now: Record<keyof typeof SNAPSHOT, readonly string[]> = { TRIPS, ROLES, REASONS, TRIGGERS };
   for (const [name, values] of Object.entries(SNAPSHOT))
     assert.deepEqual(values.filter((v) => !now[name as keyof typeof SNAPSHOT].includes(v)), [], `${name} lost values`);
   assert.deepEqual([PLAN_TYPE, BRANCH_TYPE], ["task-router/plan", "task-router/branch"]);
-  assert.deepEqual([...FALLBACKS], ["budget", "error"]);
-  assert.deepEqual([...ENUMS_V2["session.profile"]!], ["cloud-first", "local-first", "local-mode"]);
-  assert.deepEqual([...ENUMS_V2["session.localMembers"]!], ["on", "off"]);
-  // every builder's enumerated field holds a value of its ENUMS_V2 list
-  const rnd = seeded(403);
-  for (let i = 0; i < 200; i++)
-    for (const line of LINES) {
-      const l = line(rnd);
-      for (const [key, values] of Object.entries(ENUMS_V2)) {
-        const [event, field] = key.split(".") as [string, string];
-        if (l.event === event) assert.ok(values.includes(l[field] as string | number), `${key}: ${String(l[field])}`);
-      }
+  // the required members are included, not the whole list: a later stage may add values
+  assert.deepEqual(lacking(FALLBACKS, REQUIRED.FALLBACKS!), []);
+  for (const key of Object.keys(REQUIRED).filter((k) => k !== "FALLBACKS")) assert.deepEqual(lacking(ENUMS_V2[key] ?? [], REQUIRED[key]!), [], key);
+  assert.deepEqual(lacking(EVENTS_V2, ["session"]), []);
+  // the property: every enumerated field of a line the router really writes holds a value of its ENUMS_V2 list (the lists are
+  // not the generator), and the runs reach every value the lists name for the session (no vacuous pass)
+  const lines = written();
+  assert.ok(lines.length >= 4, "the runs wrote their session lines");
+  const seen = new Map<string, Set<string>>();
+  for (const l of lines)
+    for (const [key, values] of Object.entries(ENUMS_V2)) {
+      const [event, field] = key.split(".") as [string, string];
+      if (l.event !== event || !(field in l)) continue;
+      assert.ok(values.includes(l[field]), `${key}: ${String(l[field])}`);
+      seen.set(key, (seen.get(key) ?? new Set()).add(l[field]));
     }
+  assert.deepEqual(lacking([...(seen.get("session.localMembers") ?? [])], REQUIRED["session.localMembers"]!), []);
+  assert.deepEqual(lacking([...(seen.get("session.profile") ?? [])], ["cloud-first", "local-mode"]), []);
+  // a builder line outside the lists is caught (the plant: `localMembers: "other"`)
+  assert.ok(!ENUMS_V2["session.localMembers"]!.includes("other"));
 });

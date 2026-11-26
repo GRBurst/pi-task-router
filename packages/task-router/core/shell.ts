@@ -234,14 +234,20 @@ export function install(pi: PiLike, deps: Deps) {
     force.start(ctx, problems); // plan D8: its problem joins the one notification below
     lm.start(ctx); // the Opus budget (D30) before the status line shows it
     showStatus(ctx, ctx?.model);
-    // MEAS-1 (local-first spec §2.4): a session line in legacy local mode, and in cloud-first while E0 runs (G7: none at share 0).
-    const x = settings.experiments, e0runs = !isLocal(settings) && x.cloudOnlyShare > 0;
-    e0 = e0runs ? pick(["as-used", "cloud-only"], [1 - x.cloudOnlyShare, x.cloudOnlyShare], draw(x.seed, "E0", sessionId ?? "")) : "as-used";
-    if (isLocal(settings) || e0runs)
-      append(sessionEvent({ now: now(), sessionId: sessionId ?? "", profile: isLocal(settings) ? "local-mode" : "cloud-first",
-        mainModel: main ?? "", startSet: false, localMembers: e0 === "cloud-only" ? "off" : "on", routerVersion: ROUTER_VERSION }));
     const a = api();
     active = hasSubagentsApiV1(a);
+    // MEAS-1 (local-first spec §2.4): a session line in legacy local mode, and in cloud-first while E0 runs (G7: none at share 0).
+    // Only a main session with an id has one: a child inherits the root's arm and writes none, and an empty id would draw one
+    // arm for every such session. E0 (MEAS-2) is drawn only where routing can place a spawn and a cloud member can take it;
+    // outside it the line has no `localMembers`.
+    e0 = "as-used";
+    const x = settings.experiments, local = isLocal(settings);
+    if (sessionId && !isChild(ctx) && (local || x.cloudOnlyShare > 0)) {
+      const eligible = settings.routing && active && enabled(settings.models).some((m) => m.route !== "local");
+      if (!local && eligible) e0 = pick(["as-used", "cloud-only"], [1 - x.cloudOnlyShare, x.cloudOnlyShare], draw(x.seed, "E0", sessionId));
+      append(sessionEvent({ now: now(), sessionId, profile: local ? "local-mode" : "cloud-first", mainModel: main ?? "", startSet: false,
+        ...(local || eligible ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}), routerVersion: ROUTER_VERSION }));
+    }
     if (active) { connect(); registerVerdict(); }
     else warnOnce(ctx, "actor:task-router", actorMissing("task-router", "task-router routing is off (no task_verdict, no task_cards, no nudge); the effort guard and fresh-on-cold stay on"));
     // spot-check F5: at a reload the children listed (a pending record too) were placed by an earlier instance of this process; the

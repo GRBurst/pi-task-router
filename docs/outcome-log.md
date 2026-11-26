@@ -39,19 +39,24 @@ removed; a child joins its parent by `parentSessionId`. Nothing else in a
 cloud-first line changes. The other v2 additions are optional fields, new
 events and new values, which need no further bump:
 
-- the `session` event (below), one line per `session_start` in local mode,
-  and in a cloud-first session while E0 runs (`experiments.cloudOnlyShare`
-  above 0);
+- the `session` event (below), one line per `session_start` of a main
+  session (none from a child) in local mode, and in a cloud-first session
+  while E0 runs (`experiments.cloudOnlyShare` above 0);
 - the `merge` fields `base`, `target`, `repo` and `repoId`, which join a
   merge to a later revert;
 - the exports a reader takes its lists from instead of copying them:
   `EVENTS_V2` (the events v2 added), `ENUMS_V2` (`"<event>.<field>"` → the
-  field's values) and `FALLBACKS` (`review.fallback`), all in
+  field's values; only fields v2 added, the values of the v1 fields stay in
+  `TRIPS`, `ROLES`, `REASONS`, `TRIGGERS` and `FALLBACKS`, `review.fallback`), all in
   `packages/task-router/core/outcome.ts`, beside `TRIPS`, `ROLES`,
   `REASONS`, `TRIGGERS`, `PLAN_TYPE` and `BRANCH_TYPE`. They only grow.
 
 A reader keeps reading `v` ≤ 1 lines as before (with `arm`), and v2 lines
 without it.
+
+Consumer break (pi-economics, until its PE-1): `v: 2` on every line, spawn
+lines without `arm` and the new `session` event fail a reader that expects
+`v` 1, `arm` on a spawn and the v1 event set.
 
 ## Join keys
 
@@ -62,7 +67,12 @@ without it.
 - **Arm.** `arm` on a `v` ≤ 1 spawn is a copy, at write time, of the parent
   session's arm in pi-economics' experiments assignments; v2 has no `arm`.
 - **Session.** A `session` line's `taskId` is the main session's id; the
-  session's spawns join it by their `parentSessionId`.
+  session's spawns join it by their `parentSessionId`. Every `session_start`
+  of a session writes a line (a resume or a reload repeats it, with the same
+  `localMembers`, because the draw depends on the session id only): a reader
+  keeps the first line per `taskId`. A session whose lines disagree on
+  `localMembers` (its experiments settings changed across a resume, before
+  the arm is stored with the session) is left out of E0.
 
 ## Events
 
@@ -73,7 +83,7 @@ on `review` lines; the branch on `merge` lines; the main branch on `gatebypass` 
 | event | fields (required **bold**) | meaning |
 | --- | --- | --- |
 | `spawn` | **`kind`**, **`workerTier`** (`qwen` \| `haiku` \| `T1` \| `T2` \| …), **`workerEffort`**, `reviewTier`, `reviewEffort`, `cardHash`, `base`, `importance`, `reasons` (string[]), `arm`* (`v` ≤ 1), **`sessionId`** (child), **`parentSessionId`**, `attemptOf`, `assigned`† (`router` \| `random`), `routeBase`† (tier), `unresolved`† (`true`), `reviewOf`†, `ability`†, `level`† (int ≥ 0), `draft`† (`true`), `workerLevel`†, `reviewLevel`† (int ≥ 0), `workerMember`†, `workerModel`†, `startEffort`†, `waitMs`† (≥ 0), `forced`‡ (`true`), `forceSource`‡ (`command` \| `settings`), `routedModel`‡, `routedEffort`‡, `ticket`§ (`merge` \| `plan-author` \| `plan-review` \| `delta` \| `steer` \| `fixer`) | a routed (or unrouted) spawn; with `ticket`, the router's own child (§) |
-| `session` | **`profile`** (`cloud-first` \| `local-first` \| `local-mode`), **`mainModel`**, **`startSet`** (bool), **`localMembers`** (`on` \| `off`), **`routerVersion`** | v2: a main session started; `taskId` is its session id; `local-mode` = `mode: "local"`; `mainModel` is `provider/id` (`""` when unknown); `localMembers` is `off` in E0's cloud-only arm (no spawn of the session ran on a `route: "local"` member); `routerVersion` is the package's version |
+| `session` | **`profile`** (`cloud-first` \| `local-first` \| `local-mode`), **`mainModel`**, **`startSet`** (bool), **`localMembers`** (`on` \| `off`), **`routerVersion`** | v2: a main session started; `taskId` is its session id; `local-mode` = `mode: "local"`; `mainModel` is `provider/id` (`""` when unknown); `localMembers` is E0's arm: `off` = the router routed no spawn of the session to a `route: "local"` member (a forced spawn is excluded: it may run on one, and its `spawn` line has `forced`), `on` = it may; it is absent when the session is outside E0 (routing off, no enabled cloud member in the member table); `routerVersion` is the package's version |
 | `reroute` | **`from`**, **`to`**, `reason`, `fromModel`†, `toModel`† | provider fallback (rate limit, outage) |
 | `check` | **`exit`**, `durationMs` | the card's check ran after the child reported |
 | `corrective` | — | one corrective message to the child |
@@ -123,7 +133,9 @@ on `ability` (D7), so it exceeds the level of `from`/`fromModel` when the planne
 ‡ Optional, added with task-router's force override (local mode L2, no `v` bump); present only on a forced spawn.
 `forced` is `true`, `forceSource` says whether `/force` or the settings `force` applied, and `routedModel`/`routedEffort`
 are what routing would have chosen (the planned worker leg). `workerModel`/`startEffort` are the forced model and effort;
-a forced model outside the router's members has no `workerMember`. A `force` line has no task, and a `hint` line's
+a forced model outside the router's members has no `workerMember`. A force is the owner's override of the placement, also in an
+E0 cloud-only session (`session.localMembers` `off`), where it may name a local member: an analysis of E0 leaves `forced`
+spawns out. A `force` line has no task, and a `hint` line's
 `taskId` may be `"main"`: `pi-analyse` counts only the task events (`reroute`, `check`, `corrective`, `escalate`,
 `verdict`, `spotcheck`) as "task events without a spawn".
 
@@ -151,10 +163,11 @@ rejected `request_merge`, a main branch moved outside the gate, and a plan appro
 
 ## Examples: version 2
 
-A cloud-first session drawn into E0's cloud-only arm, and a merge with the
-fields a revert needs.
+A cloud-first session drawn into E0's cloud-only arm, one outside E0 (routing
+off: no `localMembers`), and a merge with the fields a revert needs.
 
 ```jsonl
 {"v":2,"ts":"2026-11-30T09:00:00.000Z","event":"session","taskId":"s-main","profile":"cloud-first","mainModel":"anthropic/claude-opus-5-5","startSet":false,"localMembers":"off","routerVersion":"0.3.0"}
+{"v":2,"ts":"2026-11-30T09:10:00.000Z","event":"session","taskId":"s-plain","profile":"cloud-first","mainModel":"anthropic/claude-opus-5-5","startSet":false,"routerVersion":"0.3.0"}
 {"v":2,"ts":"2026-11-30T09:30:00.000Z","event":"merge","taskId":"lm/parser","base":"0123abc","outcome":"merged","commit":"89abcde","nLines":42,"nFiles":2,"reviewId":"rv-9a8b7c6d","repo":"app","target":"main","repoId":"a1b2c3d4e5f6"}
 ```

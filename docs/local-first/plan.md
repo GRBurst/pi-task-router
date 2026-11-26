@@ -56,7 +56,7 @@ Shape of the diff:
 | D61 | Draw `u = ⌊H / 2^11⌋ / 2^53`, H = the first 64 bits of `sha256(seed‖0‖id‖0‖unit)` (the first 53 bits, exact in a double); the effective experiments settings are snapshot in `task-router/arms` at the session's first `session_start` | reproducible per unit, independent across factors, stable across resume, settings edits and code-default changes | `Math.random` (not reproducible); the experiments package (owner decision 2026-11-16); 64 bits (not exact as a double) |
 | D62 | `arms: string[]` of `"id=level"` on every line of a local-first session; in a cloud-first session only on its `session` line (E0); a line joins its session by `sessionId`/`parentSessionId` | `OutcomeEvent` has no nested objects; one field for every factor; additive; cloud-first lines other than `session` stay as v1 (NR-2) | a field per factor (schema churn per factor); `arms` on every cloud-first line (changes every line for E0 alone) |
 | D63 | Every factor ships disabled, at every release; the owner enables each in settings after E0 and E1 have data (§15.3's owner gate); concluding a factor = the owner sets one-hot weights; a later release may move its first level (orchestrator's call) | randomizing before a baseline exists pollutes the data; the owner sees E0/E1 first | r1: the release that completes a stage turns its factors on (no baseline, review M1) |
-| D64 | `experiments.cloudOnlyShare` defaults to 0.1 from R1, settable to 0 (orchestrator's call) | the cloud-only baseline accrues from day one; a session without a `route: "local"` member is unaffected (its cloud-only = as-used) | r1: 0 (E0 might never run before the levers randomize) |
+| D64 | `experiments.cloudOnlyShare` defaults to 0.1 from R1, settable to 0 (orchestrator's call; who is eligible: D93) | the cloud-only baseline accrues from day one; a session without a `route: "local"` member is unaffected (its cloud-only = as-used) | r1: 0 (E0 might never run before the levers randomize) |
 | D65 | The request node (level 0) is a branch off the main branch: `start_branch` with `estimate.kind = "plan"`; it merges into the main branch through today's gate; only that merge pushes and records the main-ref; a node→parent merge fast-forwards the parent in its worktree and never pushes; `behind`, size, red run and review diff take the target's tip as base (LF4.T11a–f; orchestrator's call, M3) | design §5.2 node = branch + worktree; partial work never reaches the main branch | root = the main branch (children's partial merges land on main) |
 | D66 | Split plan = canonical JSON `<plans.dir>/split/<node>.json` (spec §2.3), committed in the node's worktree by a path-limited commit (`git add <f>` + `git commit --only -m … -- <f>`; hooks run, a failing hook refuses the split with its output) | deterministic validation and diff; other changes in the worktree stay uncommitted; the worktree stays in sync with its branch | Markdown (prose parsing); plumbing + `update-ref` (moves a checked-out branch under its worktree's index, R20) |
 | D67 | Only the main starts children (`start_branch({parent, child})`); a package child's only extra tool is `submit_split` (depth < cap) | design §11.19; no nested sessions | children spawning children |
@@ -85,6 +85,7 @@ Shape of the diff:
 | D90 | Ungated local output (CON-8 ii) = children placed local by kind (PRO-10 b, `meta.ungated`), never package children; the artifact = the child's final report as delivered to the main (X44); the shadow reviewer gets the brief, the report and read-only tools | defines the unit and the payload | sampling package children (their gate already reviews them) |
 | D91 | quota-wait contract (QW-1) is router-proposed: events on `pi.events` channel `quota-wait:v1` (design §5.6's `quota-wait:*`), detection and the current waits through `globalThis.__quotaWait_v1 = {version: 1, waits()}` | reconciles the design and the draft; the router needs no subscribe API | two subscription paths |
 | D92 | `core/strategy/local-first.ts` (the composition) is a shared file: a lane adds its parts there only in one wiring task, serialised with the other lanes (§15.1) | parallel lanes do not collide on it | each part task edits it |
+| D93 | Who is in E0 and what `localMembers` says (LF1 review M1, M2; orchestrator's call): (a) E0 is drawn only in a main session with an id (no child, no empty id) while routing is on (`routing` and the actor's spawn-policy API) and the member table has at least one enabled cloud member (`route` other than `local`); any other session writes its `session` line without `localMembers` and draws nothing; (b) a `/force` (command or settings) onto a local member in a cloud-only session is allowed, the owner's override: its spawn line carries `forced: true` and analysis excludes forced spawns; (c) `localMembers: off` = the router routed no spawn of the session to a local member (forced spawns excluded); (d) a cloud-only session that is asked for a local model by name, or whose plan only a local member could meet, is refused with the cause "cloud-only session (E0): local members are off" | an explicit `model`, a force and `routing: false` bypass the router's placement, so the arm cannot claim them; a table of local members only would lose every delegation in a drawn session (the default share is 0.1) | draw E0 whatever the table (a local-only table loses all delegation in 10 % of sessions); forbid a force in a cloud-only session (it removes the owner's override); keep "no spawn ran on a local member" (false for a force) |
 
 ## 4. Where design and code disagree (verify before the task)
 
@@ -185,7 +186,7 @@ field of another event (per-event input types); the API 3 copy differing from pi
 |---|---|---|---|---|---|---|---|
 | NR-1 | every task (KG-R) | NR-2 | LF1.T1a, T2 | NR-3 | LF1.T1 | NR-4 | every task |
 | NR-5 | LF10.T2 | NR-6 | LF3.T1 | NR-7 | every task to LF18 | RET-1 | LF19.T1–T7 |
-| MEAS-1 | LF1.T5 | MEAS-2 | LF1.T9, LF2.T7 | RND-1 | LF2.T1 | RND-2 | LF1.T8 |
+| MEAS-1 | LF1.T5 | MEAS-2 | LF1.T9, T9a, LF2.T7, LF3.T5 (the `/profile` switch) | RND-1 | LF2.T1 | RND-2 | LF1.T8 |
 | RND-3 | LF2.T3 | RND-4 | LF2.T2 | RND-5 | LF2.T5 | RND-6 | LF2.T6 |
 | RND-7 | LF18.T6 | RND-8 | LF1.T2 | PRO-1 | LF3.T2 | PRO-2 | LF3.T5 |
 | PRO-3 | LF3.T3 | PRO-4 | LF3.T6 | PRO-5 | LF3.T6 | PRO-6 | LF4.T10 |
@@ -219,7 +220,8 @@ factors with `enabled` by settings.
 | Check (test file) | Plant | Must FAIL | Seen |
 |---|---|---|---|
 | `lf-default` NR-3 | a comment-free `globalThis.__piExperimentsApi_v1` read left in `shell.ts` | the source scan | [x] |
-| `lf-default` NR-2 | `spawnEvent` keeps `arm` | "NR-2 cloud-first lines" | [x] |
+| `outcome` RND-8 | `spawnEvent` keeps `arm` (after LF1.T1 no caller passes one, so NR-2 "cloud-first lines" cannot see it) | "RND-8 v2" | [x] |
+| `lf-default` NR-2 | the shell writes a second `session` line at share 0.1 | "NR-2 the session line is the only new line" | [x] |
 | `lf-outcome` | a builder copies `goal` text into a field | LOG-3 text-free | [x] |
 | `lf-session-log` | write `session` in cloud-first with share 0 | MEAS-1 | [x] |
 | `lf-merge-log` | `repoId` from `HEAD` instead of the root commit | LOG-1 | [x] |
@@ -227,6 +229,12 @@ factors with `enabled` by settings.
 | `lf-arms` RND-3 | `id` dropped from the hash input | the joint-frequency property | [ ] |
 | `lf-arms-shell` RND-5 | draw from live settings instead of the snapshot | the resume property | [ ] |
 | `lf-e0` | cloud-only arm keeps `route: "local"` members | MEAS-2 | [x] |
+| `lf-e0` | the force looks its member up in the cloud-only view | "MEAS-2 force" | [x] |
+| `lf-e0` | E0 drawn with routing off, with no cloud member, or with the explicit local model's old refusal text | "MEAS-2 routing off", "MEAS-2 eligibility", "MEAS-2 refusals" | [x] |
+| `lf-e0` (LF3.T5) | a `/profile` switch redraws or drops the `cloud-only` arm | "MEAS-2 profile switch" | [ ] |
+| `lf-arms` RND-2 | the hash shifts 10 bits, not 11 | "RND-2 known answers" | [x] |
+| `lf-outcome` | the shell writes `localMembers: "other"` | LOG-4 | [x] |
+| `lf-session-log` | the draw uses `Math.random` | "MEAS-1 resume" | [x] |
 | `lf-seams` NR-6 | `core/local/merge.ts` imports `core/strategy/tiers.ts` | the import scan | [ ] |
 | `lf-settings` PRO-1 | `mode: "local"` overrides `profile` | PRO-1 | [ ] |
 | `lf-profile` | restore takes the first entry | PRO-3 | [ ] |
@@ -526,7 +534,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 #### LF1.T0 Provider hooks on both transports (X33, X45) `[x] done`
 - Files: `checks/pi-hooks/default.nix` (new), `checks/pi-hooks/probe.mjs` (new: a probe extension and a fake HTTP server on `localhost`); third file `checks/default.nix` (one registration line).
 - Why first: LF9.T3 (headers), LF10.T5 (the main held in the local queue) and PS-1's `beforeRequest` (the actor's mirror of pi's hook) rely on it.
-- RED: the check runs pi 1.4 offline (`pi -p`, as `checks/pi-package/`) against the fake server twice, `openai-completions` (the llama transport) and `anthropic-messages` (base URL overridden); the probe's `before_provider_request` holds 300 ms and sets `x_probe: 1` in the payload; `after_provider_response` records `status` and the fixture header `anthropic-ratelimit-unified-5h-utilization`; assertions: (i) the server receives the request ≥ 300 ms after the hook started (awaited), (ii) the body has `x_probe: 1` (rewritten), (iii) the probe saw the status and the header, (iv) `ctx.signal` is an `AbortSignal` inside the hook. Seen red with the plant (§11).
+- RED: the check runs pi 1.4 offline (`pi -p`, as `checks/pi-package/`) against the fake server twice, `openai-completions` (the llama transport) and `anthropic-messages` (base URL overridden); the probe's `before_provider_request` holds 300 ms and sets `x_probe: 1` in the payload; `after_provider_response` records `status` and the fixture header `anthropic-ratelimit-unified-5h-utilization`; assertions: (i) the server receives the request ≥ 200 ms after the hook started (awaited; the hook holds 300 ms, so the margin is 100 ms: LF1 review), (ii) the body has `x_probe: 1` (rewritten), (iii) the probe saw the status and the header, (iv) `ctx.signal` is an `AbortSignal` inside the hook. Seen red with the plant (§11).
 - GREEN: none in the router (a verification check). A failed (i)–(iii) on a transport → stop and report (R16); X33 records the result for both transports.
 - Keep green: KG-P.
 
@@ -591,11 +599,17 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: import fails; then: equal draws for equal inputs (property, 1 000 random triples), `pick` frequencies over 20 000 units within ±2 % of weights (1:1, 1:1:1, 9:1).
 - GREEN: S32 `draw`, `pick`.
 
-#### LF1.T9 E0 cloud-only arm (MEAS-2) `[x] done`
+#### LF1.T9 E0 cloud-only arm (MEAS-2) `[x] done, but one RED case moved to LF3.T5 (the `/profile` switch; `/profile` does not exist before LF3); the review fixes are LF1.T9a`
 - Files: `core/policy.ts`, `core/shell.ts`; test `lf-e0` (new).
-- RED: cloud-first session with share 1 → no spawn placed on a `route: "local"` member (property over random cards from `rand.ts`), `session.localMembers = "off"`; share 0 → no draw, routing = today; a `/profile local-first` switch keeps a cloud-only draw (no local member in that session, MEAS-2); `router-golden` green with the default share (E0 lives in the session, never in `planSpawn`'s defaults).
+- RED: cloud-first session with share 1 → no spawn placed on a `route: "local"` member (property over random cards from `rand.ts`), `session.localMembers = "off"`; share 0 → no draw, routing = today; a `/profile local-first` switch keeps a cloud-only draw (no local member in that session, MEAS-2; moved to LF3.T5); `router-golden` green with the default share (E0 lives in the session, never in `planSpawn`'s defaults).
 - GREEN: at `session_start`, `E0 = pick([as-used, cloud-only], [1-s, s], draw(seed, "E0", sessionId))`; the policy filters `route === "local"` members when `cloud-only`.
 - Keep green: `router-golden` (NR-1).
+
+#### LF1.T9a E0's eligibility, forces and refusals; review minors (LF1 review M1–M3, D93) `[x] done`
+- Files: `core/shell.ts`, `core/policy.ts`, `core/table.ts`, `core/settings.ts`, `core/outcome.ts`; tests `lf-e0`, `lf-session-log`, `lf-settings`, `lf-default`, `lf-arms`, `lf-outcome`; `checks/pi-hooks`; the docs of LF1.T10.
+- RED: a force onto a local member in a cloud-only session runs, its line says `forced` and the member (a pin); `routing: false`, no actor API, a table with no enabled cloud member, a child session and an empty session id draw nothing and write no `localMembers`; an explicit local model and a level only a local member reaches are refused naming "cloud-only session (E0): local members are off"; `experiments: null` (and a non-string `seed`, a non-object `factors`) is a settings problem, not a throw; NR-2 at the real share 0.1 (`[session, …v1 lines with v: 2]`); RND-2 known answers; LOG-4 as subsets over the lines the router writes.
+- GREEN: the eligibility in `session_start`; `localMembers?` on `sessionEvent`; the refusal causes in `createPolicy`; the settings checks; the pi-hooks threshold (200 ms against a 300 ms hold).
+- Docs: spec MEAS-1, MEAS-2, §2.4, §2.8; `docs/outcome-log.md` (`localMembers`, the forced exclusion, the dedup of session lines, `ENUMS_V2`'s scope, the v2 consumer break); `docs/task-router.md` (E0, the failure table).
 
 #### LF1.T10 Docs: outcome log v2 `[x] done`
 - Files: `docs/outcome-log.md`, `docs/task-router.md`.
@@ -636,7 +650,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 
 #### LF2.T7 E0 through the registry `[ ] todo`
 - Files: `core/shell.ts`; test `lf-e0` "E0 via registry".
-- RED: E0's level from `assign(snap, "E0", sid)` equals LF1.T9's draw for 1 000 session ids; `arms` holds `E0=…` while share > 0.
+- RED: E0's level from `assign(snap, "E0", sid)` equals LF1.T9's draw for 1 000 session ids; `arms` holds `E0=…` while share > 0 in an eligible session (D93).
 - GREEN: replace the inline pick by `assign` (E0's weights = `[1-s, s]`).
 
 #### LF2.T8 Docs `[ ] todo`
@@ -676,6 +690,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - Files: `core/profile.ts`, `core/shell.ts`; test `lf-profile` "PRO-2".
 - RED: `fake-pi` command call `local-first` (with `localFirst.experimental`) → one entry `by: "command"`, one `profile` line, status `local-first`; without it → the PRO-9 notice, no entry; `bogus` → usage text, no entry; none → the current profile.
 - GREEN: `pi.registerCommand("profile", …)` in the guarded body; the status line from `profile.current()`.
+- Also (MEAS-2, deferred from LF1.T9; test `lf-e0` "MEAS-2 profile switch"): RED: a session that drew `cloud-only` at its `session_start`, then `/profile local-first` (with `localFirst.experimental`) and a spawn → no spawn placed on a `route: "local"` member, no new draw and no second `session` line from the switch; a session drawn `as-used` stays as-used the same way. GREEN: the draw stays in the shell for the session; only `session_start` redraws.
 
 #### LF3.T6 The local start model (PRO-4, PRO-5) `[ ] todo`
 - Files: `core/profile.ts`, `core/shell.ts`; test `lf-start-model` (new).

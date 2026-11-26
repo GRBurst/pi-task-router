@@ -1,5 +1,6 @@
-// Experiment flags (spec §5.6, R10). The settings the experiments factors can switch are read live through
-// `flag(name, ownValue)`; everything else is the router's own setting. Booleans are "on" / "off".
+// Flagged settings (spec §5.6, R10): `routing`, `verifyGate`, `autoEscalate`, `freshOnCold` and the delegation rule are read through
+// `flag(name, ownValue)`. Since local-first NR-3 the router reads no experiments package: the shell passes an identity
+// resolver, so each is the router's own setting. Booleans are "on" / "off".
 import type { RouterSettings } from "./types.ts";
 
 export type Flag = (name: string, own: string) => string;

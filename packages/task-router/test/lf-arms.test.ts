@@ -7,6 +7,23 @@ import { seeded } from "./rand.ts";
 
 const word = (rnd: (n: number) => number): string => Array.from({ length: 1 + rnd(12) }, () => "ab-_0Z\u00e9 \u0000"[rnd(9)]).join("");
 
+/** Known answers, computed outside the code under test: `printf '%s\0%s\0%s' seed id unit | sha256sum`, the first 16 hex digits
+ *  as a 64-bit integer, shifted right by 11, over 2^53 (D61). They pin the hash input (separator, order, UTF-8) and the scale,
+ *  so an arm drawn today is the arm a resumed session draws after an upgrade. */
+const KNOWN: [string, string, string, number][] = [
+  ["task-router", "E0", "s-main", 0.0924791663625033],
+  ["task-router", "E0", "s-1", 0.31711324480614644],
+  ["abc", "F1", "unit-7", 0.24065039388980214],
+  ["se", "id", "\u00e9", 0.9017311676405272],
+  ["", "", "", 0.5884184134528798],
+];
+
+test("RND-2 known answers", () => {
+  for (const [s, id, unit, u] of KNOWN) assert.equal(draw(s, id, unit), u, JSON.stringify([s, id, unit]));
+  // the E0 draw of the first session in the plan's examples is as-used at the default share
+  assert.equal(pick(["as-used", "cloud-only"], [0.9, 0.1], draw("task-router", "E0", "s-main")), "as-used");
+});
+
 test("RND-2", () => {
   const rnd = seeded(802);
   for (let i = 0; i < 1000; i++) {

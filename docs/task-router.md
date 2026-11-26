@@ -703,6 +703,7 @@ verdict slot.
 | a setting is invalid | reported once at `session_start` (`<path>: <why>; default kept`); `plans = "on"` without both `worktrees` and `mergeGate` is `plans: needs worktrees and mergeGate; off` |
 | `force.model` cannot be resolved | reported at `session_start`; the settings force stays inactive |
 | a forced spawn cannot run | rejected; the text names the force and how to end it (above) |
+| an explicit `model` naming a local member, or a card whose level only a local member reaches, in an E0 cloud-only session | rejected with the cause: `model <m> is not available: cloud-only session (E0): local members are off`, or `no enabled member reaches <ability> level <n> (cloud-only session (E0): local members are off)`; not the settings' "not an enabled member" or "blank or missing" (a force is not refused: it is the owner's override) |
 | no spawn API (`spawnPolicyApi` < 2) in local mode | one warning at `session_start` ("task-router: local mode needs actor-subagents with spawnPolicyApi ≥ 2; merges are refused and plans are unavailable"); `request_merge` fails closed (`review-unavailable`), `plan_request` answers `author-unavailable`, steer falls back to the escalation; the git guard still blocks |
 | an overseer's member and its fallback are blocked, capped, down or full | the review does not run: `request_merge` and `amend_plan` answer `error` `review-unavailable`, `plan_request` `author-unavailable` (the detail names each cause); a fixer does not start (`revise`) |
 | an agent the router's policy did not place takes a ticket | killed with a warning; the attempt is an `error`, neither charged nor retried |
@@ -733,13 +734,24 @@ could set `routing`, `verifyGate`, `autoEscalate`, `freshOnCold` and
 deterministically from the seed and the session id
 (`packages/task-router/core/strategy/draw.ts`): `cloud-only` with
 probability `cloudOnlyShare`, else `as-used`. In a `cloud-only` session
-no spawn is placed on a `route: "local"` member: the plan, the selection
-and the failover see those members as blank (`model = ""`); a force is no
-routing and keeps its member. An `as-used` session routes as before. Either
-way the session writes a `session` line (`localMembers` `"off"` or
-`"on"`); with the share at 0 nothing is drawn and no `session` line is
-written. Local mode is not part of E0: it writes its `session` line with
-`profile: "local-mode"` and never draws.
+the router routes no spawn to a `route: "local"` member: the plan, the
+selection and the failover see those members as blank (`model = ""`). A
+force is the owner's override and keeps its member (`/force` or the settings
+force may name a local one: its `spawn` line has `forced: true`, and an
+analysis of E0 leaves forced spawns out). An explicit `model` that names a
+local member is refused ("cloud-only session (E0): local members are off"),
+and so is a card whose level only a local member reaches. An `as-used`
+session routes as before. Either way the session writes a `session` line
+(`localMembers` `"off"` or `"on"`); with the share at 0 nothing is drawn
+and no `session` line is written.
+
+A session is in E0 only when it is a main session with an id, routing is on
+(`routing`, and the actor's spawn-policy API is there) and the member table
+has at least one enabled cloud member (a `route` other than `local`; a
+table of local members only has no cloud-only arm). Any other session draws
+nothing and writes its `session` line without `localMembers`; a child
+session that loads the router writes none. Local mode is not part of E0: it
+writes its `session` line with `profile: "local-mode"` and never draws.
 
 ## Scout gate, dependencies and checks
 

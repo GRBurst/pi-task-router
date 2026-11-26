@@ -390,10 +390,23 @@ function validate(s: Settings, base: Settings, problems: string[], raw: Record<s
     s.contextFit = base2.contextFit as number;
     problems.push("contextFit: must be a number from 0 to 1; default kept");
   }
+  // `merge` lets a null or an array through for an object key, so the experiments are checked here, key by key (spec §2.1).
   const ex = isObj(raw.experiments) ? raw.experiments : {};
+  if ("experiments" in raw && !isObj(raw.experiments)) {
+    s.experiments = structuredClone(base.experiments);
+    problems.push("experiments: must be an object; default kept");
+  }
+  if ("seed" in ex && typeof ex.seed !== "string") {
+    s.experiments.seed = base.experiments.seed;
+    problems.push("experiments.seed: must be a string; default kept");
+  }
   if ("cloudOnlyShare" in ex && !(typeof ex.cloudOnlyShare === "number" && ex.cloudOnlyShare >= 0 && ex.cloudOnlyShare <= 1)) {
     s.experiments.cloudOnlyShare = base.experiments.cloudOnlyShare;
     problems.push("experiments.cloudOnlyShare: must be a number from 0 to 1; default kept");
+  }
+  if ("factors" in ex && !isObj(ex.factors)) {
+    s.experiments.factors = structuredClone(base.experiments.factors);
+    problems.push("experiments.factors: must be an object; default kept");
   }
   validatePlanning(s, base, problems, raw);
   validateLocal(s, base, problems);

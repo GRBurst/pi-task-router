@@ -114,7 +114,7 @@ has its consumer-contract task in pi-economics (§2.7).
 |---|---|
 | every line of a local-first session | `arms: string[]` — the enabled factors' levels of the line's unit and its session, `"<id>=<level>"`, sorted; in a cloud-first session only the `session` line carries `arms` (E0) |
 | `spawn` | `arm` removed |
-| `session` (new) | `taskId = sessionId`; `profile: cloud-first \| local-first \| local-mode` (`local-mode` = the legacy `mode: "local"` until its retirement), `mainModel`, `startSet: boolean`, `localMembers: "on" \| "off"`, `routerVersion` |
+| `session` (new) | `taskId = sessionId`; `profile: cloud-first \| local-first \| local-mode` (`local-mode` = the legacy `mode: "local"` until its retirement), `mainModel`, `startSet: boolean`, `localMembers?: "on" \| "off"` (E0's arm; absent in a session outside E0, §2.8), `routerVersion`; one line per main session start, none from a child |
 | `profile` (new) | `from`, `to`, `by: "settings" \| "command"` |
 | `node` (new) | `taskId = node`; `parent`, `depth`, `kind: leaf \| plan \| integration \| fix`, `fanout`, `outcome: started \| split \| merged \| blocked \| abandoned`, `tier`, `class?`, `profile` |
 | `split` (new) | `node`, `reason: estimate \| breaker \| check \| choice \| review` (`review` = a plan-review amendment), `children`, `depth`, `planLines` |
@@ -230,11 +230,13 @@ unit), big-endian) / 2^53` (exact in a JavaScript number), with the session's ex
 Every factor is disabled by default in every release; no release enables one in code. The owner enables a
 factor in settings once E0 and E1 have data (plan §15.3). `From` = the first release whose mechanism runs the
 factor; enabling it earlier is a settings problem and keeps the default. E0 is not switched by `enabled`: it
-runs while `cloudOnlyShare > 0` (default 0.1).
+runs while `cloudOnlyShare > 0` (default 0.1), in a main session with an id whose routing is on (`routing`, and the
+actor's spawn-policy API) and whose member table has at least one enabled cloud member (a `route` other than
+`local`); any other session is outside E0: no draw, no `localMembers` on its `session` line (plan D93).
 
 | Id | Unit (its id) | Levels (default first) | From |
 |---|---|---|---|
-| E0 | session (sessionId), cloud-first only | `as-used`, `cloud-only` (weight = `cloudOnlyShare`) | 0.3.0 |
+| E0 | session (sessionId), cloud-first only, eligible (§2.8) | `as-used`, `cloud-only` (weight = `cloudOnlyShare`) | 0.3.0 |
 | E2 | session | `standard`, `small`, `large` | 0.4.0 |
 | E3 | review (review id), standard tier | `opus`, `sonnet` | 0.4.0 |
 | E12 | package child (node id + attempt) | `xhigh`, `medium` | 0.5.0 |
@@ -278,8 +280,8 @@ design's review points (CON-3), E10 `2` its leaf rounds.
 
 | REQ | Requirement | Acceptance | Check |
 |---|---|---|---|
-| MEAS-1 | `session` line at every local-first (and legacy local-mode) `session_start`, and at every cloud-first one while `cloudOnlyShare > 0` | fields of §2.4; no `session` line in a cloud-first session with `cloudOnlyShare = 0` (G7) | `test/lf-session-log.test.ts › "MEAS-1"` |
-| MEAS-2 | E0 cloud-only reference | `E0=cloud-only` → no spawn of that session is placed on a `route: "local"` member (property over random cards) and `localMembers = "off"`; share 0 → no draw; a `/profile local-first` switch keeps a `cloud-only` draw (no local member in that session) | `test/lf-e0.test.ts › "MEAS-2"` |
+| MEAS-1 | `session` line at every local-first (and legacy local-mode) `session_start` of a main session, and at every cloud-first one while `cloudOnlyShare > 0` | fields of §2.4; no `session` line in a cloud-first session with `cloudOnlyShare = 0` (G7), none from a child session, none without a session id | `test/lf-session-log.test.ts › "MEAS-1"` |
+| MEAS-2 | E0 cloud-only reference | `E0=cloud-only` → the router routes no spawn of that session to a `route: "local"` member (property over random cards) and `localMembers = "off"` (defined so: forced spawns are excluded); a `/force` onto a local member is the owner's override and runs, its spawn line carries `forced: true` and analysis excludes forced spawns; an explicit local `model` is refused with the cause ("cloud-only session (E0): local members are off"); share 0 → no draw; `routing: false`, no spawn-policy API, a table without an enabled cloud member, a child session or no session id → no draw and no `localMembers`; a `/profile local-first` switch keeps a `cloud-only` draw (no local member in that session; tested from LF3.T5, where `/profile` exists) | `test/lf-e0.test.ts › "MEAS-2"`, `"MEAS-2 force"`, `"MEAS-2 routing off"`, `"MEAS-2 eligibility"`, `"MEAS-2 refusals"`; LF3: `/profile` case |
 | RND-1 | Registry = §2.8 | `FACTORS` deep-equals the table (literal); `Record<FactorId, …>` tables type-check | `test/lf-arms.test.ts › "RND-1"`; `typecheck-task-router` |
 | RND-2 | Deterministic draw | ∀ seed, id, unit: `draw` twice → equal; frequencies over 20 000 units within ±2 % of the weights | `test/lf-arms.test.ts › "RND-2"` |
 | RND-3 | Independent factors | joint frequencies of two factors over 20 000 units within ±2 % of the product of the marginals | `test/lf-arms.test.ts › "RND-3"` |

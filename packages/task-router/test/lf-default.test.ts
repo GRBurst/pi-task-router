@@ -4,6 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
+import { defaults } from "../core/settings.ts";
 import { accepted, card, harness } from "./harness.ts";
 
 const FIXTURE = new URL("./fixtures/v1-lines.jsonl", import.meta.url);
@@ -20,12 +21,12 @@ const now = (l: Record<string, unknown>): Record<string, unknown> => {
 };
 
 /** The v1 session; the experiments stub stays in place: the router no longer reads it (NR-3, LF1.T1). */
-export async function v1Session(): Promise<Record<string, unknown>[]> {
+export async function v1Session(share?: number): Promise<Record<string, unknown>[]> {
   const g = globalThis as { __piExperimentsApi_v1?: unknown };
   g.__piExperimentsApi_v1 = { version: 1, flag: (_n: string, d: string) => d, armFor: (s: string) => (s === "s-main" ? { id: ARM } : undefined) };
   try {
-    const h = harness({ settings: { spotCheck: { enabled: true, share: 1 } }, extra: { rng: () => 0 } });
-    h.f.fire("session_start", {}, {});
+    const h = harness({ settings: { spotCheck: { enabled: true, share: 1 }, ...(share === undefined ? {} : { experiments: { cloudOnlyShare: share } }) } as never, extra: { rng: () => 0 } });
+    h.f.fire("session_start", {}, share === undefined ? {} : { sessionManager: { getSessionId: () => "s-main" }, model: { provider: "anthropic", id: "claude-opus-5-5" } });
     accepted(await h.a.spawn({ name: "q1", task: card() }));
     h.a.emit({ type: "spawn", name: "q1", by: "main", parent: "main", childSessionId: "s-q1", ts: 1 });
     await h.f.callTool("task_verdict", { name: "q1", verdict: "accepted", note: "fine" }); // verdict + spotcheck
@@ -61,6 +62,16 @@ test("NR-2 v1 capture", async () => {
 test("NR-2 cloud-first lines", async () => {
   // v2 (RND-8): the same lines, with `v: 2` and without the retired `arm`.
   assert.deepEqual(await v1Session(), fixture().map((l) => ({ ...now(l), v: 2 })));
+});
+
+test("NR-2 the session line is the only new line, at the real default share", async () => {
+  const share = defaults().experiments.cloudOnlyShare;
+  assert.equal(share, 0.1);
+  const version: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+  // draw("task-router", "E0", "s-main") ≈ 0.09 < 0.9: the session is drawn as-used, so every spawn is placed as before
+  const session = { v: 2, ts: "2026-10-02T12:00:00.000Z", event: "session", taskId: "s-main", profile: "cloud-first",
+    mainModel: "anthropic/claude-opus-5-5", startSet: false, localMembers: "on", routerVersion: version };
+  assert.deepEqual(await v1Session(share), [session, ...fixture().map((l) => ({ ...now(l), v: 2 }))]);
 });
 
 /** Source text without comments (a comment may name what the router no longer reads). */

@@ -22,10 +22,12 @@ export function capToTable(s: RouterSettings, p: Profile): RouterSettings {
   return { ...s, models };
 }
 
+/** What every rejection of a requirement or worker leg no enabled member meets starts with (the policy names E0 after it). */
+export const NO_MEMBER = "no enabled member ";
 /** The rejection of a requirement or worker leg no enabled member meets (review G2 M1; the tier pipeline's `NotConfigured`). */
 export const beyondTop = (a: string, l: number, T: number | undefined): string => T === undefined
-  ? `no enabled member has ability ${a} (its members are blank or missing in the router settings)`
-  : `no enabled member reaches ${a} level ${l} (the top of ${a} is ${T}; a member above it is blank or missing in the router settings)`;
+  ? `${NO_MEMBER}has ability ${a} (its members are blank or missing in the router settings)`
+  : `${NO_MEMBER}reaches ${a} level ${l} (the top of ${a} is ${T}; a member above it is blank or missing in the router settings)`;
 
 /** `need`: the files' tokens, for the read-only rule's planned member (its first context candidate, T3.1). `error`: the
  *  worker leg lies above top(a) and the spawn is rejected; a review leg there is lowered to top(a) (review G2 M1). */

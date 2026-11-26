@@ -152,9 +152,10 @@ export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = 
   "session.localMembers": LOCAL_MEMBERS,
 };
 export type SessionInput = { now: Date; sessionId: string; profile: (typeof PROFILES)[number]; mainModel: string; startSet: boolean;
-  localMembers: (typeof LOCAL_MEMBERS)[number]; routerVersion: string };
+  localMembers?: (typeof LOCAL_MEMBERS)[number]; routerVersion: string };
 /** A session's start (MEAS-1): `taskId` is the session id; the profile, the main's model, whether a start set was
- *  configured, whether local members may run, the router's version. */
+ *  configured, the router's version; `localMembers` (E0's arm): `off` = the router routed no spawn of the session to a local
+ *  member (forced spawns excluded), `on` = it may; absent = the session is outside E0 (routing off, or no cloud member). */
 export const sessionEvent = (i: SessionInput) =>
   finish({ ...base("session", i.now, i.sessionId), profile: i.profile, mainModel: i.mainModel, startSet: i.startSet,
     localMembers: i.localMembers, routerVersion: i.routerVersion });
