@@ -1,0 +1,62 @@
+// The work tree (local-first design §5.2; plan S35, spec TREE-3): nodes are branches with worktrees; the request node is
+// level 0, a split's children are one level below. The tree is a pure fold of tree ops, so the session's `task-router/tree`
+// entries replay to the live tree (S36). Pure: no I/O.
+import type { ContactKind, LadderStep, NodeKind, RoutingProfile } from "../strategy/types.ts";
+
+/** A package's size estimate (spec §2.3). */
+export type Estimate = { lines: number; kind: "code" | "plan" | "inert" };
+/** One package of a split plan (spec §2.3); `forbidden`: globs the package must not touch. */
+export type SplitChild = { slug: string; goal: string; files: string[]; estimate: Estimate; check: string; forbidden?: string[] };
+/** A node's split plan (spec §2.3; its file adds `v` and `node`). */
+export type SplitPlan = { summary: string; children: SplitChild[] };
+export type NodeState = "active" | "split" | "merged" | "blocked" | "abandoned";
+/** A node: `id` = the request's slug at level 0, `<parent>.<slug>` below (a dot never occurs in a slug, so ids, branches and
+ *  worktrees of different nodes never collide); `profile`: the routing profile it was started in (PRO-6); `started`/`merged`:
+ *  the slugs of its split's children that started and merged; `contacts`: counts per contact kind (absent = 0). */
+export interface Node {
+  id: string; parent?: string; depth: number; kind: NodeKind; branch: string; worktree: string; base: string; profile: RoutingProfile;
+  estimate: Estimate; state: NodeState; split?: SplitPlan; started: string[]; merged: string[];
+  contacts: Partial<Record<ContactKind, number>>; ladder: LadderStep[]; effort: "xhigh" | "medium";
+}
+export type TreeOp =
+  | { op: "add"; node: Node } | { op: "state"; node: string; state: NodeState }
+  | { op: "split"; node: string; plan: SplitPlan } | { op: "contact"; node: string; kind: ContactKind }
+  | { op: "ladder"; node: string; step: LadderStep } | { op: "fit"; node: string; child: SplitChild };
+export type Tree = { readonly nodes: Readonly<Record<string, Node>> };
+export const EMPTY_TREE: Tree = { nodes: {} };
+
+/** The slug of a child node within its parent's split (the request node: its id). */
+export const slugOf = (n: Pick<Node, "id" | "parent">): string => (n.parent === undefined ? n.id : n.id.slice(n.parent.length + 1));
+const put = (t: Tree, ...ns: Node[]): Tree => ({ nodes: { ...t.nodes, ...Object.fromEntries(ns.map((n) => [n.id, n])) } });
+const add = (xs: readonly string[], x: string): string[] => (xs.includes(x) ? [...xs] : [...xs, x]);
+
+/** One op: the new tree, or the tree unchanged and the problem (an unknown node, a second add of an id, a fit without a split). */
+export function step(t: Tree, o: TreeOp): { tree: Tree; problem?: string } {
+  const keep = (problem: string) => ({ tree: t, problem });
+  if (o.op === "add") {
+    const n = structuredClone(o.node), p = n.parent === undefined ? undefined : t.nodes[n.parent];
+    if (Object.hasOwn(t.nodes, n.id)) return keep(`tree: node ${n.id} exists`);
+    if (n.parent !== undefined && !p) return keep(`tree: unknown parent ${n.parent} of ${n.id}`);
+    return { tree: p ? put(t, n, { ...p, started: add(p.started, slugOf(n)) }) : put(t, n) };
+  }
+  const n = Object.hasOwn(t.nodes, o.node) ? t.nodes[o.node]! : undefined;
+  if (!n) return keep(`tree: unknown node ${o.node} (${o.op})`);
+  switch (o.op) {
+    case "state": {
+      const p = o.state === "merged" && n.parent !== undefined ? t.nodes[n.parent] : undefined;
+      const next = { ...n, state: o.state };
+      return { tree: p ? put(t, next, { ...p, merged: add(p.merged, slugOf(n)) }) : put(t, next) };
+    }
+    case "split": return { tree: put(t, { ...n, state: "split", split: structuredClone(o.plan) }) };
+    case "contact": return { tree: put(t, { ...n, contacts: { ...n.contacts, [o.kind]: (n.contacts[o.kind] ?? 0) + 1 } }) };
+    case "ladder": return { tree: put(t, { ...n, ladder: [...n.ladder, o.step] }) };
+    case "fit": {
+      if (!n.split) return keep(`tree: node ${n.id} has no split to add ${o.child.slug} to`);
+      return { tree: put(t, { ...n, split: { ...n.split, children: [...n.split.children, structuredClone(o.child)] } }) };
+    }
+    default: { const _: never = o; return keep(`tree: unknown op ${JSON.stringify(_)}`); }
+  }
+}
+/** Pure: an unknown node leaves the tree unchanged (its problem: `step`). */
+export const apply = (t: Tree, o: TreeOp): Tree => step(t, o).tree;
+export const replay = (ops: readonly TreeOp[]): Tree => ops.reduce(apply, EMPTY_TREE);

@@ -719,7 +719,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 
 ### LF4 — Packages, nodes and the tree (design §5.2; gaps 4, 5, 18)
 
-#### LF4.T1 Tree model and replay (TREE-3 a) `[ ] todo`
+#### LF4.T1 Tree model and replay (TREE-3 a) `[x] done`
 - Files: `core/local/tree.ts` (new); test `lf-tree` (new) "TREE-3 replay".
 - RED: property: for random op sequences, `replay(ops)` = folding `apply`; an op on an unknown node leaves the tree unchanged with one problem.
 - GREEN: S35 types, `apply`, `replay`.
