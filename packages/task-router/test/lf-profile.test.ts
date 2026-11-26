@@ -4,10 +4,13 @@
 // carry `arms` (RND-6, the log's `armed()` port).
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { fakeGit } from "./fake-git.ts";
 import { harness } from "./harness.ts";
 import { seeded } from "./rand.ts";
 import { PROFILE_TYPE, createRoutingProfile } from "../core/profile.ts";
 import { parseSettings } from "../core/settings.ts";
+import { cardSection, localSection } from "../core/prompt.ts";
+import { activeSet } from "../core/local/mode.ts";
 
 const PROFILES = ["cloud-first", "local-first"] as const;
 const SETTINGS: [Record<string, unknown>, string][] = [
@@ -122,4 +125,51 @@ test("PRO-9", async () => {
   await s.run("local-first");
   assert.deepEqual(s.notes.at(-1), ["profile local-first is experimental before 0.5.0; set localFirst.experimental", "warning"]);
   assert.deepEqual([s.entries(), s.lines(), s.h.router.profile.current()], [[], [], "cloud-first"]);
+});
+
+// LF3.T7 (spec §2.2, PRO-7, S34a): the section, the local tools and the local hooks follow the session's profile. A cloud-first
+// default registers the tools at its first switch to local-first (once); back in cloud-first they leave the active set (pi
+// cannot unregister a tool) and the hooks of the local install stand still. The legacy local mode keeps its install-time set.
+const LOCAL_TOOLS = ["amend_plan", "plan_request", "request_merge", "start_branch"];
+function rig7(id: string, raw: Record<string, unknown>) {
+  const g = fakeGit({ repos: [{ root: "/r/x" }] });
+  const h = harness({ extra: { settings: parseSettings({ experiments: { cloudOnlyShare: 0 }, ...raw }, "0.4.0").settings, git: g.git } as never });
+  const c = { hasUI: true, cwd: "/r/x", ui: { notify: () => {}, setStatus: () => {} },
+    sessionManager: { getSessionId: () => id, getBranch: () => h.f.entries.map((e) => ({ type: "custom", customType: e.type, data: e.data })) } };
+  h.f.fire("session_start", { reason: "startup" }, c);
+  const run = (args: string) => h.f.commands.get("profile")!.handler(args, c);
+  const tools = () => LOCAL_TOOLS.filter((t) => h.f.tools.has(t)), active = () => LOCAL_TOOLS.filter((t) => h.f.active.has(t));
+  const section = (): unknown => {
+    const sections: Record<string, string> = { task_cards: "-" };
+    h.f.fire("before_agent_start", { systemPromptOptions: { sections, skills: [] } }, c);
+    return sections.task_cards;
+  };
+  /** The main git guard's blocks of a commit on main (a hook of the local install). */
+  const blocks = async () => (await Promise.all(h.f.fire("tool_call", { toolName: "bash", toolCallId: `t${Math.random()}`, input: { command: "git commit -qm x" } }, c)))
+    .filter((x) => x !== undefined).length;
+  return { h, run, tools, active, section, blocks };
+}
+
+test("PRO-7", async () => {
+  const s = rig7("s-p7", { localFirst: { experimental: true } });
+  const cards = cardSection(s.h.router.settings, s.h.router.settings.delegation.rule === "on");
+  assert.deepEqual([s.tools(), s.section(), await s.blocks()], [[], cards, 0], "cloud-first: no local tools, the card section");
+  await s.run("local-first");
+  assert.deepEqual([s.tools(), s.active(), await s.blocks()], [LOCAL_TOOLS, LOCAL_TOOLS, 1], "the first switch registers and activates");
+  assert.notEqual(s.section(), cards);
+  const hooks = s.h.f.hookNames();
+  await s.run("cloud-first");
+  assert.deepEqual([s.tools(), s.active(), s.section(), await s.blocks()], [LOCAL_TOOLS, [], cards, 0], "back: inactive, the card section");
+  assert.ok(s.h.f.activeSets.length > 0, "through setActiveTools");
+  await s.run("local-first");
+  assert.deepEqual([s.active(), await s.blocks()], [LOCAL_TOOLS, 1]);
+  assert.deepEqual(s.h.f.registered.filter((n) => LOCAL_TOOLS.includes(n)).sort(), LOCAL_TOOLS, "registered once");
+  assert.deepEqual(s.h.f.hookNames(), hooks, "hooks registered once");
+});
+
+test("PRO-7 legacy local mode: the install-time tools and section, no setActiveTools", async () => {
+  const s = rig7("s-p7l", { mode: "local" });
+  assert.deepEqual([s.tools(), s.active(), s.h.f.activeSets], [LOCAL_TOOLS, LOCAL_TOOLS, []]);
+  assert.equal(s.section(), localSection(s.h.router.settings, activeSet(s.h.router.settings)));
+  assert.equal(await s.blocks(), 1);
 });

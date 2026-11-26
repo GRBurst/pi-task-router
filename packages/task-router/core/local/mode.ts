@@ -5,9 +5,10 @@ import type { Budget } from "./overseer.ts";
 export const LOCAL_COMPONENTS = ["hints", "worktrees", "mergeGate", "plans"] as const;
 export type LocalComponent = (typeof LOCAL_COMPONENTS)[number];
 export const isLocal = (s: RouterSettings): boolean => s.mode === "local";
-/** "on" anywhere, "auto" in local mode only (design §2.1). */
-export const componentOn = (s: RouterSettings, c: LocalComponent): boolean =>
-  s[c].enabled === "on" || (s[c].enabled === "auto" && isLocal(s));
+/** "on" anywhere, "auto" in a local session only (design §2.1): `local` = the legacy local mode, or the session's profile
+ *  (local-first PRO-7). */
+export const componentOn = (s: RouterSettings, c: LocalComponent, local = isLocal(s)): boolean =>
+  s[c].enabled === "on" || (s[c].enabled === "auto" && local);
 /** The status line `task-router` (design §2.5, OQ12): "local", or "local (main: <model>)" when the main runs on no local member;
  *  an active force adds its description (`force`, design §3.6.3), alone in default mode (plan Q4).
  *  undefined = leave the status line alone (default mode, no force). `hint`: the trip of the last hint until the next progress
@@ -29,7 +30,7 @@ export function opusLeft(s: RouterSettings, b: Budget): number | undefined {
 /** The components whose prompt lines and tools are present (design §2.3, plan S25). */
 export type Active = { worktrees: boolean; mergeGate: boolean; plans: boolean };
 /** Plan D40: `worktrees` and `mergeGate` by their switches (`mergeGate` does not need `worktrees`); `plans` needs both. */
-export const activeSet = (s: RouterSettings): Active => {
-  const worktrees = componentOn(s, "worktrees"), mergeGate = componentOn(s, "mergeGate");
-  return { worktrees, mergeGate, plans: componentOn(s, "plans") && worktrees && mergeGate };
+export const activeSet = (s: RouterSettings, local = isLocal(s)): Active => {
+  const worktrees = componentOn(s, "worktrees", local), mergeGate = componentOn(s, "mergeGate", local);
+  return { worktrees, mergeGate, plans: componentOn(s, "plans", local) && worktrees && mergeGate };
 };

@@ -19,6 +19,7 @@ import type { Git } from "./git.ts";
 import { block, createHintEngine } from "./hints.ts";
 import type { Delivery } from "./hints.ts";
 import { activeSet, componentOn, isLocal } from "./mode.ts";
+import type { Active, LocalComponent } from "./mode.ts";
 import { gitGuard } from "./childguards.ts";
 import { composeGuards, type Guard, type SyncGuard } from "../toolguard.ts";
 import { createPlanStore } from "./plans.ts";
@@ -65,6 +66,8 @@ export type LocalDeps = {
   detect?: typeof callTrips;
   /** The status suffix (plan Q5): the trip of the last hint, undefined at the next progress. */
   onTrip?(trip: Trip | undefined): void;
+  /** The session is local (PRO-7): the legacy local mode, or local-first; the components' "auto" follows it. Default: the mode. */
+  local?(): boolean;
 };
 
 const WRITERS = new Set(["edit", "write"]);
@@ -81,6 +84,9 @@ const textOf = (content: unknown): string =>
  *  branches from the session branch (the shell's session_start). The hints are a no-op unless on (`hints.enabled`: "on", or "auto"
  *  in local mode); `start_branch` is registered when worktrees are on. */
 export function installLocal(pi: Pi, d: LocalDeps) {
+  const local = (): boolean => d.local?.() ?? isLocal(d.settings);
+  /** The components on in the session's profile now (PRO-7). */
+  const act = (): Active => activeSet(d.settings, local());
   const budget: Budget = { opusUsed: 0, steerUsed: 0 };
   /** The main session's cwd, the main checkout (LD14; L6 may take L5's repository root instead). */
   let base: string | undefined;
@@ -144,7 +150,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
    *  session_start). Never in a child session that loads the router: its copy cannot register a policy while main's is (the actor takes
    *  one), so `policyOn()` is false there; `isChild` is the second guard and holds only once the child is listed (spot-check F4). A
    *  restored fixer is review F4's (`stale`). Branches and worktrees stay. */
-  const reaping = (): boolean => isLocal(d.settings) && d.settings.routing && d.placed !== undefined && d.policyOn() && !d.isChild(mainCtx);
+  const reaping = (): boolean => local() && d.settings.routing && d.placed !== undefined && d.policyOn() && !d.isChild(mainCtx);
   const killRestored = (names: readonly string[]): void => {
     const xs = names.filter((n) => n !== "main" && !d.placed?.(n) && !stale.has(n));
     if (!xs.length) return;
@@ -188,7 +194,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
       })().catch(() => undefined);
       // Review F2: the main tips' baseline is read now (a repository without a record is recorded silently), so a move in the
       // session's first bash call is a bypass.
-      if (activeSet(d.settings).mergeGate) void checkRefs();
+      if (act().mergeGate) void checkRefs();
     },
     /** After `start` and the policy's registration (the shell's session_start): the routed children the actor restored before
      *  this session_start are killed (L8, `killRestored`); `reason`: the event's, nothing at a reload. Total. */
@@ -209,7 +215,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
         if (e.type === "pause" || e.type === "resume") killStale(e.names);
         if (e.type === "spawn" || e.type === "turn") killStale([e.name]);
         if (e.type === "spawn" && reaping()) killRestored([e.name]);
-        if (e.type === "turn" && activeSet(d.settings).mergeGate) { void checkRefs(); return; }
+        if (e.type === "turn" && act().mergeGate) { void checkRefs(); return; }
         const name = e.type === "route" ? (e.to === "main" ? e.from : undefined) : e.type === "kill" || e.type === "error" ? e.name : undefined;
         if (name === undefined) return;
         const fixer = ours(name);
@@ -227,47 +233,56 @@ export function installLocal(pi: Pi, d: LocalDeps) {
       } catch { /* an event handler never throws */ }
     },
     gitGuard: (cwd: string): Guard | undefined =>
-      activeSet(d.settings).mergeGate ? gitGuard(d.settings.mergeGate.mainBranches, (dir) => git.branchOf(dir), cwd) : undefined,
+      act().mergeGate ? gitGuard(d.settings.mergeGate.mainBranches, (dir) => git.branchOf(dir), cwd) : undefined,
     /** The plan guard for a session in `cwd` (design §3.5.6) while plans are active, else undefined. */
     planGuard: (cwd: string): SyncGuard | undefined =>
-      activeSet(d.settings).plans ? (tool, input) => planGuard({ tool, input, cwd, files: planFiles(), read: readText }) : undefined,
+      act().plans ? (tool, input) => planGuard({ tool, input, cwd, files: planFiles(), read: readText }) : undefined,
     /** The whitelist guard for a session in `cwd` (design §3.5.5, AC-P7) while plans are active, else undefined. */
-    whitelistGuard: (cwd: string): SyncGuard | undefined => activeSet(d.settings).plans
+    whitelistGuard: (cwd: string): SyncGuard | undefined => act().plans
       ? (tool, input) => whitelistGuard({ tool, input, cwd, branches: branches.all(), planFile: (slug) => plans.get(slug)?.file,
         open: (slug, task) => plans.open(slug, "non-whitelisted", task) })
       : undefined,
     /** A routed child's (and the fixer's) local guards in order: git, then the plan and whitelist guards. */
     childGuard: (cwd: string): Guard | undefined => composeGuards(handle.gitGuard(cwd), handle.planGuard(cwd), handle.whitelistGuard(cwd)),
+    /** PRO-7: registers the tools and hooks of the components on now that are not yet (the shell, in a local-first session). */
+    attach: (): void => attach(),
+    /** The tools registered so far, each with whether its component is on in the session's profile now (PRO-7). */
+    tools: (): { name: string; on: boolean }[] => owned.map((t) => ({ name: t.name, on: t.live() })),
   };
   const s = d.settings, h = s.hints;
-  // The plan store goes to start_branch and request_merge only while plans are active (design §3.3.2, §3.4.2).
-  const planned = activeSet(s).plans ? { plans } : {};
-  // Review F2: a repository start_branch registers gets its baseline before the tool returns.
-  if (componentOn(s, "worktrees")) {
-    pi.registerTool?.(startBranchTool({ git, store: branches, settings: s, ...planned }, () => ready,
-      activeSet(s).mergeGate ? () => checkRefs() : undefined));
-  }
+  /** PRO-7: each hook of a component runs only while the component is on in the session's profile. */
+  const on = (c: LocalComponent): boolean => componentOn(s, c, local());
+  const gated = (live: () => boolean) => (name: string, f: (e: any, ctx: any) => unknown): void => pi.on(name, (e, ctx) => (live() ? f(e, ctx) : undefined));
+  const owned: { name: string; live(): boolean }[] = [];
+  const register = (tool: RouterTool, live: () => boolean): void => { pi.registerTool?.(tool); owned.push({ name: tool.name, live }); };
   const appendRef = (type: string, data: unknown): void => { pi.appendEntry?.(type, data); refs.observe(type, data); };
   const redTmp = (): string => join(tmpdir(), `task-router-red-${d.hex(6)}`);
-  // request_merge (design §3.4.1) while the merge gate is active; one set of ports per call, with its AbortSignal (D49).
-  if (activeSet(s).mergeGate) {
-    pi.registerTool?.(requestMergeTool((signal) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,
-      append: appendRef, tmp: redTmp, fixer: handle.fixer, log: (i) => d.log.merge(i), ...planned,
-      exclusive, fixerGone, ...(signal && { signal }) }), () => ready));
-  }
-  // plan_request and amend_plan (design §3.5.2, §3.5.4) while plans are active (D40); submit_plan is the plan author's child tool.
-  if (activeSet(s).plans) {
-    const planPorts = (signal: AbortSignal | undefined): PlanPorts => ({ git, run: d.run ?? runCheck, overseer, branches, plans, settings: s,
-      append: appendRef, tmp: redTmp, log: (i) => d.log.plan(i), exclusive, ...(signal && { signal }) });
-    pi.registerTool?.(planRequestTool(planPorts, () => ready));
-    pi.registerTool?.(amendPlanTool(planPorts, () => ready));
-  }
+  /** The tools of the components `x` (design §3.3–§3.5) under the active set `a`. */
+  const registerTools = (a: Active, x: Active): void => {
+    // The plan store goes to start_branch and request_merge only while plans are active (design §3.3.2, §3.4.2).
+    const planned = a.plans ? { plans } : {};
+    // Review F2: a repository start_branch registers gets its baseline before the tool returns.
+    if (x.worktrees) register(startBranchTool({ git, store: branches, settings: s, ...planned }, () => ready,
+      a.mergeGate ? () => checkRefs() : undefined), () => act().worktrees);
+    // request_merge (design §3.4.1) while the merge gate is active; one set of ports per call, with its AbortSignal (D49).
+    if (x.mergeGate) {
+      register(requestMergeTool((signal) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,
+        append: appendRef, tmp: redTmp, fixer: handle.fixer, log: (i) => d.log.merge(i), ...planned,
+        exclusive, fixerGone, ...(signal && { signal }) }), () => ready), () => act().mergeGate);
+    }
+    // plan_request and amend_plan (design §3.5.2, §3.5.4) while plans are active (D40); submit_plan is the plan author's child tool.
+    if (x.plans) {
+      const planPorts = (signal: AbortSignal | undefined): PlanPorts => ({ git, run: d.run ?? runCheck, overseer, branches, plans, settings: s,
+        append: appendRef, tmp: redTmp, log: (i) => d.log.plan(i), exclusive, ...(signal && { signal }) });
+      register(planRequestTool(planPorts, () => ready), () => act().plans);
+      register(amendPlanTool(planPorts, () => ready), () => act().plans);
+    }
+  };
   // The main-checkout write guard (design §3.3.3). It blocks on purpose, so it is total itself: pi treats a throwing handler as a
   // block. Registered after the hint recorder's `tool_call` handler, so that call is recorded first.
   const guardWrites = (): void => {
-    if (!componentOn(s, "worktrees")) return;
     let blocked = 0;
-    pi.on("tool_call", (e, ctx) => {
+    gated(() => on("worktrees"))("tool_call", (e, ctx) => {
       try {
         if (d.isChild(ctx)) return undefined;
         const tool = String(e?.toolName), active = branches.active();
@@ -286,9 +301,8 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   // The main session's git guard (design §3.4.5): `bash` and `powershell` calls that write a main branch are blocked. It fails
   // closed for git only (LD8): a handler that throws on a command with a git token blocks it.
   const guardMain = (): void => {
-    if (!activeSet(s).mergeGate) return;
     const verdict = (why: string | undefined) => (why === undefined ? undefined : { block: true, reason: why });
-    pi.on("tool_call", (e, ctx) => {
+    gated(() => act().mergeGate)("tool_call", (e, ctx) => {
       let child = false;
       try { child = d.isChild(ctx); } catch { /* the main session's */ }
       if (child) return undefined;
@@ -301,10 +315,10 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   // the count past it opens over-budget (§3.5.5). The counts live for the session. Review L7 F8: once the trigger a count opened
   // is closed (an amendment answered it), that branch counts afresh.
   const guardPlans = (): void => {
-    if (!activeSet(s).plans) return;
+    const live = (): boolean => act().plans;
     const turns = new Map<string, { n: number; trigger?: string }>();
     let touched: BranchRecord | undefined;
-    pi.on("tool_call", (e, ctx) => {
+    gated(live)("tool_call", (e, ctx) => {
       try {
         if (d.isChild(ctx)) return undefined;
         const cwd = ctx?.cwd ?? process.cwd(), tool = String(e?.toolName), a = branches.active();
@@ -313,7 +327,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
         return why === undefined ? undefined : { block: true, reason: why };
       } catch { return undefined; }
     });
-    pi.on("turn_end", (_e, ctx) => {
+    gated(live)("turn_end", (_e, ctx) => {
       try {
         if (d.isChild(ctx)) return;
         const t = touched;
@@ -330,8 +344,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   // Bypass detection (design §3.4.6): every main `bash` result starts a read of the refs (a child's turn too, in onEvent); a
   // main tool result delivers the hints found before it. Total: a failure adds nothing.
   const watchMain = (): void => {
-    if (!activeSet(s).mergeGate) return;
-    pi.on("tool_result", (e, ctx) => {
+    gated(() => act().mergeGate)("tool_result", (e, ctx) => {
       try {
         if (d.isChild(ctx) || nested(e)) return undefined;
         mainCtx = ctx;
@@ -343,7 +356,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
       } catch { return undefined; }
     });
   };
-  if (!componentOn(s, "hints")) { guardWrites(); guardMain(); guardPlans(); watchMain(); return handle; }
+  // The hint engine (design §3.1): its state is built here; `attach` registers its hooks while the component is on.
   // A persistent trip runs a steer overseer instead of the escalation block while one can run (design §3.1.2, AC-H4).
   const steer = createSteer({ settings: s, overseer, git,
     branch: () => { const a = branches.active(); return a && { worktree: a.worktree, base: a.base, goal: a.goal, check: a.check }; },
@@ -383,7 +396,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     armed = r.armed;
     return r.fire ? ["context-soft"] : [];
   };
-  pi.on("tool_call", (e, ctx) => {
+  const recordCall = (e: any, ctx: any): undefined => {
     safe(() => {
       if (d.isChild(ctx) || typeof e?.toolCallId !== "string" || nested(e)) return;
       const tool = String(e.toolName), isWrite = WRITERS.has(tool), p = e.input?.path;
@@ -392,8 +405,8 @@ export function installLocal(pi: Pi, d: LocalDeps) {
         cmd: cmdOf(tool, e.input), norm: normOf(tool, e.input) });
     });
     return undefined;
-  });
-  pi.on("tool_result", (e, ctx) => safe(() => {
+  };
+  const hintResult = (e: any, ctx: any) => safe(() => {
     if (d.isChild(ctx) || nested(e)) return undefined;
     const rec = pending.get(e?.toolCallId);
     pending.delete(e?.toolCallId);
@@ -434,12 +447,8 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     d.onTrip?.(out[out.length - 1].trip);
     if (!blocks.length) return undefined;
     return { content: [...(Array.isArray(e.content) ? e.content : []), ...blocks.map((text) => ({ type: "text", text }))] };
-  }));
-  guardWrites();
-  guardMain();
-  guardPlans();
-  watchMain();
-  pi.on("turn_end", (_e, ctx) => {
+  });
+  const hintTurn = (_e: any, ctx: any): undefined => {
     safe(() => {
       if (d.isChild(ctx)) return;
       turn += 1;
@@ -450,7 +459,23 @@ export function installLocal(pi: Pi, d: LocalDeps) {
       if (trips.length) queue.push(...engine.detected(trips, call));
     });
     return undefined;
-  });
+  };
+  /** PRO-7: registers, once each, the tools and hooks of the components on now: at install, and when a session turns local-first
+   *  (the shell). The hint recorder's `tool_call` comes before the guards', so a blocked call is recorded first. */
+  const attached = new Set<LocalComponent>();
+  const attach = (): void => {
+    const a = act(), take = (c: LocalComponent, live: boolean): boolean => live && !attached.has(c) && attached.add(c).has(c);
+    const x: Active = { worktrees: take("worktrees", a.worktrees), mergeGate: take("mergeGate", a.mergeGate), plans: take("plans", a.plans) };
+    const hints = take("hints", on("hints")), hk = gated(() => on("hints"));
+    registerTools(a, x);
+    if (hints) { hk("tool_call", recordCall); hk("tool_result", hintResult); }
+    if (x.worktrees) guardWrites();
+    if (x.mergeGate) guardMain();
+    if (x.plans) guardPlans();
+    if (x.mergeGate) watchMain();
+    if (hints) hk("turn_end", hintTurn);
+  };
+  attach();
   return handle;
 }
 

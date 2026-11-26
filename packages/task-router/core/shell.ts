@@ -58,6 +58,9 @@ export type PiLike = NudgePi & ForcePi & {
   setThinkingLevel?(level: ThinkingLevel): void;
   /** pi's `setModel`: false without credentials (PRO-4). */
   setModel?(model: unknown): Promise<boolean>;
+  /** pi's active tool set (PRO-7, S34a). */
+  getActiveTools?(): string[];
+  setActiveTools?(names: string[]): void;
 };
 export type Deps = {
   agentDir: string; now?: () => Date; settings?: Settings;
@@ -267,6 +270,7 @@ export function install(pi: PiLike, deps: Deps) {
     if (!Array.isArray(branch)) branch = [];
     // PRO-3 (spec §2.2): the last profile entry, else the settings; the first local-first start records the settings' choice.
     if (!profile.restore(branch) && sid && profile.current() === "local-first") profile.set("local-first", "settings");
+    ensureLocalTools();
     force.start(ctx, problems); // plan D8: its problem joins the one notification below
     lm.start(ctx); // the Opus budget (D30) before the status line shows it
     showStatus(ctx, ctx?.model);
@@ -323,6 +327,7 @@ export function install(pi: PiLike, deps: Deps) {
     handler: profileCommand(profile, { gate: () => localFirstGate(settings), switched: (from, to, ctx) => {
       track(ctx);
       append({ ...profileEvent({ now: now(), sessionId: sessionId ?? "", from, to, by: "command" }), ...(armed() ? { arms: sessionArms() } : {}) });
+      ensureLocalTools();
       ui = ctx?.ui ?? ui;
       render();
     } }) });
@@ -340,7 +345,21 @@ export function install(pi: PiLike, deps: Deps) {
   // The overseer (design §3.2) lives here too: its spawn line comes from `onEvent` (D26), its events from its own subscription.
   const lm = installLocal(pi, { settings, log, isChild, sessionId: () => sessionId, hash: deps.hash, detect: deps.detect, git: deps.git, onTrip: (t) => { hint = t; render(); },
     api, tickets, hex, now: nowMs, sleep: pd.sleep, onBudget: render, force: force.port, run: deps.run, policyOn: () => off.length > 0,
-    placed: (n) => placed.has(n) });
+    placed: (n) => placed.has(n), local: () => profile.current() !== "cloud-first" });
+  // PRO-7 (S34a): a local session registers the local tools and hooks it lacks (a cloud-first default: at its first switch to
+  // local-first); the tools whose component the profile turns off leave the active set (pi cannot unregister a tool) and come
+  // back with it. Nothing changes while the set stays (the legacy local mode, a cloud-first session).
+  let idle: string[] = [];
+  const ensureLocalTools = (): void => {
+    if (profile.current() !== "cloud-first") lm.attach();
+    const ts = lm.tools(), out = ts.filter((t) => !t.on).map((t) => t.name);
+    if (out.join() === idle.join()) return;
+    idle = out;
+    try {
+      const keep = (pi.getActiveTools?.() ?? []).filter((n) => !out.includes(n));
+      pi.setActiveTools?.([...new Set([...keep, ...ts.filter((t) => t.on).map((t) => t.name)])]);
+    } catch { /* the active set is best effort */ }
+  };
   pi.on("before_agent_start", (e, ctx) => {
     track(ctx);
     skills = e.systemPromptOptions?.skills ?? skills;
@@ -350,8 +369,9 @@ export function install(pi: PiLike, deps: Deps) {
     // The rule is the main session's: a child shares its settings, so `delegation.rule` reads "on" there too.
     // Local mode (design §2.3, LD3): the main gets the local section and never the rule, whatever the settings say; a child that
     // loads the router anyway keeps today's section without the rule (plan D5).
-    const local = isLocal(settings), child = isChild(ctx);
-    if (settings.routing) sections.task_cards = local && !child ? localSection(settings, activeSet(settings)) : cardSection(settings, !local && settings.delegation.rule === "on" && !child);
+    // PRO-7: the section follows the session's profile (cloud-first: the card section).
+    const cloud = profile.current() === "cloud-first", child = isChild(ctx);
+    if (settings.routing) sections.task_cards = !cloud && !child ? localSection(settings, activeSet(settings, true)) : cardSection(settings, cloud && settings.delegation.rule === "on" && !child);
     else delete sections.task_cards;
   });
 

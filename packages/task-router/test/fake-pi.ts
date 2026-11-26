@@ -12,17 +12,24 @@ export function fakePi() {
   const thinking = { level: "high", sets: [] as string[] };
   const commands = new Map<string, Command>();
   const entries: Array<{ type: string; data: unknown }> = [];
+  // pi activates a tool at its registration; `setActiveTools` keeps the registered names it is given (PRO-7).
+  const active = new Set<string>(), registered: string[] = [], activeSets: string[][] = [];
   return {
     thinking,
     sent,
     commands,
     entries,
+    active,
+    registered,
+    activeSets,
     pi: {
       getThinkingLevel: () => thinking.level as ThinkingLevel,
       setThinkingLevel(l: string) { thinking.level = l; thinking.sets.push(l); },
       on(name: string, h: Handler) { handlers.set(name, [...(handlers.get(name) ?? []), h]); },
       sendMessage(msg: any, opts: any) { sent.push({ msg, opts }); },
-      registerTool(t: Tool) { tools.set(t.name, t); },
+      registerTool(t: Tool) { tools.set(t.name, t); registered.push(t.name); active.add(t.name); },
+      getActiveTools: (): string[] => [...active],
+      setActiveTools(names: string[]) { activeSets.push([...names]); active.clear(); for (const n of names) if (tools.has(n)) active.add(n); },
       registerCommand(name: string, c: Command) { commands.set(name, c); },
       appendEntry(type: string, data: unknown) { entries.push({ type, data }); },
       events: { on(name: string, h: (d: any) => void) { bus.set(name, [...(bus.get(name) ?? []), h]); } },

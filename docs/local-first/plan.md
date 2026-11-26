@@ -698,7 +698,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: three cases (no choice → `setModel(startMember's model)` and `setThinkingLevel("xhigh")` (LOC-2 main); a model flag → neither; a resumed session with a model → neither); PRO-5 property: random event sequences → ≤ 1 `setModel`, only inside `session_start`. The design's "`/model` before the start hook" is not observable (X43): no case.
 - GREEN: `startModel(ctx, settings)`; the model via `ctx.modelRegistry.find` (as `forceinstall.ts:22–29`); not found → one notice, pi-setup's default stays; the thinking level is set only together with the start model.
 
-#### LF3.T7 Per-session section and tools (PRO-7) `[ ] todo`
+#### LF3.T7 Per-session section and tools (PRO-7) `[x] done`
 - Files: `core/shell.ts`, `core/local/install.ts`; test `lf-profile` "PRO-7".
 - RED: cloud-first default → `/profile local-first` registers the local tools once and activates them; back to cloud-first → `setActiveTools` without them, section = `cardSection`; legacy local mode unchanged (`local-shell` green).
 - GREEN: `ensureLocalTools()`; `before_agent_start` chooses the section by `profile.current()`; the hooks of `installLocal` gate on the session's profile (`"local-first"` or `"local-mode"`).
