@@ -764,7 +764,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: the main's `split({node: root, …})` validates, commits on the root's branch (not the main branch), writes op `split`, one `split` line (`reason: "choice"`), node state `split`.
 - GREEN: tool registration in the local-first tool set (S34a).
 
-#### LF4.T10 Nodes keep their profile (PRO-6) `[ ] todo`
+#### LF4.T10 Nodes keep their profile (PRO-6) `[x] done`
 - Files: `core/local/tree.ts`, `core/local/install.ts`; test `lf-profile` "PRO-6".
 - RED: switch to cloud-first while a node is `active` → its `request_merge` still runs the local-first gate; a new `start_branch` after the switch is not offered (tools inactive).
 - GREEN: `node.profile` stamped at `add`; mechanism reads it for that node's merges.

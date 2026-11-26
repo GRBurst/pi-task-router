@@ -14,6 +14,7 @@ import { BRANCH_TYPE, createBranchStore } from "./branches.ts";
 import type { BranchRecord } from "./branches.ts";
 import { startBranchTool } from "./branchtool.ts";
 import { splitTool } from "./splittool.ts";
+import { nodeOfBranch, openIn } from "./tree.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { createGit, gitRunner } from "./git.ts";
 import type { Git } from "./git.ts";
@@ -272,10 +273,14 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     const nodes = d.nodes;
     if (x.worktrees && nodes) register(splitTool({ git, branches, settings: s, nodes }, () => ready), () => act().worktrees && nodes.localFirst());
     // request_merge (design §3.4.1) while the merge gate is active; one set of ports per call, with its AbortSignal (D49).
+    // PRO-6: a node merges under the profile it started in, so an open local-first node keeps request_merge and its gate after
+    // a switch to cloud-first
     if (x.mergeGate) {
+      const lfNode = (): boolean => !!d.nodes && nodeOfBranch(d.nodes.tree.tree(), branches.active()?.branch ?? "")?.profile === "local-first";
+      const gated = (): { plans?: PlanStore } => (lfNode() ? activeSet(s, true) : act()).plans ? { plans } : {};
       register(requestMergeTool((signal) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,
-        append: appendRef, tmp: redTmp, fixer: handle.fixer, log: (i) => d.log.merge(i), ...planned(),
-        exclusive, fixerGone, ...(signal && { signal }) }), () => ready), () => act().mergeGate);
+        append: appendRef, tmp: redTmp, fixer: handle.fixer, log: (i) => d.log.merge(i), ...gated(),
+        exclusive, fixerGone, ...(signal && { signal }) }), () => ready), () => act().mergeGate || (!!d.nodes && openIn(d.nodes.tree.tree(), "local-first")));
     }
     // plan_request and amend_plan (design §3.5.2, §3.5.4) while plans are active (D40); submit_plan is the plan author's child tool.
     if (x.plans) {

@@ -99,3 +99,9 @@ export const nodeLine = (n: Node): Omit<NodeLogInput, "now"> => ({
   node: n.id, ...(n.parent !== undefined && { parent: n.parent }), depth: n.depth, kind: n.kind, fanout: n.split?.children.length ?? 0,
   outcome: n.state === "active" ? "started" : n.state, tier: n.estimate.kind === "inert" ? "inert" : "standard", profile: n.profile,
 });
+/** A node still open: not merged, blocked or abandoned. */
+export const isOpen = (n: Node): boolean => n.state === "active" || n.state === "split";
+/** The node of a branch (a node's branch is unique: `<prefix><id>`). */
+export const nodeOfBranch = (t: Tree, branch: string): Node | undefined => Object.values(t.nodes).find((n) => n.branch === branch);
+/** PRO-6: an open node started in `profile` exists (its merge keeps that profile's gate after a switch). */
+export const openIn = (t: Tree, profile: RoutingProfile): boolean => Object.values(t.nodes).some((n) => isOpen(n) && n.profile === profile);

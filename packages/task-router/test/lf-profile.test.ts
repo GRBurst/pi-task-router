@@ -11,6 +11,7 @@ import { PROFILE_TYPE, createRoutingProfile } from "../core/profile.ts";
 import { parseSettings } from "../core/settings.ts";
 import { cardSection, localSection } from "../core/prompt.ts";
 import { activeSet } from "../core/local/mode.ts";
+import { LF, treeRig } from "./tree-rig.ts";
 
 const PROFILES = ["cloud-first", "local-first"] as const;
 const SETTINGS: [Record<string, unknown>, string][] = [
@@ -252,4 +253,20 @@ test("PRO-7 start_branch and request_merge read the plan store and the gate stat
   b.h.f.fire("tool_result", { toolName: "bash", toolCallId: "t1", input: { command: "true" }, content: [{ type: "text", text: "ok" }], isError: false }, b.c);
   await b.h.router.settled();
   assert.deepEqual(b.h.lines().filter((l) => l.event === "gatebypass").map((l) => [l.from, l.to]), [["a".repeat(40), "b".repeat(40)]]);
+});
+
+// LF4.T10 (PRO-6): a node keeps the profile it started in. After a switch to cloud-first no new node starts (start_branch and
+// split leave the active set), but an open local-first node's request_merge stays and runs the local-first gate: here plans are
+// active, so a change of an approved plan's file is refused plan-changed (a cloud-first gate has no plans). Real git.
+test("PRO-6", async () => {
+  const FILE = "docs/plans/p.md";
+  const s = treeRig(LF, (dir) => [{ type: "task-router/plan", data: { slug: "p", repo: dir, file: FILE, skeletonHash: "h", approvedBy: "u", triggers: [] } }]);
+  const node = await s.start({ slug: "tidy", goal: "tidy up", check: "true", estimate: { kind: "code", lines: 5 } });
+  s.r.commit(FILE, "x\n", "touch the plan", node.details.worktree);
+  await s.h.f.commands.get("profile")!.handler("cloud-first", s.ctx);
+  assert.equal(s.h.router.profile.current(), "cloud-first");
+  assert.deepEqual(["start_branch", "split", "request_merge"].map((t) => s.h.f.active.has(t)), [false, false, true]);
+  assert.equal(s.h.router.tree.tree().nodes.tidy!.profile, "local-first");
+  const m = await s.call("request_merge", {});
+  assert.deepEqual([m.details.status, m.details.reason], ["refused", "plan-changed"]);
 });
