@@ -1,8 +1,10 @@
 // Local-first plan LF1.T8 (spec §6, D61, RND-2): the deterministic draw. A unit's level depends only on the seed, the
 // factor's id and the unit, so a replay assigns the same arms; over many units the levels follow the weights.
+// LF2 (spec §2.8, RND-1, RND-3, RND-4): the factor registry, the assignment and its independence across factors.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { draw, pick } from "../core/strategy/draw.ts";
+import { FACTORS } from "../core/strategy/arms.ts";
 import { seeded } from "./rand.ts";
 
 const word = (rnd: (n: number) => number): string => Array.from({ length: 1 + rnd(12) }, () => "ab-_0Z\u00e9 \u0000"[rnd(9)]).join("");
@@ -45,4 +47,39 @@ test("RND-2", () => {
   }
   // pick at the edges: u below the first share → the first level; u near 1 → the last; a zero weight is never picked
   assert.deepEqual([pick(["a", "b"], [1, 1], 0), pick(["a", "b"], [1, 1], 0.999999), pick(["a", "b"], [0, 1], 0)], ["a", "b", "b"]);
+});
+
+// Spec §2.8, literally: id, unit, levels (the default first), from. Every factor ships disabled (D63).
+const TABLE: [string, string, string[], string][] = [
+  ["E0", "session", ["as-used", "cloud-only"], "0.3.0"],
+  ["E2", "session", ["standard", "small", "large"], "0.4.0"],
+  ["E3", "review", ["opus", "sonnet"], "0.4.0"],
+  ["E12", "child", ["xhigh", "medium"], "0.5.0"],
+  ["E13", "child", ["unbounded", "16k", "32k"], "0.5.0"],
+  ["E4", "session", ["off", "on"], "0.6.0"],
+  ["E5", "session", ["150", "300"], "0.6.0"],
+  ["E6", "request", ["recursive", "flat"], "0.7.0"],
+  ["E7", "request", ["on", "off"], "0.7.0"],
+  ["E8", "node", ["on", "off"], "0.7.0"],
+  ["E9", "request", ["on", "off"], "0.7.0"],
+  ["E10", "package", ["2", "1"], "0.7.0"],
+  ["E11", "ladder", ["corrective-handoff", "corrective", "steer"], "0.8.0"],
+  ["E14c", "session", ["64k", "32k"], "0.8.0"],
+  ["E14m", "session", ["96k", "64k"], "0.8.0"],
+  ["E14f", "session", ["200k", "150k"], "0.8.0"],
+  ["E14b", "session", ["64k", "32k"], "0.8.0"],
+  ["E15", "session", ["5x150", "3x80"], "0.8.0"],
+  ["E16", "request", ["local", "opus"], "0.8.0"],
+  ["E17", "review", ["cloud", "qwen"], "0.8.0"],
+  ["E18", "child", ["full", "lean"], "0.8.0"],
+];
+
+test("RND-1", () => {
+  const strip = Object.fromEntries(Object.entries(FACTORS).map(([k, f]) => [k, { id: f.id, unit: f.unit, levels: f.levels, from: f.from, enabled: f.enabled }]));
+  assert.deepEqual(strip, Object.fromEntries(TABLE.map(([id, unit, levels, from]) => [id, { id, unit, levels, from, enabled: false }])));
+  // the code default weights: one non-negative weight per level, not all zero (an enabled factor without weights draws by them)
+  for (const f of Object.values(FACTORS)) {
+    assert.equal(f.weights.length, f.levels.length, f.id);
+    assert.ok(f.weights.every((w) => w >= 0) && f.weights.some((w) => w > 0), f.id);
+  }
 });

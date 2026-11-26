@@ -618,7 +618,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 
 ### LF2 — The randomizer framework (design §6, §8)
 
-#### LF2.T1 Factor registry (RND-1) `[ ] todo`
+#### LF2.T1 Factor registry (RND-1) `[x] done`
 - Files: `core/strategy/arms.ts` (new); test `lf-arms` "RND-1".
 - RED: `FACTORS` deep-equals spec §2.8 (literal table: ids, units, levels, `from`; all `enabled: false`, D63).
 - GREEN: S32 `Factor`, `FactorId` union, `FACTORS`.
