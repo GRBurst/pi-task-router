@@ -35,8 +35,8 @@ import { createPolicy } from "./policy.ts";
 import { assign } from "./strategy/arms.ts";
 import { spotCheckDue, spotCheckText } from "./spotcheck.ts";
 import type { Child, PolicyDeps } from "./policy.ts";
-import { createRoutingProfile, profileCommand } from "./profile.ts";
-import type { SkillPort } from "./profile.ts";
+import { createRoutingProfile, profileCommand, startModel, userChoseModel } from "./profile.ts";
+import type { SkillPort, StartModel } from "./profile.ts";
 import type { ThinkingLevel } from "./types.ts";
 import type { FsPort } from "./verify.ts";
 import { outcomeFile, profileEvent, serializeEvent, sessionEvent } from "./outcome.ts";
@@ -56,6 +56,8 @@ export type PiLike = NudgePi & ForcePi & {
   events?: { on(name: string, handler: (d: any) => void): void };
   getThinkingLevel?(): ThinkingLevel;
   setThinkingLevel?(level: ThinkingLevel): void;
+  /** pi's `setModel`: false without credentials (PRO-4). */
+  setModel?(model: unknown): Promise<boolean>;
 };
 export type Deps = {
   agentDir: string; now?: () => Date; settings?: Settings;
@@ -74,6 +76,8 @@ export type Deps = {
   factors?: Registry;
   /** Whether this session's lines carry `arms` (RND-6): a local-first session. Default: the profile store (LF3.T3). */
   armed?: () => boolean;
+  /** pi's command line, read for a model flag (PRO-4, X43); default `process.argv`. */
+  argv?: readonly string[];
 };
 
 const VERDICTS = ["accepted", "partial", "rejected"] as const;
@@ -242,7 +246,20 @@ export function install(pi: PiLike, deps: Deps) {
     render();
   };
   let spawnWarned = false;
-  pi.on("session_start", (e, ctx) => {
+  // PRO-4, LOC-2 (spec §2.2): the start model is set once, with xhigh; false (no credentials) leaves pi's default and tells why.
+  const setStart = (s: Extract<StartModel, { model: unknown }>, ctx: any): Promise<boolean> => {
+    let r: Promise<boolean>;
+    try { r = Promise.resolve(pi.setModel?.(s.model) ?? false); } catch { r = Promise.resolve(false); }
+    return r.catch(() => false).then((ok) => {
+      if (!ok) { ctx?.ui?.notify?.(`task-router: start model ${s.ref} could not be set; the default model stays`, "warning"); return false; }
+      pi.setThinkingLevel?.("xhigh");
+      main = s.ref;
+      render();
+      return true;
+    });
+  };
+  let pending: Promise<unknown> | undefined;
+  const begin = (e: any, ctx: any): void => {
     track(ctx);
     const sid = sessionId && !isChild(ctx) ? sessionId : undefined;
     let branch: unknown[] = [];
@@ -263,6 +280,9 @@ export function install(pi: PiLike, deps: Deps) {
     e0 = "as-used";
     e0drawn = false;
     const p = profile.current(), local = p === "local-mode";
+    // PRO-4 (X43): a local-first main session's start, unless the user chose; a reload keeps the model its session started with.
+    const start = p === "local-first" && sid && e?.reason !== "reload" && !userChoseModel(deps.argv ?? process.argv, branch) ? startModel(ctx, settings) : undefined;
+    if (start && "notice" in start) ctx?.ui?.notify?.(start.notice, "warning");
     // The experiments snapshot (RND-5), read by every draw of the session: a main session with an id only, and not in legacy
     // local mode, which draws nothing and keeps its entries (NR-7).
     arms.start(local ? undefined : sid, branch, settings.experiments, ROUTER_VERSION);
@@ -271,9 +291,12 @@ export function install(pi: PiLike, deps: Deps) {
     if (sid && (p !== "cloud-first" || x.cloudOnlyShare > 0)) {
       const eligible = settings.routing && active && enabled(settings.models).some((m) => m.route !== "local");
       if (p === "cloud-first" && eligible) { e0 = assign(x, "E0", sid) as E0Level; e0drawn = true; }
-      append({ ...sessionEvent({ now: now(), sessionId: sid, profile: p, mainModel: main ?? "", startSet: false,
+      const line = (startSet: boolean): void => append({ ...sessionEvent({ now: now(), sessionId: sid, profile: p, mainModel: main ?? "", startSet,
         ...(p !== "cloud-first" || eligible ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}), routerVersion: ROUTER_VERSION }),
         ...(armed() || sessionArms().length ? { arms: sessionArms() } : {}) });
+      // The line waits for the start model: its main model and `startSet` are the session's start.
+      if (start && "model" in start) pending = setStart(start, ctx).then(line);
+      else line(false);
     }
     if (active) { connect(); registerVerdict(); }
     else warnOnce(ctx, "actor:task-router", actorMissing("task-router", "task-router routing is off (no task_verdict, no task_cards, no nudge); the effort guard and fresh-on-cold stay on"));
@@ -292,7 +315,8 @@ export function install(pi: PiLike, deps: Deps) {
     told = true;
     if (ctx?.hasUI && ctx.ui?.notify) ctx.ui.notify(`task-router settings: ${problems.join("; ")}`, "warning");
     else for (const p of problems) console.warn(`task-router: ${p}`);
-  });
+  };
+  pi.on("session_start", (e, ctx) => { pending = undefined; begin(e, ctx); return pending; });
   if (isLocal(settings)) pi.on("model_select", (e, ctx) => { showStatus(ctx, e?.model); });
   // `/profile` (PRO-2, S34): one entry (the store), one `profile` line, the status line.
   pi.registerCommand?.("profile", { description: "Show or switch the routing profile: /profile [cloud-first | local-first]",

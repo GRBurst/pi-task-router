@@ -238,7 +238,7 @@ factors with `enabled` by settings.
 | `lf-seams` NR-6 | `core/local/merge.ts` imports `core/strategy/tiers.ts` | the import scan | [x] |
 | `lf-settings` PRO-1 | `mode: "local"` overrides `profile` | PRO-1 | [x] |
 | `lf-profile` | restore takes the first entry | PRO-3 | [x] |
-| `lf-start-model` | `setModel` also on `model_select` | PRO-5 | [ ] |
+| `lf-start-model` | `setModel` also on `model_select` | PRO-5 | [x] |
 | `lf-prompt` | the section omits the tier budget | PRO-8/SIZE-9 | [ ] |
 | `lf-tree` | `maxDepth` compared with `<` instead of `≤` | TREE-2 | [ ] |
 | `lf-split` / `lf-split-git` | the commit takes every staged file (`commit -a`) | TREE-4 commit (a staged unrelated file stays uncommitted) | [ ] |
@@ -693,7 +693,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: `pi.registerCommand("profile", …)` in the guarded body; the status line from `profile.current()`.
 - Also (MEAS-2, deferred from LF1.T9; test `lf-e0` "MEAS-2 profile switch"): RED: a session that drew `cloud-only` at its `session_start`, then `/profile local-first` (with `localFirst.experimental`) and a spawn → no spawn placed on a `route: "local"` member, no new draw and no second `session` line from the switch; a session drawn `as-used` stays as-used the same way. GREEN: the draw stays in the shell for the session; only `session_start` redraws.
 
-#### LF3.T6 The local start model (PRO-4, PRO-5) `[ ] todo`
+#### LF3.T6 The local start model (PRO-4, PRO-5) `[x] done`
 - Files: `core/profile.ts`, `core/shell.ts`; test `lf-start-model` (new).
 - RED: three cases (no choice → `setModel(startMember's model)` and `setThinkingLevel("xhigh")` (LOC-2 main); a model flag → neither; a resumed session with a model → neither); PRO-5 property: random event sequences → ≤ 1 `setModel`, only inside `session_start`. The design's "`/model` before the start hook" is not observable (X43): no case.
 - GREEN: `startModel(ctx, settings)`; the model via `ctx.modelRegistry.find` (as `forceinstall.ts:22–29`); not found → one notice, pi-setup's default stays; the thinking level is set only together with the start model.

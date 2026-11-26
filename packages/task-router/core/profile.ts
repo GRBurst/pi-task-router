@@ -83,6 +83,25 @@ export const profileCommand = (store: ReturnType<typeof createRoutingProfile>,
   d.switched(from, to, ctx);
 };
 
+/** PRO-4 (X43): the user chose the main model. pi 1.4 tells an extension neither choice (`pi.getFlag` answers only its own
+ *  flags), so this reads them as pi does: a model flag (`--model`, `--models`) on its command line, or a resumed session it
+ *  restores a model for (a message on the branch, and a model change or an assistant message). */
+export function userChoseModel(argv: readonly string[], branch: readonly unknown[]): boolean {
+  if (argv.some((a) => a === "--model" || a === "--models")) return true;
+  const es = branch as ({ type?: unknown; message?: { role?: unknown } } | null)[];
+  return es.some((e) => e?.type === "message") && es.some((e) => e?.type === "model_change" || (e?.type === "message" && e.message?.role === "assistant"));
+}
+
+export type StartModel = { ref: string; model: unknown } | { notice: string };
+/** PRO-4: the start member's model from the registry (total, as `forceinstall.ts`'s finder); unknown → the notice, and pi's
+ *  default stays. */
+export function startModel(ctx: any, settings: RouterSettings): StartModel {
+  const member = settings.localFirst.startMember, ref = settings.models[member]?.model ?? "", cut = ref.indexOf("/");
+  let model: unknown;
+  try { model = cut > 0 ? ctx?.modelRegistry?.find?.(ref.slice(0, cut), ref.slice(cut + 1)) : undefined; } catch { model = undefined; }
+  return model ? { ref, model } : { notice: `task-router: start model ${ref || "(none)"} of member "${member}" not found; the default model stays` };
+}
+
 /** Skills inlined into the brief: profile's then the card's, deduplicated, order kept (P-profile). */
 export function skillNames(p: Profile, c: { skills?: string[] }): string[] {
   return [...new Set([...p.skills, ...(c.skills ?? [])])];
