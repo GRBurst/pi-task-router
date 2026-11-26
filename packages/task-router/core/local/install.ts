@@ -14,7 +14,7 @@ import { BRANCH_TYPE, createBranchStore } from "./branches.ts";
 import type { BranchRecord } from "./branches.ts";
 import { startBranchTool } from "./branchtool.ts";
 import { splitTool } from "./splittool.ts";
-import { nodeOfBranch, openIn } from "./tree.ts";
+import { nodeOfBranch, openIn, openParents } from "./tree.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { createGit, gitRunner } from "./git.ts";
 import type { Git } from "./git.ts";
@@ -236,8 +236,11 @@ export function installLocal(pi: Pi, d: LocalDeps) {
         if (e.type === "route") void d.api()?.kill?.([name]).catch(() => []);
       } catch { /* an event handler never throws */ }
     },
-    gitGuard: (cwd: string): Guard | undefined =>
-      act().mergeGate ? gitGuard(d.settings.mergeGate.mainBranches, (dir) => git.branchOf(dir), cwd) : undefined,
+    // TREE-7 f: the open parents' branches are protected as the main branches are, read at each call (a child's guard too)
+    gitGuard: (cwd: string): Guard | undefined => (act().mergeGate
+      ? (tool, input) => gitGuard([...d.settings.mergeGate.mainBranches, ...(d.nodes ? openParents(d.nodes.tree.tree()) : [])],
+        (dir) => git.branchOf(dir), cwd)(tool, input)
+      : undefined),
     /** The plan guard for a session in `cwd` (design §3.5.6) while plans are active, else undefined. */
     planGuard: (cwd: string): SyncGuard | undefined =>
       act().plans ? (tool, input) => planGuard({ tool, input, cwd, files: planFiles(), read: readText }) : undefined,

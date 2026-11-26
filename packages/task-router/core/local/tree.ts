@@ -105,6 +105,9 @@ export const isOpen = (n: Node): boolean => n.state === "active" || n.state === 
 export const nodeOfBranch = (t: Tree, branch: string): Node | undefined => Object.values(t.nodes).find((n) => n.branch === branch);
 /** PRO-6: an open node started in `profile` exists (its merge keeps that profile's gate after a switch). */
 export const openIn = (t: Tree, profile: RoutingProfile): boolean => Object.values(t.nodes).some((n) => isOpen(n) && n.profile === profile);
+/** TREE-7 f: the branches of the open parents, nodes with a started child not merged yet; the git guard protects them as main. */
+export const openParents = (t: Tree): string[] =>
+  Object.values(t.nodes).filter((n) => n.started.some((s) => !n.merged.includes(s))).map((n) => n.branch);
 /** TREE-7 a: the parent node of the node whose branch is `branch`; undefined for a root or a nodeless branch. */
 export function parentOf(t: Tree, branch: string): Node | undefined {
   const n = nodeOfBranch(t, branch);

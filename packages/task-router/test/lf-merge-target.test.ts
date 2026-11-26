@@ -13,6 +13,8 @@ import { replay, type Node, type TreeOp } from "../core/local/tree.ts";
 import { createTreeStore } from "../core/local/treestore.ts";
 import { fakeGit } from "./fake-git.ts";
 import { mergeRig, REVISE } from "./merge-rig.ts";
+import { treeRig } from "./tree-rig.ts";
+import { MERGE_REASON } from "../core/local/gitcmd.ts";
 
 /** The merge rig with a work tree: `node(input)` starts a node by start_branch's local-first path, `lines` the merge lines. */
 function nodeRig(settings: Record<string, unknown> = {}) {
@@ -150,4 +152,26 @@ test("TREE-7 main-ref", async () => {
   assert.deepEqual(refs(), []); // node → parent: none
   assert.equal((await x.merge({ branch: root.branch })).status, "merged");
   assert.deepEqual(refs(), [{ repo: x.r.dir, branch: "main", sha: tip }]); // root → main: one
+});
+
+test("TREE-7 guard", async () => {
+  const s = treeRig();
+  /** The main session's git guard on `git commit` in `cwd`: its block reasons. */
+  const blocks = async (cwd: string) => (await Promise.all(s.h.f.fire("tool_call", { toolName: "bash", toolCallId: `t${Math.random()}`,
+    input: { command: "git commit -qm x" } }, { ...s.ctx, cwd }))).filter((x) => x !== undefined).map((x) => (x as { reason: string }).reason);
+  const root = (await s.start({ slug: "auth", goal: "add a login", check: "true", estimate: { kind: "plan", lines: 0 } })).details;
+  assert.deepEqual(await blocks(root.worktree), [], "no child yet");
+  assert.equal(s.h.router.tree.apply({ op: "split", node: "auth", plan: { summary: "two", children: [
+    { slug: "form", goal: "the form", files: ["form.ts"], estimate: { lines: 2, kind: "code" }, check: "true" },
+    { slug: "docs", goal: "the docs", files: ["docs.md"], estimate: { lines: 0, kind: "inert" }, check: "true" }] } }), undefined);
+  const form = (await s.start({ parent: "auth", child: "form" })).details;
+  await s.start({ parent: "auth", child: "docs" });
+  // the parent has open children: the main's direct commit on its branch is blocked; the child's own branch is not
+  assert.deepEqual(await blocks(root.worktree), [MERGE_REASON("lm/auth")]);
+  assert.deepEqual(await blocks(form.worktree), []);
+  assert.equal(s.h.router.tree.apply({ op: "state", node: "auth.form", state: "merged" }), undefined);
+  assert.deepEqual(await blocks(root.worktree), [MERGE_REASON("lm/auth")], "one child is still open");
+  assert.equal(s.h.router.tree.apply({ op: "state", node: "auth.docs", state: "merged" }), undefined);
+  assert.deepEqual(await blocks(root.worktree), [], "after the last child merged");
+  assert.deepEqual(await blocks(s.r.dir), [MERGE_REASON("main")]);
 });

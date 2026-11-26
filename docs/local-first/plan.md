@@ -794,7 +794,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: a node→parent merge writes no `task-router/main-ref` entry; the root→main merge writes one (`:443`).
 - GREEN: the entry under the main-target branch of T11d.
 
-#### LF4.T11f The guard protects open parents (TREE-7 f) `[ ] todo`
+#### LF4.T11f The guard protects open parents (TREE-7 f) `[x] done`
 - Files: `core/local/worktree.ts` (`writeGuard`); test `lf-merge-target` "TREE-7 guard".
 - RED: a `git commit` in the parent's worktree by the main while the parent has open children → blocked; after the last child merged → allowed.
 - GREEN: the guard's protected set = main branches ∪ branches of nodes with `started` − `merged` ≠ ∅.
