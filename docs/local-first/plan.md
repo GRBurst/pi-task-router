@@ -226,7 +226,7 @@ factors with `enabled` by settings.
 | `lf-session-log` | write `session` in cloud-first with share 0 | MEAS-1 | [x] |
 | `lf-merge-log` | `repoId` from `HEAD` instead of the root commit | LOG-1 | [x] |
 | `lf-arms` RND-2 | `unit` dropped from the hash input | determinism-by-unit frequencies | [x] |
-| `lf-arms` RND-3 | `id` dropped from the hash input | the joint-frequency property | [ ] |
+| `lf-arms` RND-3 | `id` dropped from the hash input | the joint-frequency property | [x] |
 | `lf-arms-shell` RND-5 | draw from live settings instead of the snapshot | the resume property | [ ] |
 | `lf-e0` | cloud-only arm keeps `route: "local"` members | MEAS-2 | [x] |
 | `lf-e0` | the force looks its member up in the cloud-only view | "MEAS-2 force" | [x] |
@@ -628,7 +628,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `assign(snap, "E2", u)` with E2 disabled → `"standard"` for all units; enabled with weights [0,1,0] → `"small"`.
 - GREEN: `assign` per S32; weights from the snapshot, else the factor's.
 
-#### LF2.T3 Independent factors (RND-3) `[ ] todo`
+#### LF2.T3 Independent factors (RND-3) `[x] done`
 - Files: `core/strategy/arms.ts`; test `lf-arms` "RND-3".
 - RED: written first against a plant (§11: `id` dropped from the hash) and seen failing; then the plant is removed.
 - GREEN: none beyond T2 (the test guards the hash input); CLEAN: the plant gone.

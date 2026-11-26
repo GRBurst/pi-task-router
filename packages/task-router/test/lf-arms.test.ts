@@ -102,3 +102,18 @@ test("RND-4", () => {
   assert.deepEqual(armsOf(two, "session", "s-1"), ["E2=small", "E4=on"]);
   assert.deepEqual(armsOf(two, "review", "r-1"), [`E3=${assign(two, "E3", "r-1")}`]);
 });
+
+test("RND-3", () => {
+  // two factors drawn for the same units: their joint frequencies are the product of their marginals (the id is in the hash)
+  const x: ExperimentsSettings = { seed: "task-router", cloudOnlyShare: 0, factors: { E2: { enabled: true, weights: [1, 1, 1] }, E4: { enabled: true, weights: [1, 1] } } };
+  const N = 20_000, joint = new Map<string, number>(), a = new Map<string, number>(), b = new Map<string, number>();
+  const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
+  for (let i = 0; i < N; i++) {
+    const [l2, l4] = [assign(x, "E2", `s-${i}`), assign(x, "E4", `s-${i}`)];
+    bump(a, l2); bump(b, l4); bump(joint, `${l2}|${l4}`);
+  }
+  for (const l2 of FACTORS.E2.levels) for (const l4 of FACTORS.E4.levels) {
+    const p = ((joint.get(`${l2}|${l4}`) ?? 0) / N), q = ((a.get(l2) ?? 0) / N) * ((b.get(l4) ?? 0) / N);
+    assert.ok(Math.abs(p - q) <= 0.02, `${l2}|${l4}: ${p} vs ${q}`);
+  }
+});
