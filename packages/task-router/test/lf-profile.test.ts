@@ -36,6 +36,7 @@ test("PRO-3", () => {
       else if (k === 4) branch.push({ type: "custom", customType: "task-router/arms", data: { profile: "local-first" } });
       else branch.push({ type: "message" });
     }
+    if (fromSettings === "local-mode") want = fromSettings; // the legacy local mode ignores entries (D59)
     if (want !== fromSettings) restored++;
     const written: unknown[] = [];
     const store = createRoutingProfile(parseSettings(raw, "0.4.0").settings, (type, data) => written.push({ type, data }));
@@ -117,6 +118,34 @@ test("PRO-2", async () => {
   assert.equal(s.status.get("task-router"), undefined);
   // the switch is restored on resume
   assert.equal(withUi("s-p2", {}).h.router.profile.current(), "cloud-first");
+});
+
+// LF3 review A (D59, Q24): the legacy local mode (`mode: "local"` without `profile`) has no switch before its retirement: `/profile`
+// shows it and refuses every switch with a notice; a stored profile entry (an older session's) does not leave it either.
+test("PRO-2 legacy local mode: /profile refuses a switch", async () => {
+  for (const raw of [{ mode: "local" }, { mode: "local", localFirst: { experimental: true } }]) {
+    const s = withUi("s-p2l", raw);
+    const sets = s.h.f.activeSets.length;
+    for (const to of ["cloud-first", "local-first"]) {
+      const n = s.notes.length;
+      await s.run(to);
+      assert.deepEqual(s.notes.slice(n), [['task-router: /profile is not available in local mode (mode: "local") before its retirement', "warning"]], to);
+    }
+    await s.run("");
+    assert.deepEqual(s.notes.at(-1), ["task-router profile: local-mode", "info"]);
+    assert.deepEqual([s.entries(), s.lines(), s.h.router.profile.current(), s.h.f.activeSets.length - sets], [[], [], "local-mode", 0], JSON.stringify(raw));
+  }
+});
+
+test("PRO-3 legacy local mode: a stored profile entry is ignored", () => {
+  const at = "2026-10-02T12:00:00.000Z";
+  for (const profile of PROFILES) {
+    const entries = [{ type: PROFILE_TYPE, data: { v: 1, profile, by: "command", at } }];
+    const lm = start("s-lm-e", { mode: "local" }, entries);
+    assert.deepEqual([lm.h.router.profile.current(), lm.written], ["local-mode", []], profile);
+    assert.deepEqual(lm.h.lines().filter((l) => l.event === "session").map((l) => [l.profile, l.localMembers, "arms" in l]), [["local-mode", "on", false]], profile);
+    assert.equal(lm.h.f.entries.filter((e) => e.type === "task-router/arms").length, 0, "legacy local mode draws no arms");
+  }
 });
 
 // LF3.T5 (spec PRO-9 a, D81): before 0.5.0 `/profile local-first` needs `localFirst.experimental`; else the notice and no entry.

@@ -81,7 +81,9 @@ dropped`). Cloud-first ignores it.
 **Profile and local mode.** A valid `profile` wins over the legacy `mode:
 "local"` (local mode below): the session is cloud-first or local-first. Without
 `profile`, `mode: "local"` is the session profile `local-mode` (outcome lines
-and `/profile` name it so); local mode is unchanged.
+and `/profile` name it so); local mode is unchanged: `/profile` shows it and
+refuses a switch (`task-router: /profile is not available in local mode (mode:
+"local") before its retirement`), and a stored profile entry does not leave it.
 
 **Per session.** The settings give the profile a session starts with; the
 session entry `task-router/profile` (`{v: 1, profile, by: "settings" |

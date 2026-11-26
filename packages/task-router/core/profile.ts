@@ -50,15 +50,15 @@ const isEntry = (e: unknown): e is { data: ProfileEntry } => {
 };
 
 /** S34: `restore` takes the branch's last `task-router/profile` entry (a malformed one counts as absent), none → the settings;
- *  `set` switches and appends the entry. */
+ *  `set` switches and appends the entry. The legacy local mode has no switch (D59): `restore` ignores its entries there. */
 export function createRoutingProfile(settings: RouterSettings, append: (type: string, data: unknown) => void, now = () => new Date()) {
   let cur: SessionProfile = fromSettings(settings);
   return {
     current: (): SessionProfile => cur,
     /** true iff an entry decided. */
     restore(branch: readonly unknown[]): boolean {
-      const last = branch.filter(isEntry).at(-1);
-      cur = last?.data.profile ?? fromSettings(settings);
+      const base = fromSettings(settings), last = base === "local-mode" ? undefined : branch.filter(isEntry).at(-1);
+      cur = last?.data.profile ?? base;
       return last !== undefined;
     },
     set(p: RoutingProfile, by: ProfileBy): void {
@@ -69,13 +69,15 @@ export function createRoutingProfile(settings: RouterSettings, append: (type: st
 }
 
 export const PROFILE_USAGE = "usage: /profile [cloud-first | local-first]";
-/** S34's `/profile` (PRO-2): none or the current profile → shows it; a routing profile → the switch (`gate` may refuse
- *  local-first, PRO-9), then `switched` writes its line and redraws the status line; anything else → the usage. */
+export const LOCAL_MODE_REFUSAL = 'task-router: /profile is not available in local mode (mode: "local") before its retirement';
+/** S34's `/profile` (PRO-2): none or the current profile → shows it; in the legacy local mode anything else → the refusal; a
+ *  routing profile → the switch (`gate` may refuse local-first, PRO-9), then `switched` writes its line and redraws the status line; anything else → the usage. */
 export const profileCommand = (store: ReturnType<typeof createRoutingProfile>,
   d: { gate(): string | undefined; switched(from: SessionProfile, to: RoutingProfile, ctx: any): void }) => (args: string, ctx: any): void => {
   const say = (t: string, level: "info" | "warning"): void => { ctx?.ui?.notify?.(t, level); };
   const to = String(args ?? "").trim(), from = store.current();
   if (to === "" || to === from) return say(`task-router profile: ${from}`, "info");
+  if (from === "local-mode") return say(LOCAL_MODE_REFUSAL, "warning"); // D59: the legacy local mode keeps its install-time set
   if (to !== "cloud-first" && to !== "local-first") return say(PROFILE_USAGE, "warning");
   const refused = to === "local-first" ? d.gate() : undefined;
   if (refused !== undefined) return say(refused, "warning");
