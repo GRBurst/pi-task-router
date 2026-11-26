@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { install } from "../core/shell.ts";
 import { outcomeFile } from "../core/outcome.ts";
+import { parseSettings } from "../core/settings.ts";
 import { fakeApi } from "./fake-api.ts";
+import { NO_E0 } from "./harness.ts";
 import { fakePi } from "./fake-pi.ts";
 import type { Card, Plan } from "../core/types.ts";
 
@@ -17,7 +19,7 @@ function setup() {
   const agentDir = mkdtempSync(join(tmpdir(), "task-router-shell-"));
   const f = fakePi();
   const a = fakeApi();
-  const router = install(f.pi, { agentDir, now: () => NOW, api: () => a.api });
+  const router = install(f.pi, { agentDir, now: () => NOW, api: () => a.api, settings: parseSettings(NO_E0).settings });
   f.fire("session_start", {}, {}); // task_verdict is registered at the first session_start with the actor's API (plan T3.1)
   const lines = () => (existsSync(outcomeFile(agentDir, NOW))
     ? readFileSync(outcomeFile(agentDir, NOW), "utf8").trim().split("\n").map((l) => JSON.parse(l))

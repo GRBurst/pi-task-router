@@ -565,7 +565,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: `ExperimentsSettings {seed, cloudOnlyShare, factors}` (factors parsed in LF2.T4), defaults per §2.1.
 - Keep green: `local-default` (the default-mode key inventory gains `experiments`; reason: D64, named in the commit).
 
-#### LF1.T4a Default-mode tests pin the share to 0 (X37g) `[ ] todo`
+#### LF1.T4a Default-mode tests pin the share to 0 (X37g) `[x] done`
 - Files: `test/harness.ts` (one file, test-only; additive for pi-economics' harness import, PE-3).
 - RED: with LF1.T4's default 0.1, the default-mode cases of X37(g) fail: `test/shell.test.ts:21, 56, 70`, `policy.test.ts:132, 287, 439`, `unrouted.test.ts:22–64` (each gets an extra first `session` line); seen red before the change.
 - GREEN: the harness' default settings, and the settings those files build, set `experiments.cloudOnlyShare: 0`; the cases pass with their assertions unchanged. LF1.T5 and LF1.T9 set the share explicitly.
