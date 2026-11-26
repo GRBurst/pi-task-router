@@ -1,6 +1,6 @@
-// T8.9: the orchestrator rule of the card section, switched by delegation.rule ("off" | "on", default off),
-// read through the experiments factor `delegationRule` (the flag API). Main session only; off = section unchanged.
-import { test, afterEach } from "node:test";
+// T8.9: the orchestrator rule of the card section, switched by delegation.rule ("off" | "on", default off), set in the
+// router's settings (local-first LF1.T1c: no experiments read, NR-3). Main session only; off = section unchanged.
+import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -10,14 +10,6 @@ import { cardSection, ORCHESTRATOR_RULE } from "../core/prompt.ts";
 import { defaults, loadSettings } from "../core/settings.ts";
 import { harness } from "./harness.ts";
 
-type G = { __piExperimentsApi_v1?: unknown };
-const g = globalThis as G;
-afterEach(() => void delete g.__piExperimentsApi_v1);
-const arm = (flags: Record<string, string>) => {
-  const calls: unknown[][] = [];
-  g.__piExperimentsApi_v1 = { version: 1, flag: (n: string, d: string, s?: string) => (calls.push([n, d, s]), flags[n] ?? d) };
-  return calls;
-};
 const MAIN = { sessionManager: { getSessionId: () => "s-main" } };
 const KID = { sessionManager: { getSessionId: () => "s-kid" } };
 const ruleOn = { delegation: { ...defaults().delegation, rule: "on" } };
@@ -64,18 +56,7 @@ test("main session: delegation.rule on → the section has the rule; off (defaul
   assert.ok(!section(harness()).includes("orchestrator"));
 });
 
-test("experiments flag delegationRule overrides the own setting both ways; the session id goes with it", () => {
-  const calls = arm({ delegationRule: "on" });
-  assert.ok(section(harness()).includes(RULE));
-  assert.deepEqual(calls.at(-1), ["delegationRule", "off", "s-main"]);
-  arm({ delegationRule: "off" });
-  assert.ok(!section(harness({ settings: ruleOn })).includes("orchestrator"));
-  arm({ delegationRule: "maybe" }); // anything but "on" is off
-  assert.ok(!section(harness({ settings: ruleOn })).includes("orchestrator"));
-});
-
-test("never in a child session, even when the child inherits an arm with the rule on", () => {
-  arm({ delegationRule: "on" });
+test("never in a child session, even with the rule on", () => {
   const h = harness({ settings: ruleOn });
   withKid(h);
   const kid = section(h, KID);

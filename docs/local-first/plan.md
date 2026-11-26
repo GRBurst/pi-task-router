@@ -540,7 +540,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - Why: these cases stub `__piExperimentsApi_v1` to set a flag; the router falls back to settings today, so setting the flag through settings passes before and after LF1.T1. Cases that test the experiments read itself are deleted (reason: owner decision 2026-11-16, recorded with the author's configuration).
 - RED: N/A (a refactor of tests); evidence: the same assertions pass before (stub) and after (settings).
 
-#### LF1.T1c Flag cases through settings: `review-log`, `rule` (X37a) `[ ] todo`
+#### LF1.T1c Flag cases through settings: `review-log`, `rule` (X37a) `[x] done`
 - As LF1.T1b for `review-log` and `rule`.
 
 #### LF1.T1 Drop the experiments read (NR-3) `[ ] todo`
