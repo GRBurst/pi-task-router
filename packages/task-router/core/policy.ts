@@ -11,6 +11,8 @@ import type { MemberCounter } from "./counter.ts";
 import type { Health } from "./health.ts";
 import { importanceOf } from "./importance.ts";
 import { componentOn, isLocal } from "./local/mode.ts";
+import { placement } from "./local/package.ts";
+import type { LocalFirstView } from "./local/package.ts";
 import { ticketPolicy } from "./local/overseer.ts";
 import type { Tickets } from "./local/overseer.ts";
 import { planSpawn } from "./pipeline.ts";
@@ -63,6 +65,8 @@ export type PolicyDeps = {
   local?: { activeWorktree(): string | undefined; guard?(cwd: string): Guard | undefined };
   /** E0's `cloud-only` arm (local-first MEAS-2): the session drew it at its start; absent = as used. */
   cloudOnly?: () => boolean;
+  /** Local-first (TREE-6, PRO-10 b): the session's tree and start member while its profile is local-first; undefined otherwise. */
+  localFirst?: () => LocalFirstView | undefined;
 };
 
 /** The cause a cloud-only session (E0) gives for a refusal only its blank local members explain. */
@@ -170,9 +174,15 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     const card = parsed.value;
     const prof = profileFor(card.kind, s);
     if (!prof.ok) return reject(prof.errors);
+    // Local-first (TREE-6, PRO-10 b): the tree places a package card, its kind a card without one; undefined = today's planning.
+    // In E0's cloud-only arm there is no start member: a package keeps its worktree and contract on today's planning.
+    const lf = d.localFirst?.(), view = lf && cloudOnly ? { ...lf, startMember: undefined } : lf;
+    const pl = view ? placement(card, prof.value, view) : undefined;
+    if (pl && !pl.ok) return reject(pl.errors);
+    const place = pl?.value;
     // LD2: in local mode a card without `cwd` gets the active worktree, and the child session starts in its task's directory.
     const local = isLocal(s);
-    const cwd = resolveCwd(card.cwd, local ? d.local?.activeWorktree() ?? caller.cwd : caller.cwd, d.home);
+    const cwd = place?.cwd ?? resolveCwd(card.cwd, local ? d.local?.activeWorktree() ?? caller.cwd : caller.cwd, d.home);
     const v = verifyT0(card, cwd, d.fs, s);
     const parent = (caller.policyMeta as { importance?: Importance } | undefined)?.importance;
     // LD1 (design §2.2 item 1): in local mode the main's effort is no importance source (a Qwen main offers only xhigh).
@@ -203,16 +213,17 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     };
     // Local mode (design §3.1.3, plan D19): the child's tripwires observe every call first and never block; then the local guards
     // (git §3.4.5 while the merge gate is on, plan §3.5.6 while plans are, in the child's own cwd), then toolsFor's guard; with neither, toolsFor's result stays.
-    const own = local ? cwd : caller.cwd;
+    const own = local || place?.cwd ? cwd : caller.cwd;
     const guarded = (t: ReturnType<typeof toolsFor>) => {
       const trips = isLocal(s) && componentOn(s, "hints") ? d.childGuard?.(args.name, caller.name) : undefined;
       const lg = d.local?.guard?.(own);
       return trips || lg ? { ...t, toolGuard: composeGuards(trips, lg, t.toolGuard) } : t;
     };
     const result = (model: string, thinkingLevel: ThinkingLevel) => ({
-      model, thinkingLevel, briefAppend: briefAppend(card, plan, v.t0.specified, prof.value, blocks.value, s.delegation.nudge !== "off"),
-      ...guarded(toolsFor(prof.value, card, cwd, own)), ...(local && cwd !== caller.cwd ? { cwd } : {}),
-      meta: { taskId: args.name, importance },
+      model, thinkingLevel,
+      briefAppend: [briefAppend(card, plan, v.t0.specified, prof.value, blocks.value, s.delegation.nudge !== "off"), place?.brief].filter(Boolean).join("\n\n"),
+      ...guarded(toolsFor(prof.value, card, cwd, own)), ...((local || place?.cwd) && cwd !== caller.cwd ? { cwd } : {}),
+      meta: { taskId: args.name, importance, ...place?.meta },
     });
     if (f) {
       // Plan D9, D11: the forced effort, else the plan's effort literally. A member waits for its slot alone (pinned) and never
@@ -233,6 +244,17 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
       }
       d.force!.used(args.name);
       return result(f.model, effort);
+    }
+    if (place?.member !== undefined) {
+      // The placement's start member (TREE-6, PRO-10 b) alone, without failover; a package child at `xhigh` (E12 off; LF12.T1).
+      const pm = named(s.models, place.member);
+      if (!pm?.model) return reject([`the start member ${place.member} is blank or missing in the router settings`]);
+      plan.reasons.push(`placement: ${place.meta.node ? `package ${place.meta.node}` : `kind ${card.kind} is local`} on ${pm.name}`);
+      const to = await resolveLeg(d, { name: args.name, cands: [pm], planned: pm, step: plan.worker.step,
+        effort: place.meta.node ? "xhigh" : args.thinkingLevel, pinned: false, failover: [], entry });
+      if (!to.ok) return reject(to.errors);
+      plan.reasons.push(to.value.why);
+      return result(to.value.member.model, to.value.effort);
     }
     if (st.pinned && s.contextFit > 0 && need > s.contextFit * M.contextWindow)
       plan.reasons.push(`context: files need ~${Math.round(need)} tokens; explicit ${M.name} holds ${M.contextWindow}`);

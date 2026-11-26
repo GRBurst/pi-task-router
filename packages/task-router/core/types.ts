@@ -51,6 +51,8 @@ export type Card = {
   cwd?: string;
   /** Task id this card reviews (a spot-check review, T5.22). */
   reviewOf?: string;
+  /** Local-first (TREE-6): the package node this card works on; read only in a local-first session. */
+  package?: string;
 };
 
 /** What a card needs (spec §4.3): a level on an ability's scale; `draft` = write 0 with one soft miss; `pinned` = the profile's `level`. */

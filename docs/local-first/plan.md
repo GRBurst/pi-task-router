@@ -244,7 +244,7 @@ factors with `enabled` by settings.
 | `lf-split` / `lf-split-git` | the commit takes every staged file (`commit -a`) | TREE-4 commit (a staged unrelated file stays uncommitted) | [x] |
 | `lf-tree-git` | the base stays the main tip | TREE-1 | [x] |
 | `lf-start-child` | a slug may start twice | TREE-5 | [x] |
-| `lf-placement` | `cwd` = the main's cwd | TREE-6 | [ ] |
+| `lf-placement` | `cwd` = the main's cwd | TREE-6 | [x] |
 | `lf-merge-target` | target = the main branch | TREE-7 | [x] |
 | `lf-tree-log` | `split` line without `depth` | TREE-11 | [x] |
 | `lf-top-plan` | the root split stored on the main branch | TREE-12 | [x] |
@@ -799,7 +799,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: a `git commit` in the parent's worktree by the main while the parent has open children → blocked; after the last child merged → allowed.
 - GREEN: the guard's protected set = main branches ∪ branches of nodes with `started` − `merged` ≠ ∅.
 
-#### LF4.T12 Package child placement (TREE-6) `[ ] todo`
+#### LF4.T12 Package child placement (TREE-6) `[x] done`
 - Files: `core/local/package.ts` (new), `core/policy.ts`; test `lf-placement` (new) "TREE-6".
 - RED: a spawn card with `package: "<node>"` in a local-first session → `PolicyResult` with the local member, `cwd` = the node's worktree, `briefAppend` = the package contract, `meta.node`; a `t2` card with `package` → the cloud route and a `contact` of shape `open` (counted in LF8); PRO-10 b: a card without `package` whose kind's `localFirst.placement` is `local` → the start member, `meta.ungated = true` (a CON-8 (ii) unit); `cloud` → today's planning.
 - GREEN: `placePackage(card, tree, strategy, arms)`; the card field `package` (validated: an `active` node); `placeByKind(card, profile)`.

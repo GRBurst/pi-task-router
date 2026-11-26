@@ -24,7 +24,7 @@ export function parseCard(x: unknown): Result<Card> {
   else for (const k of T0_KEYS) need(`t0.${k}`, typeof t0[k] === "boolean", "boolean");
   if (!Array.isArray(o.t2)) errors.push("t2: missing array");
   else for (const v of o.t2) if (!T2_VALUES.includes(v)) errors.push(`t2: unknown value ${JSON.stringify(v)}; allowed: ${T2_VALUES.join(", ")}`);
-  for (const k of ["check", "attemptOf", "failure", "reviewOf"]) if (o[k] !== undefined) need(k, typeof o[k] === "string", "string");
+  for (const k of ["check", "attemptOf", "failure", "reviewOf", "package"]) if (o[k] !== undefined) need(k, typeof o[k] === "string", "string");
   if (o.cwd !== undefined) need("cwd", typeof o.cwd === "string" && /^(\/|~$|~\/)/.test(o.cwd), "absolute path or ~/…");
   if (o.importance !== undefined) need("importance", o.importance === "high" || o.importance === "critical", '"high" or "critical"');
   if (o.skills !== undefined) need("skills", isStrArr(o.skills), "string[]");
@@ -34,7 +34,7 @@ export function parseCard(x: unknown): Result<Card> {
     kind: o.kind as string, files: o.files as string[], acceptance: o.acceptance as string[],
     t0: Object.fromEntries(T0_KEYS.map((k) => [k, t0![k]])) as T0, t2: o.t2 as T2[],
   };
-  for (const k of ["check", "importance", "attemptOf", "failure", "skills", "cwd", "reviewOf"] as const) {
+  for (const k of ["check", "importance", "attemptOf", "failure", "skills", "cwd", "reviewOf", "package"] as const) {
     if (o[k] !== undefined) (card as Record<string, unknown>)[k] = o[k];
   }
   return { ok: true, value: card };

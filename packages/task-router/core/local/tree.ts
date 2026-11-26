@@ -108,6 +108,12 @@ export const openIn = (t: Tree, profile: RoutingProfile): boolean => Object.valu
 /** TREE-7 f: the branches of the open parents, nodes with a started child not merged yet; the git guard protects them as main. */
 export const openParents = (t: Tree): string[] =>
   Object.values(t.nodes).filter((n) => n.started.some((s) => !n.merged.includes(s))).map((n) => n.branch);
+/** TREE-6, TREE-14: a package node's contract, the child of its parent's split it was started from; undefined for a root and a
+ *  node started without `child`. */
+export function contractOf(t: Tree, n: Pick<Node, "id" | "parent">): SplitChild | undefined {
+  const p = n.parent === undefined ? undefined : nodeOf(t, n.parent);
+  return p?.split?.children.find((c) => c.slug === slugOf(n));
+}
 /** TREE-7 a: the parent node of the node whose branch is `branch`; undefined for a root or a nodeless branch. */
 export function parentOf(t: Tree, branch: string): Node | undefined {
   const n = nodeOfBranch(t, branch);

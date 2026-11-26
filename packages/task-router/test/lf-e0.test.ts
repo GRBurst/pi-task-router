@@ -198,6 +198,8 @@ test("MEAS-2 profile switch", async () => {
   assert.deepEqual(off.models.filter((m) => LOCAL.includes(m)), [], "cloud-only stays cloud-only");
   const used = await run(0.1, "s-main", true), plain = await run(0.1, "s-main", false);
   assert.deepEqual([used.sessions, used.arms], [["on"], 1]);
-  assert.deepEqual(used.models, plain.models, "as-used stays as-used");
+  // as-used stays as-used: today's routing, but for the cards local-first places on its start member by their kind (PRO-10 b, LF4.T12)
+  const byKind = (k: Card) => !k.t2.length && !["review", "plan"].includes(k.kind);
+  assert.deepEqual(used.models, plain.models.map((m, i) => (byKind(cs[i]!) ? LOCAL[0] : m)), "as-used stays as-used");
   assert.ok(used.models.some((m) => LOCAL.includes(m)));
 });

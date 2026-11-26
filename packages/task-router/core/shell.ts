@@ -143,6 +143,11 @@ export function install(pi: PiLike, deps: Deps) {
     probe: createProbes({ fetch: deps.fetch ?? (globalThis.fetch as unknown as FetchLike), now: nowMs }), counter, blocks: new Map(),
     force: force.port, childGuard: (child, parent) => childTrips.guard(child, parent), tickets,
     local: { activeWorktree: () => (componentOn(settings, "worktrees") ? lm.branches.active()?.worktree : undefined), guard: (cwd) => lm.childGuard(cwd) },
+    // TREE-6, PRO-10 b: the placement view of a local-first session (LF4.T12); its arms are the session's (S33).
+    ...(settings.localFirst.experimental && { localFirst: () => (profile.current() !== "local-first" ? undefined : {
+      tree: tree.tree(), strategy, startMember: settings.localFirst.startMember,
+      arms: Object.fromEntries(arms.armsFor("session", sessionId ?? "").map((a) => a.split("=") as [string, string])),
+    }) }),
   };
   // L8: the names this instance's policy accepted (and, after a reload, the agents listed then); a listed agent outside them was
   // restored by the actor (installLocal, `placed`).
