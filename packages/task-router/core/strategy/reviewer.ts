@@ -12,18 +12,21 @@ const OPUS: Part = { reviewer: "opus", binding: true };
 /** The reviewer the class asks for: elevated needs Opus; every other class asks for nothing by itself. */
 const byClass = (cls: RiskClass): Part => (cls === "elevated" ? OPUS : NONE);
 
-/** The reviewer the actual size asks for. Small: Sonnet binding, or Haiku advisory for an inert-like standard-class change. */
-const byTier = (actual: Tier | "over", advisory: boolean): Part => {
+/** The reviewer the actual size asks for. Small: Sonnet binding, or Haiku advisory for an inert-like standard-class change;
+ *  standard: the E3 level of the review's arms. */
+const byTier = (actual: Tier | "over", advisory: boolean, review: Arms): Part => {
   switch (actual) {
     case "inert": return NONE;
     case "small": return advisory ? { reviewer: "haiku", binding: false, stratum: "inert-like" } : { reviewer: "sonnet", binding: true, stratum: "small" };
-    case "standard": case "large": case "over": return OPUS;
+    // REV-2: the standard tier is randomized per review (E3, default Opus)
+    case "standard": return review.E3 === "sonnet" ? { reviewer: "sonnet", binding: true } : OPUS;
+    case "large": case "over": return OPUS;
     default: { const _: never = actual; return _; }
   }
 };
 
 export function reviewer(i: { cls: RiskClass; actual: Tier | "over"; inertLike: boolean; review: Arms }): ReviewerChoice {
-  const c = byClass(i.cls), t = byTier(i.actual, i.inertLike && i.cls === "standard");
+  const c = byClass(i.cls), t = byTier(i.actual, i.inertLike && i.cls === "standard", i.review);
   const pick = STRENGTH[c.reviewer] >= STRENGTH[t.reviewer] ? c : t;
   return { reviewer: pick.reviewer, binding: pick.binding, fresh: true, orthogonal: i.cls === "elevated", ...(pick.stratum ? { stratum: pick.stratum } : {}) };
 }

@@ -69,3 +69,20 @@ test("SIZE-7 the actual lines decide, not the drawn tier: small drawn, 200 lines
   assert.deepEqual(brief(pick("standard", t.tierOfLines(20))), ["sonnet", true, false], "20 lines of the same session stay small");
   assert.deepEqual(brief(pick("standard", t.tierOfLines(10_000))), ["opus", true, false], "over the large tier");
 });
+
+test("REV-2 standard tier: the E3 level (sonnet) decides; absent → Opus", () => {
+  assert.deepEqual(pick("standard", "standard", false, { E3: "sonnet" }), { reviewer: "sonnet", binding: true, fresh: true, orthogonal: false });
+  assert.deepEqual(brief(pick("standard", "standard", false, { E3: "opus" })), ["opus", true, false]);
+  assert.deepEqual(brief(pick("standard", "standard", false, {})), ["opus", true, false]);
+  assert.deepEqual(brief(pick("standard", "standard", true, { E3: "sonnet" })), ["sonnet", true, false], "inert-like does not relax the standard tier");
+});
+
+test("REV-2 E3 reaches no other cell: small, large, over, elevated and inert ignore it", () => {
+  for (const c of CLASSES) for (const a of ACTUALS) for (const l of [false, true]) {
+    if (c !== "elevated" && a === "standard") continue;
+    assert.deepEqual(pick(c, a, l, { E3: "sonnet" }), pick(c, a, l, {}), JSON.stringify([c, a, l]));
+  }
+  // other factors' arms never change the table
+  assert.deepEqual(pick("standard", "standard", false, { E2: "large", E17: "qwen", E3: "sonnet" }), pick("standard", "standard", false, { E3: "sonnet" }));
+  assert.deepEqual(pick("standard", "standard", false, { E2: "large", E17: "qwen" }), pick("standard", "standard"));
+});
