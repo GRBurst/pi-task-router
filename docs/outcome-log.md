@@ -20,8 +20,8 @@ characters; timestamps are ISO-8601 UTC.
 
 ## Versions
 
-Every line carries `v` (integer, 1 since 2026-10-03); readers treat an absent
-`v` as 0 (the lines before). The rule:
+Every line carries `v` (integer, 1 since 2026-10-03, 2 from task-router 0.3.0,
+below); readers treat an absent `v` as 0 (the lines before). The rule:
 
 - adding an optional field: no `v` bump (the notes †, ‡ and § below date each
   addition);
@@ -30,24 +30,50 @@ Every line carries `v` (integer, 1 since 2026-10-03); readers treat an absent
 A bump changes the contract that pi-economics' readers copy; it reaches them
 when pi-economics bumps its router input.
 
+### Version 2 (decided 2026-11-16, from task-router 0.3.0)
+
+The local-first redesign (`docs/local-first/spec.md` §2.4) bumps `v` once,
+to 2: the router no longer reads pi-economics' experiments assignments
+(`__piExperimentsApi_v1`) and randomizes its own levers, so `spawn.arm` is
+removed; a child joins its parent by `parentSessionId`. Nothing else in a
+cloud-first line changes. The other v2 additions are optional fields, new
+events and new values, which need no further bump:
+
+- the `session` event (below), one line per `session_start` in local mode,
+  and in a cloud-first session while E0 runs (`experiments.cloudOnlyShare`
+  above 0);
+- the `merge` fields `base`, `target`, `repo` and `repoId`, which join a
+  merge to a later revert;
+- the exports a reader takes its lists from instead of copying them:
+  `EVENTS_V2` (the events v2 added), `ENUMS_V2` (`"<event>.<field>"` → the
+  field's values) and `FALLBACKS` (`review.fallback`), all in
+  `packages/task-router/core/outcome.ts`, beside `TRIPS`, `ROLES`,
+  `REASONS`, `TRIGGERS`, `PLAN_TYPE` and `BRANCH_TYPE`. They only grow.
+
+A reader keeps reading `v` ≤ 1 lines as before (with `arm`), and v2 lines
+without it.
+
 ## Join keys
 
 - **Task ↔ child session.** `spawn.sessionId` is the child's session id (the
   `sessionId` of the child's lines in pi-economics' meter log),
   `parentSessionId` the spawner's. Every other event joins the spawn by
   `taskId` (the subagent's name).
-- **Arm.** `arm` on a spawn is a copy, at write time, of the parent session's
-  arm in pi-economics' experiments assignments.
+- **Arm.** `arm` on a `v` ≤ 1 spawn is a copy, at write time, of the parent
+  session's arm in pi-economics' experiments assignments; v2 has no `arm`.
+- **Session.** A `session` line's `taskId` is the main session's id; the
+  session's spawns join it by their `parentSessionId`.
 
 ## Events
 
 Common: `v` (int), `ts` (ISO), `event`, `taskId` (subagent name; `""` on `force` lines, which belong to the session,
 not to a task, and on a `merge` refused before any branch was known or whose `branch` argument is no branch name; `"main"` or the child's name on `hint` lines; the review id
-on `review` lines; the branch on `merge` lines; the main branch on `gatebypass` lines; the plan's slug on `plan` lines) — all required.
+on `review` lines; the branch on `merge` lines; the main branch on `gatebypass` lines; the plan's slug on `plan` lines; the session id on `session` lines) — all required.
 
 | event | fields (required **bold**) | meaning |
 | --- | --- | --- |
-| `spawn` | **`kind`**, **`workerTier`** (`qwen` \| `haiku` \| `T1` \| `T2` \| …), **`workerEffort`**, `reviewTier`, `reviewEffort`, `cardHash`, `base`, `importance`, `reasons` (string[]), `arm`*, **`sessionId`** (child), **`parentSessionId`**, `attemptOf`, `assigned`† (`router` \| `random`), `routeBase`† (tier), `unresolved`† (`true`), `reviewOf`†, `ability`†, `level`† (int ≥ 0), `draft`† (`true`), `workerLevel`†, `reviewLevel`† (int ≥ 0), `workerMember`†, `workerModel`†, `startEffort`†, `waitMs`† (≥ 0), `forced`‡ (`true`), `forceSource`‡ (`command` \| `settings`), `routedModel`‡, `routedEffort`‡, `ticket`§ (`merge` \| `plan-author` \| `plan-review` \| `delta` \| `steer` \| `fixer`) | a routed (or unrouted) spawn; with `ticket`, the router's own child (§) |
+| `spawn` | **`kind`**, **`workerTier`** (`qwen` \| `haiku` \| `T1` \| `T2` \| …), **`workerEffort`**, `reviewTier`, `reviewEffort`, `cardHash`, `base`, `importance`, `reasons` (string[]), `arm`* (`v` ≤ 1), **`sessionId`** (child), **`parentSessionId`**, `attemptOf`, `assigned`† (`router` \| `random`), `routeBase`† (tier), `unresolved`† (`true`), `reviewOf`†, `ability`†, `level`† (int ≥ 0), `draft`† (`true`), `workerLevel`†, `reviewLevel`† (int ≥ 0), `workerMember`†, `workerModel`†, `startEffort`†, `waitMs`† (≥ 0), `forced`‡ (`true`), `forceSource`‡ (`command` \| `settings`), `routedModel`‡, `routedEffort`‡, `ticket`§ (`merge` \| `plan-author` \| `plan-review` \| `delta` \| `steer` \| `fixer`) | a routed (or unrouted) spawn; with `ticket`, the router's own child (§) |
+| `session` | **`profile`** (`cloud-first` \| `local-first` \| `local-mode`), **`mainModel`**, **`startSet`** (bool), **`localMembers`** (`on` \| `off`), **`routerVersion`** | v2: a main session started; `taskId` is its session id; `local-mode` = `mode: "local"`; `mainModel` is `provider/id` (`""` when unknown); `localMembers` is `off` in E0's cloud-only arm (no spawn of the session ran on a `route: "local"` member); `routerVersion` is the package's version |
 | `reroute` | **`from`**, **`to`**, `reason`, `fromModel`†, `toModel`† | provider fallback (rate limit, outage) |
 | `check` | **`exit`**, `durationMs` | the card's check ran after the child reported |
 | `corrective` | — | one corrective message to the child |
@@ -57,11 +83,16 @@ on `review` lines; the branch on `merge` lines; the main branch on `gatebypass` 
 | `force` | **`action`** (`set` \| `clear` \| `used` \| `expired` \| `rejected`), **`source`** (`command` \| `settings`), `model`, `effort`, `reason` (`unknown-model` \| `usage`) | the force override (task-router local mode): `/force` set, cleared or rejected; a forced spawn used it; a `next:N` force ran out; `taskId` is `""` |
 | `hint` | **`trip`** (`identical-call` \| `no-change-writes` \| `alternation` \| `repeated-error` \| `churn` \| `check-failing` \| `over-size` \| `risky-path` \| `context-soft` \| `context-stall` \| `outside-worktree`), **`stage`** (`hint` \| `steer` \| `parent`), `count` (int ≥ 0), `sessionId` | a tripwire fired (task-router local mode; `outside-worktree` = the write guard blocked an `edit`/`write` in the main checkout while a worktree was active): `hint` = a `<router-hint>` went into the tool result (main) or a message (child); `steer` = the main session got the escalation; `parent` = a stuck child's parent was told; `count` = the trip's detections since the last progress; `taskId` is `"main"` or the child's name; the hint's text is never logged |
 | `review` | **`role`** (`merge` \| `plan-author` \| `plan-review` \| `delta` \| `steer`), **`member`**, **`model`**, **`outcome`** (`approve` \| `revise` \| `invalid` \| `timeout` \| `error`), `attempt` (int ≥ 1), `durationMs` (int ≥ 0), `fallback` (`budget` \| `error`), `findings`, `blocking` (int ≥ 0), `inconsistent` (bool), `commit` (sha), `branch` | one overseer attempt (task-router local mode, §): `taskId` is the review id; `outcome` is the verdict's approval (`approve` when no finding is blocking) or how the attempt failed (an aborted attempt is an `error`); `fallback` = the attempt ran on the fallback member because the Opus budget was spent (`budget`) or attempt 1 failed (`error`); `findings`/`blocking` count the verdict's findings, `inconsistent` marks a `verdict` field that disagrees with them; no verdict text is logged |
-| `merge` | **`outcome`** (`merged` \| `refused` \| `revise` \| `fixer` \| `failed`), `reason` (`main-branch` \| `dirty` \| `behind` \| `fixer-running` \| `abandoned` \| `blocked` \| `size` \| `scope` \| `check` \| `main-dirty` \| `plan-changed` \| `no-worktree` \| `review-unavailable` \| `aborted` \| `git`), `commit` (sha), `nLines`, `nFiles` (int ≥ 0), `reviewId`, `pushed` (bool) | one `request_merge` call (task-router local mode, the merge gate): `taskId` is the branch; `outcome` is the call's status (`failed` = status `error`, with `reason` `review-unavailable`, `aborted` or `git`); `reason` is the fixed refusal or error code, never its text; `nLines`/`nFiles` the diff's size once it was read; `reviewId` the approving or rejecting review; `pushed` only when the merge gate pushes |
+| `merge` | **`outcome`** (`merged` \| `refused` \| `revise` \| `fixer` \| `failed`), `reason` (`main-branch` \| `dirty` \| `behind` \| `fixer-running` \| `abandoned` \| `blocked` \| `size` \| `scope` \| `check` \| `main-dirty` \| `plan-changed` \| `no-worktree` \| `review-unavailable` \| `aborted` \| `git`), `commit` (sha), `nLines`, `nFiles` (int ≥ 0), `reviewId`, `pushed` (bool), `base`¶, `target`¶, `repo`¶, `repoId`¶ | one `request_merge` call (task-router local mode, the merge gate): `taskId` is the branch; `outcome` is the call's status (`failed` = status `error`, with `reason` `review-unavailable`, `aborted` or `git`); `reason` is the fixed refusal or error code, never its text; `nLines`/`nFiles` the diff's size once it was read; `reviewId` the approving or rejecting review; `pushed` only when the merge gate pushes |
 | `plan` | **`action`** (`skeleton` \| `approve` \| `trigger` \| `amend` \| `reject`), `trigger` (`non-whitelisted` \| `interface-break` \| `regression` \| `over-budget` \| `remediation-failed`), `nTasks` (int ≥ 1), `reviewId`, `full` (bool) | a plan of task-router local mode: `taskId` is the plan's slug; `skeleton` = the plan author's skeleton was accepted (by `plan_request`, or a milestone rewritten after rejected amendments), `approve` = `plan_request` committed the plan on main, `trigger` = a replan trigger opened (`trigger` its code), `amend` = an amendment was committed, `reject` = an amendment's review rejected it; `nTasks` counts the skeleton's tasks, `reviewId` is the plan author's run or the amendment's review, `full` marks a plan-review of the whole plan (else a delta review); no plan text is logged |
 | `gatebypass` | **`from`**, **`to`** (shas), `repo` | a main branch moved outside the merge gate (task-router local mode; detected after a main-session `bash` result or a child's turn): `taskId` is the main branch, `repo` the repository's directory name (never a path); who moved it is unknown |
 
-\* `arm` is required on a spawn whose parent session (or its root) has an assignment.
+\* `arm` is required on a `v` ≤ 1 spawn whose parent session (or its root) has an assignment; v2 removed it.
+
+¶ Optional, added with v2 (2026-11-26, from 0.3.0) on a `merged` line: `base` the target branch's tip before the merge, `target`
+the branch merged into, `repo` the repository's directory name (never a path), `repoId` the first 12 hex of its root
+commit (`git rev-list --max-parents=0 HEAD`, sorted, the first), stable across clones and renames. A revert is found by
+`repoId` and `commit`. `class`, `tier`, `actualTier` and `node` are reserved there for later local-first stages.
 
 † Optional, added 2026-10-04 (no `v` bump). `assigned`/`routeBase` (T5.21): who chose the worker tier
 (`random` = task-level randomization sent a Qwen route to T1) and the worker tier the router computed; absent on
@@ -104,7 +135,7 @@ overseer's session is a child named by its ticket `spawn` line.
 
 ## Examples: local mode
 
-One line per event that local mode added (pi-economics keeps the same lines in its `LOGS.md`, and its `test/logs-examples.test.ts` runs each through its contract): a
+One line per event that local mode added, as `v: 1` lines (before 0.3.0; pi-economics keeps the same lines in its `LOGS.md`, and its `test/logs-examples.test.ts` runs each through its contract): a
 `/force` set by the command, a hint to the main session, a ticket `spawn` of a merge overseer and its `review`, the
 rejected `request_merge`, a main branch moved outside the gate, and a plan approved by `plan_request`.
 
@@ -116,4 +147,14 @@ rejected `request_merge`, a main branch moved outside the gate, and a plan appro
 {"v":1,"ts":"2026-11-02T09:05:01.000Z","event":"merge","taskId":"lm/parser","outcome":"revise","commit":"0123abc","nLines":42,"nFiles":2,"reviewId":"rv-1a2b3c4d"}
 {"v":1,"ts":"2026-11-02T09:10:00.000Z","event":"gatebypass","taskId":"main","from":"0123abc","to":"4567def","repo":"app"}
 {"v":1,"ts":"2026-11-02T09:20:00.000Z","event":"plan","taskId":"parser","action":"approve","nTasks":4,"reviewId":"rv-5e6f7a8b"}
+```
+
+## Examples: version 2
+
+A cloud-first session drawn into E0's cloud-only arm, and a merge with the
+fields a revert needs.
+
+```jsonl
+{"v":2,"ts":"2026-11-30T09:00:00.000Z","event":"session","taskId":"s-main","profile":"cloud-first","mainModel":"anthropic/claude-opus-5-5","startSet":false,"localMembers":"off","routerVersion":"0.3.0"}
+{"v":2,"ts":"2026-11-30T09:30:00.000Z","event":"merge","taskId":"lm/parser","base":"0123abc","outcome":"merged","commit":"89abcde","nLines":42,"nFiles":2,"reviewId":"rv-9a8b7c6d","repo":"app","target":"main","repoId":"a1b2c3d4e5f6"}
 ```

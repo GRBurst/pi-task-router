@@ -597,7 +597,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: at `session_start`, `E0 = pick([as-used, cloud-only], [1-s, s], draw(seed, "E0", sessionId))`; the policy filters `route === "local"` members when `cloud-only`.
 - Keep green: `router-golden` (NR-1).
 
-#### LF1.T10 Docs: outcome log v2 `[ ] todo`
+#### LF1.T10 Docs: outcome log v2 `[x] done`
 - Files: `docs/outcome-log.md`, `docs/task-router.md`.
 - RED: N/A (docs); KG-S.
 - GREEN: the v2 section (bump reason, `arm` retired, `session`, the merge fields), the `experiments` keys; dated notes per the versioning rule.

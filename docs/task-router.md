@@ -79,7 +79,7 @@ the messages are in `packages/task-router/core/settings.ts` and
   `## Local mode` section (`localSection`, `packages/task-router/core/prompt.ts`:
   do most of the work yourself, spawn only for more ability, end the turn after
   a spawn; the card schema and one example). The orchestrator rule is off, even
-  when an experiments arm of pi-economics sets `delegationRule`. Children still get no section.
+  when `delegation.rule` is `"on"`. Children still get no section.
 - The delegation nudge is off; hints (below) replace it.
 - The status line `task-router` reads `local`, or `local (main: <model>)` when
   the main model is no local member's (set at `session_start` and on
@@ -714,6 +714,33 @@ verdict slot.
 | main moved outside the gate | `gatebypass` line, a warning and a `<router-hint trip="gatebypass">`; nothing is reverted |
 | a hook of the hint engine fails | reported once (`task-router: hint engine: …`); the tool result is unchanged |
 
+## Experiments (local-first E0)
+
+The router randomizes its own levers and reads no experiments package
+(since 2026-11-26, local-first plan LF1; before, pi-economics' experiments arm
+could set `routing`, `verifyGate`, `autoEscalate`, `freshOnCold` and
+`delegationRule`, logged as `spawn.arm`; outcome log v2 retired both,
+`docs/outcome-log.md`). Its keys in `settings.json`:
+
+| Key | Default | Unit, values | Effect |
+|---|---|---|---|
+| `experiments.seed` | `"task-router"` | string | the draws' seed |
+| `experiments.cloudOnlyShare` | 0.1 | share of cloud-first sessions, [0, 1] | E0's cloud-only arm; 0 turns E0 off |
+| `experiments.factors.<id>` | `{}` | `{enabled?, weights?}` | reserved for the local-first factors; none runs yet |
+
+**E0, the cloud-only reference.** At a cloud-first `session_start`, while
+`cloudOnlyShare` is above 0, the router draws the session's arm
+deterministically from the seed and the session id
+(`packages/task-router/core/strategy/draw.ts`): `cloud-only` with
+probability `cloudOnlyShare`, else `as-used`. In a `cloud-only` session
+no spawn is placed on a `route: "local"` member: the plan, the selection
+and the failover see those members as blank (`model = ""`); a force is no
+routing and keeps its member. An `as-used` session routes as before. Either
+way the session writes a `session` line (`localMembers` `"off"` or
+`"on"`); with the share at 0 nothing is drawn and no `session` line is
+written. Local mode is not part of E0: it writes its `session` line with
+`profile: "local-mode"` and never draws.
+
 ## Scout gate, dependencies and checks
 
 **Scout gate (Group 6, 2026-10-28).** Haiku at medium scored 0.646 against
@@ -779,5 +806,6 @@ Checks of the router's behaviour: `task-router` (the package's tests),
 `module-eval`, `home-files`, `nix-route-smoke`, `pi-install-smoke`,
 `pi-install-actor`, `pi-install-local`, `pi-install-duplicate`,
 `pi-install-scope-replaced`, `pi-install-scope-both`, `pi-git-route`. In
-pi-economics:
-`iface-experiments-task-router`, `log-contract`.
+pi-economics: `log-contract` (its `iface-experiments-task-router` read the
+router's `ExperimentsApi`, which outcome log v2 removed; it leaves with
+pi-economics' v2 contract).

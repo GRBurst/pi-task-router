@@ -114,10 +114,10 @@ that input; say so in the commit message:
   `test/fake-git.ts` and the exports `TRIPS` (`core/local/tripwires.ts`),
   `ROLES` (`core/local/overseer.ts`), `REASONS` (`core/local/merge.ts`),
   `TRIGGERS` (`core/local/plan.ts`), `PLAN_TYPE` (`core/local/plans.ts`) and
-  `BRANCH_TYPE` (`core/local/branches.ts`);
-- `iface-experiments-task-router` reads `core/shell.ts`'s `ExperimentsApi`.
-  The `__piExperimentsApi_v1` read is optional (the router falls back to its
-  own settings) and leaves with the pi-economics redesign;
+  `BRANCH_TYPE` (`core/local/branches.ts`); with outcome log v2 also
+  `EVENTS_V2`, `ENUMS_V2` and `FALLBACKS` (`core/outcome.ts`). They only grow;
+- the router reads no `__piExperimentsApi_v1` since outcome log v2 (local-first
+  NR-3): pi-economics' `iface-experiments-task-router` has nothing left to read;
 - the claim protocol (Rules).
 
 The author's system configuration replays the package's `test/`.
