@@ -1,7 +1,8 @@
 // The reviewer table (local-first spec REV-1, SIZE-7, design §5.4, plan S39): the stronger of the class's reviewer and the
 // actual-size tier's. Strength: none 0 < haiku 1 < sonnet 2 < opus 3. The tier is the ACTUAL changed lines' tier
-// (`tierOfLines`), never the session's drawn one. A class `inert` is paired with the actual tier `inert` by the caller (the gate
-// merges it without a ticket, REV-10); the table's other inert cells follow the formula. Pure: no I/O.
+// (`tierOfLines`), never the session's drawn one. The inert cells are normalised here, not left to the caller (LF6 review M1):
+// the class `inert` gets no review at any size (design §5.3, REV-10: S39's small/inert cell is corrected), and a non-inert class
+// never reads the actual tier `inert`, which would be a model-declared exemption (MGS §2.1): it is read as small. Pure: no I/O.
 import type { Arms, ReviewerChoice, ReviewerName, RiskClass, Tier } from "./types.ts";
 
 type Part = { reviewer: ReviewerName | "none"; binding: boolean; stratum?: "small" | "inert-like" };
@@ -26,7 +27,8 @@ const byTier = (actual: Tier | "over", advisory: boolean, review: Arms): Part =>
 };
 
 export function reviewer(i: { cls: RiskClass; actual: Tier | "over"; inertLike: boolean; review: Arms }): ReviewerChoice {
-  const c = byClass(i.cls), t = byTier(i.actual, i.inertLike && i.cls === "standard", i.review);
+  const actual = i.cls === "inert" ? "inert" : i.actual === "inert" ? "small" : i.actual;
+  const c = byClass(i.cls), t = byTier(actual, i.inertLike && i.cls === "standard", i.review);
   const pick = STRENGTH[c.reviewer] >= STRENGTH[t.reviewer] ? c : t;
   return { reviewer: pick.reviewer, binding: pick.binding, fresh: true, orthogonal: i.cls === "elevated", ...(pick.stratum ? { stratum: pick.stratum } : {}) };
 }

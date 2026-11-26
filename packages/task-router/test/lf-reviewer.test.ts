@@ -13,16 +13,25 @@ const CLASSES: RiskClass[] = ["inert", "standard", "elevated"];
 const ACTUALS: Actual[] = ["inert", "small", "standard", "large", "over"];
 const pick = (cls: RiskClass, actual: Actual, inertLike = false, review: Arms = {}): ReviewerChoice => reviewer({ cls, actual, inertLike, review });
 const brief = (c: ReviewerChoice) => [c.reviewer, c.binding, c.orthogonal];
+/** M1: the actual tier the table reads: class inert → inert (no review); a non-inert class never reads "inert" (→ small). */
+const effective = (c: RiskClass, a: Actual): Actual => (c === "inert" ? "inert" : a === "inert" ? "small" : a);
 
 test("REV-1 the S39 table", () => {
-  // actual inert, class inert: no review
+  // class inert: no review (REV-10, design §5.3)
   assert.deepEqual(brief(pick("inert", "inert", true)), ["none", false, false]);
   // inert-like (class standard), small: Haiku, advisory, in the inert-like stratum
   assert.deepEqual(pick("standard", "small", true), { reviewer: "haiku", binding: false, fresh: true, orthogonal: false, stratum: "inert-like" });
   // small: Sonnet binding, in the small stratum
   assert.deepEqual(pick("standard", "small"), { reviewer: "sonnet", binding: true, fresh: true, orthogonal: false, stratum: "small" });
-  // an inert class at a small size: Sonnet binding (the table's inert column)
-  assert.deepEqual(brief(pick("inert", "small", true)), ["sonnet", true, false]);
+  // LF6 review M1: the class inert is no review at every size (S39's small/inert cell was wrong: design §5.3, REV-10); it is
+  // in no E17 stratum either
+  for (const a of ACTUALS) for (const l of [false, true]) assert.deepEqual(pick("inert", a, l), { reviewer: "none", binding: false, fresh: true, orthogonal: false }, JSON.stringify(["inert", a, l]));
+  // LF6 review M1: a non-inert class with the actual tier "inert" is never an exemption: it is read as small (a declared
+  // estimate cannot buy a review waiver)
+  assert.deepEqual(pick("standard", "inert"), pick("standard", "small"));
+  assert.deepEqual(pick("standard", "inert", true), pick("standard", "small", true));
+  assert.deepEqual(brief(pick("standard", "inert")), ["sonnet", true, false]);
+  assert.deepEqual(brief(pick("elevated", "inert")), ["opus", true, true]);
   // standard (E3 absent), large, over: Opus
   for (const a of ["standard", "large", "over"] as const) assert.deepEqual(brief(pick("standard", a)), ["opus", true, false], a);
   // elevated: Opus plus the orthogonal check, whatever the size
@@ -31,7 +40,7 @@ test("REV-1 the S39 table", () => {
   for (const c of CLASSES) for (const a of ACTUALS) for (const l of [false, true]) {
     const r = pick(c, a, l);
     assert.equal(r.fresh, true);
-    assert.equal(r.stratum !== undefined, r.reviewer === "haiku" || (r.reviewer === "sonnet" && a === "small"), JSON.stringify([c, a, l]));
+    assert.equal(r.stratum !== undefined, r.reviewer === "haiku" || (r.reviewer === "sonnet" && effective(c, a) === "small"), JSON.stringify([c, a, l]));
   }
 });
 
@@ -45,7 +54,7 @@ test("REV-1 property: strength = max(class's, tier's), orthogonal iff elevated",
   for (let i = 0; i < 500; i++) {
     const c = CLASSES[rnd(3)]!, a = ACTUALS[rnd(5)]!, inertLike = rnd(2) === 1;
     const r = pick(c, a, inertLike);
-    const want = Math.max(classStrength(c), tierStrength(a, inertLike && c !== "inert"));
+    const want = Math.max(classStrength(c), tierStrength(effective(c, a), inertLike && c !== "inert"));
     assert.equal(STRENGTH[r.reviewer], want, JSON.stringify([c, a, inertLike]));
     assert.equal(r.orthogonal, c === "elevated");
     assert.equal(r.binding, r.reviewer === "sonnet" || r.reviewer === "opus");
