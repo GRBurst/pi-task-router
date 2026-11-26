@@ -239,7 +239,7 @@ factors with `enabled` by settings.
 | `lf-settings` PRO-1 | `mode: "local"` overrides `profile` | PRO-1 | [x] |
 | `lf-profile` | restore takes the first entry | PRO-3 | [x] |
 | `lf-start-model` | `setModel` also on `model_select` | PRO-5 | [x] |
-| `lf-prompt` | the section omits the tier budget | PRO-8/SIZE-9 | [ ] |
+| `lf-prompt` | the section omits the tier budget | PRO-8/SIZE-9 | [x] |
 | `lf-tree` | `maxDepth` compared with `<` instead of `≤` | TREE-2 | [ ] |
 | `lf-split` / `lf-split-git` | the commit takes every staged file (`commit -a`) | TREE-4 commit (a staged unrelated file stays uncommitted) | [ ] |
 | `lf-tree-git` | the base stays the main tip | TREE-1 | [ ] |
@@ -704,7 +704,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: `ensureLocalTools()`; `before_agent_start` chooses the section by `profile.current()`; the hooks of `installLocal` gate on the session's profile (`"local-first"` or `"local-mode"`).
 - Note: a third file (`core/local/mode.ts`) only if `componentOn` needs the profile; say so in the commit.
 
-#### LF3.T8 Coordinator section (PRO-8) `[ ] todo`
+#### LF3.T8 Coordinator section (PRO-8) `[x] done`
 - Files: `core/prompt.ts`; test `lf-prompt` (new) "PRO-8".
 - RED: `coordinatorSection(b)` equals S41 with the values filled (the pinned text is the criterion).
 - GREEN: S41; `before_agent_start` uses it for local-first (one line in `shell.ts`, allowed as the third file).

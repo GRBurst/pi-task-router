@@ -23,7 +23,7 @@ import { createGate, runCheck } from "./gate.ts";
 import type { Runner } from "./gate.ts";
 import { createGuards } from "./guards.ts";
 import { createOutcomeLog } from "./log.ts";
-import { cardSection, localSection } from "./prompt.ts";
+import { cardSection, coordinatorSection, localSection } from "./prompt.ts";
 import { activeSet, componentOn, isLocal, opusLeft, statusText } from "./local/mode.ts";
 import { installLocal } from "./local/install.ts";
 import { createChildTrips } from "./local/childtrips.ts";
@@ -369,9 +369,11 @@ export function install(pi: PiLike, deps: Deps) {
     // The rule is the main session's: a child shares its settings, so `delegation.rule` reads "on" there too.
     // Local mode (design §2.3, LD3): the main gets the local section and never the rule, whatever the settings say; a child that
     // loads the router anyway keeps today's section without the rule (plan D5).
-    // PRO-7: the section follows the session's profile (cloud-first: the card section).
-    const cloud = profile.current() === "cloud-first", child = isChild(ctx);
-    if (settings.routing) sections.task_cards = !cloud && !child ? localSection(settings, activeSet(settings, true)) : cardSection(settings, cloud && settings.delegation.rule === "on" && !child);
+    // PRO-7: the section follows the session's profile (cloud-first: the card section). PRO-8 (S41): a local-first main
+    // coordinates; its session tier is `standard` while E2 is disabled (SIZE-3).
+    const p = profile.current(), cloud = p === "cloud-first", child = isChild(ctx), lf = settings.localFirst;
+    if (settings.routing) sections.task_cards = cloud || child ? cardSection(settings, cloud && settings.delegation.rule === "on" && !child)
+      : p === "local-first" ? coordinatorSection({ tier: "standard", budget: lf.tiers.standard, ...lf.tree }) : localSection(settings, activeSet(settings, true));
     else delete sections.task_cards;
   });
 

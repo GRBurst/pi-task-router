@@ -76,3 +76,15 @@ Task card (spawn_subagent \`task\`; do not set model or thinkingLevel):
 ${cardSchema(s)}
 ${JSON.stringify(LOCAL_EXAMPLE)}`;
 }
+
+/** S41's values: the session's tier and its budget in changed lines (SIZE-3), the tree caps and the plan budget (spec §2.1). */
+export type Budgets = { tier: string; budget: number; maxChildren: number; maxDepth: number; planLines: number };
+/** The local-first main's section (S41, PRO-8; text pinned by test/lf-prompt.test.ts): the coordinator's rules with the session's
+ *  budgets. */
+export const coordinatorSection = (b: Budgets): string =>
+  "You coordinate; local children do the work. " +
+  `Tier budget this session: ${b.tier} = ${b.budget} changed lines per package (inert unlimited). ` +
+  `Start every package with start_branch and an estimate; above the budget, split it: at most ${b.maxChildren} children per node, ` +
+  `depth at most ${b.maxDepth} below the request, plans at most ${b.planLines} lines. ` +
+  "One fresh child per package; it either does its package or submits a split and ends — you start the children of a split. " +
+  "Merge with request_merge; the router chooses the reviewer and queues merges.";
