@@ -709,7 +709,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `coordinatorSection(b)` equals S41 with the values filled (the pinned text is the criterion).
 - GREEN: S41; `before_agent_start` uses it for local-first (one line in `shell.ts`, allowed as the third file).
 
-#### LF3.T9 Module option `profile` (HM-1 a) `[ ] todo`
+#### LF3.T9 Module option `profile` (HM-1 a) `[x] done`
 - Files: `modules/task-router.nix`, `checks/module-eval/cases/task-router-profile.nix` (new).
 - RED: the case sets `programs.piTaskRouter.profile = "local-first"` (and `settings.localFirst.experimental = true`, PRO-9) and expects `settings.profile = "local-first"` in the rendered settings → fails (no option).
 - GREEN: `profile = lib.mkOption { type = lib.types.enum ["cloud-first" "local-first"]; default = "cloud-first"; }`; `settings.profile = lib.mkDefault cfg.profile` only when not the default (the default render unchanged: KG-M `readme`, `task-router`).

@@ -47,6 +47,18 @@ in {
         `models.qwen-local.health`.
       '';
     };
+    # (local-first LF3.T9, spec HM-1 a)
+    profile = lib.mkOption {
+      type = lib.types.enum ["cloud-first" "local-first"];
+      default = "cloud-first";
+      description = ''
+        The session's routing profile at start (`settings.profile`; `/profile`
+        switches it in a session). `cloud-first` is the routing by task card
+        and writes nothing. `local-first` (a local coordinator, local children
+        per package) needs `settings.localFirst.experimental = true` until it
+        opens. A `settings.profile` given in `settings` wins.
+      '';
+    };
     # (local mode L1.T7, design §2.1)
     localMode.enable = lib.mkEnableOption "local mode: a local model drives the main session (writes settings.mode = \"local\")";
   };
@@ -100,6 +112,8 @@ in {
       # (local mode L1.T7, design §2.1) mkDefault: a user's settings.mode wins (and fails the assertion above); the file is
       # written even for settings = {}.
       programs.piTaskRouter.settings.mode = lib.mkIf cfg.localMode.enable (lib.mkDefault "local");
+      # (local-first LF3.T9, HM-1 a) Only when not the default, so the default render is unchanged.
+      programs.piTaskRouter.settings.profile = lib.mkIf (cfg.profile != "cloud-first") (lib.mkDefault cfg.profile);
     })
   ];
 }

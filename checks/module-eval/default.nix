@@ -14,6 +14,7 @@
     ./cases/task-router.nix
     ./cases/readme.nix
     ./cases/readme-package.nix
+    ./cases/task-router-profile.nix
   ];
   cases =
     lib.foldl' (
