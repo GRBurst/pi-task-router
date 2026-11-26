@@ -103,6 +103,7 @@ export type RouterSettings = {
   randomize: { enabled: boolean; share: number };
   /** Spot-check reviews (T5.22): an accepted verdict asks for a fresh review with probability `share`. */
   spotCheck: { enabled: boolean; share: number };
+  experiments: ExperimentsSettings;
   // Local mode (design §3.0.1): declared in L1, inert until their milestones.
   mode: "default" | "local";
   hints: HintSettings;
@@ -112,6 +113,14 @@ export type RouterSettings = {
   plans: PlanSettings;
   /** A settings force (design §3.6): every routed worker spawn runs on `model` (blank = none). */
   force: { model: string; thinkingLevel: "" | ThinkingLevel };
+};
+
+/** The router's own experiments (local-first spec §2.1, §6): the draw's seed, E0's share of cloud-only sessions, the
+ *  factors' switches and weights (`factors` parsed from LF2 on). */
+export type ExperimentsSettings = {
+  seed: string;
+  cloudOnlyShare: number;
+  factors: Record<string, { enabled?: boolean; weights?: number[] }>;
 };
 
 /** A local-mode component's switch (design §2.1): "auto" = on in local mode only. */

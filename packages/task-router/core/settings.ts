@@ -84,6 +84,8 @@ export function defaults(): Settings {
     // T5.21/T5.22: off by default; the user's Home Manager config switches them on.
     randomize: { enabled: false, share: 0.2 },
     spotCheck: { enabled: false, share: 0.1 },
+    // Local-first spec §2.1: E0 (cloud-only sessions) runs from the first release (D64); 0 turns it off.
+    experiments: { seed: "task-router", cloudOnlyShare: 0.1, factors: {} },
     // Local mode (design §3.0.1; validated in core/local/settings.ts). Every component "auto": on in local mode only.
     mode: "default",
     hints: {
@@ -387,6 +389,11 @@ function validate(s: Settings, base: Settings, problems: string[], raw: Record<s
   if ("contextFit" in raw && !(typeof raw.contextFit === "number" && raw.contextFit >= 0 && raw.contextFit <= 1)) {
     s.contextFit = base2.contextFit as number;
     problems.push("contextFit: must be a number from 0 to 1; default kept");
+  }
+  const ex = isObj(raw.experiments) ? raw.experiments : {};
+  if ("cloudOnlyShare" in ex && !(typeof ex.cloudOnlyShare === "number" && ex.cloudOnlyShare >= 0 && ex.cloudOnlyShare <= 1)) {
+    s.experiments.cloudOnlyShare = base.experiments.cloudOnlyShare;
+    problems.push("experiments.cloudOnlyShare: must be a number from 0 to 1; default kept");
   }
   validatePlanning(s, base, problems, raw);
   validateLocal(s, base, problems);

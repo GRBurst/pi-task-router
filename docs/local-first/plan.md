@@ -559,7 +559,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `sessionEvent` missing; LOG-4 snapshot of the names and values of `TRIPS`, `ROLES`, `REASONS`, `TRIGGERS`, `PLAN_TYPE`, `BRANCH_TYPE` (literal, taken from today) must be a subset of the exports; `ENUMS_V2` holds `session.profile` and `session.localMembers` (§2.4) and `FALLBACKS = ["budget", "error"]` (today's `fallback`), both exported; LOG-3 runs `text-free` over the builder.
 - GREEN: `sessionEvent({now, sessionId, profile, mainModel, startSet, localMembers, routerVersion})`; `export const EVENTS_V2 = ["session"] as const` (each later builder task appends its event); `export const ENUMS_V2` and `export const FALLBACKS = ["budget", "error"] as const` (LF6.T7 appends).
 
-#### LF1.T4 Experiments settings (spec §2.1) `[ ] todo`
+#### LF1.T4 Experiments settings (spec §2.1) `[x] done`
 - Files: `core/types.ts`, `core/settings.ts`; test `lf-settings` (new) "experiments keys".
 - RED: `experiments: {seed: "s", cloudOnlyShare: 0.2}` parsed; no key → `0.1` (D64); `cloudOnlyShare: 2` → one problem, default 0.1; `0` accepted.
 - GREEN: `ExperimentsSettings {seed, cloudOnlyShare, factors}` (factors parsed in LF2.T4), defaults per §2.1.
