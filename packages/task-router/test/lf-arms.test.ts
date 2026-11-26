@@ -117,3 +117,14 @@ test("RND-3", () => {
     assert.ok(Math.abs(p - q) <= 0.02, `${l2}|${l4}: ${p} vs ${q}`);
   }
 });
+
+// LF2 review minor 2 (RND-5): a snapshot's levels are the session's own, not the registry's of this release. A snapshot
+// without levels (settings-shaped) takes the levels of the registry it is read with.
+test("RND-5 levels", () => {
+  const snap = { seed: "task-router", cloudOnlyShare: 0, factors: { E2: { enabled: true, levels: ["small", "standard", "large"], weights: [0, 1, 0] } } };
+  for (let i = 0; i < 20; i++) assert.equal(assign(snap as ExperimentsSettings, "E2", `s-${i}`), "standard", `s-${i}`);
+  const moved = { ...FACTORS, E2: { ...FACTORS.E2, levels: ["small", "standard", "large"] } };
+  const settingsShaped = { seed: "task-router", cloudOnlyShare: 0, factors: { E2: { enabled: true, weights: [0, 1, 0] } } };
+  assert.equal(assign(settingsShaped, "E2", "s-1", moved), "standard");
+  assert.deepEqual(armsOf(settingsShaped, "session", "s-1", moved), ["E2=standard"]);
+});

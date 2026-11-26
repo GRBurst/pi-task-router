@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { harness } from "./harness.ts";
 import { seeded } from "./rand.ts";
 import { parseSettings } from "../core/settings.ts";
-import { FACTORS } from "../core/strategy/arms.ts";
+import { FACTORS, assign } from "../core/strategy/arms.ts";
 import type { FactorId, FactorUnit } from "../core/strategy/arms.ts";
 
 const LATER = "9.9.9"; // every factor available, whatever the release
@@ -53,12 +53,20 @@ test("RND-5", () => {
   assert.ok(old.draws[0]!.some((x) => x.startsWith("E2=")), JSON.stringify(old.draws));
   assert.deepEqual(start("s-code", {}, old.h.f.entries).draws, old.draws);
   assert.deepEqual(start("s-code", {}).draws[0], [], "today's registry: E2 disabled");
+  // LF2 review minor 2: a session resumed across a release that moves E2's first level keeps its levels and its arms
+  const raw = { experiments: { factors: { E2: { enabled: true, weights: [0, 1, 0] } } } };
+  const moved = { ...FACTORS, E2: { ...FACTORS.E2, levels: ["small", "standard", "large"] } };
+  const before = start("s-moved", raw, [], FACTORS);
+  assert.deepEqual(before.draws[0], ["E2=small"]);
+  const after = start("s-moved", raw, before.h.f.entries, moved);
+  assert.deepEqual(after.draws, before.draws, "the resumed draws are the first session's, not the moved registry's");
+  assert.deepEqual(after.written, []);
   // the entry (spec §2.2): v 1, the session, the effective settings of every factor, the router version, the session's draws
   const e = old.written[0]!.data as Record<string, any>;
   assert.deepEqual(Object.keys(e).sort(), ["arms", "experiments", "routerVersion", "sessionId", "v"]);
   assert.deepEqual([e.v, e.sessionId, typeof e.routerVersion, e.experiments.seed, e.experiments.cloudOnlyShare], [1, "s-code", "string", "task-router", 0.1]);
   assert.deepEqual(Object.keys(e.experiments.factors).sort(), Object.keys(FACTORS).sort());
-  assert.deepEqual(e.experiments.factors.E2, { enabled: true, weights: [1, 1, 1] });
+  assert.deepEqual(e.experiments.factors.E2, { enabled: true, levels: ["standard", "small", "large"], weights: [1, 1, 1] });
   assert.deepEqual(e.arms, { E2: old.draws[0]![0]!.slice("E2=".length) });
   // legacy local mode draws nothing and keeps its entries (NR-7): no snapshot
   const lm = harness({ settings: { mode: "local" } as never, apiExt: true });
@@ -80,17 +88,18 @@ async function armedSession(armed: boolean) {
   }
   await h.f.callTool("task_verdict", { name: "q1", verdict: "accepted" });
   h.a.emit({ type: "kill", name: "q2", ts: 2 }); // unjudged
-  return h.lines();
+  return { lines: h.lines(), snap: h.router.arms.snapshot() };
 }
 
 test("RND-6", async () => {
   const on = await armedSession(true);
-  assert.deepEqual(on.map((l) => l.event).sort(), ["session", "spawn", "spawn", "verdict", "verdict"]);
-  for (const l of on) {
-    assert.ok(Array.isArray(l.arms) && l.arms.some((a: string) => a.startsWith("E2=")) && l.arms.some((a: string) => a.startsWith("E4=")), JSON.stringify(l));
+  assert.deepEqual(on.lines.map((l) => l.event).sort(), ["session", "spawn", "spawn", "verdict", "verdict"]);
+  const snap = on.snap!;
+  for (const l of on.lines) {
+    assert.deepEqual(l.arms.filter((a: string) => !a.startsWith("E0=")), [`E2=${assign(snap, "E2", "s-armed")}`, `E4=${assign(snap, "E4", "s-armed")}`].sort(), JSON.stringify(l));
     assert.deepEqual(l.arms, [...l.arms].sort());
   }
   const off = await armedSession(false);
-  assert.deepEqual(off.map((l) => l.event).sort(), ["session", "spawn", "spawn", "verdict", "verdict"]);
-  assert.deepEqual(off.filter((l) => l.event !== "session" && "arms" in l), [], "unarmed: only the session line may carry arms (E0)");
+  assert.deepEqual(off.lines.map((l) => l.event).sort(), ["session", "spawn", "spawn", "verdict", "verdict"]);
+  assert.deepEqual(off.lines.filter((l) => l.event !== "session" && "arms" in l), [], "unarmed: only the session line may carry arms (E0)");
 });

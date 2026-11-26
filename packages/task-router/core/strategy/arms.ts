@@ -25,7 +25,8 @@ const factor = (id: FactorId, unit: FactorUnit, levels: readonly string[], from:
   ({ id, unit, levels, weights: weights ?? levels.map(() => 1), from, enabled: false });
 
 export const FACTORS: Readonly<Record<FactorId, Factor>> = {
-  // E0's weights come from `cloudOnlyShare` ([1 − s, s]); these mirror its default 0.1 (D64).
+  // E0's weights come from `cloudOnlyShare` ([1 − s, s], `effective`); these [0.9, 0.1] are unused placeholders (they mirror
+  // the default share 0.1, D64). A reader of FACTORS takes E0's weights from the share, never from here (docs/outcome-log.md).
   E0: factor("E0", "session", ["as-used", "cloud-only"], "0.3.0", [0.9, 0.1]),
   E2: factor("E2", "session", ["standard", "small", "large"], "0.4.0"),
   E3: factor("E3", "review", ["opus", "sonnet"], "0.4.0"),
@@ -49,8 +50,11 @@ export const FACTORS: Readonly<Record<FactorId, Factor>> = {
   E18: factor("E18", "child", ["full", "lean"], "0.8.0"),
 };
 
+/** A snapshot's factor (spec §2.2): its effective switch, the levels the session took (the first is its default) and its
+ *  weights. Settings have no levels; an absent `levels` reads the registry's (the release that draws). */
+export type SnapshotFactor = { enabled?: boolean; levels?: readonly string[]; weights?: readonly number[] };
 /** What a draw reads: the session's snapshot (spec §2.2) or settings of the same shape. */
-export type ExperimentsSnapshot = ExperimentsSettings;
+export type ExperimentsSnapshot = Omit<ExperimentsSettings, "factors"> & { factors: Record<string, SnapshotFactor> };
 
 /** A factor's effective switch and weights: the snapshot's, else the registry's; E0's from its share s: on while s > 0,
  *  weights [1 − s, s] (spec §2.8). */
@@ -58,13 +62,16 @@ export const effective = (x: ExperimentsSnapshot, id: FactorId, reg: Registry = 
   id === "E0" ? { enabled: x.cloudOnlyShare > 0, weights: [1 - x.cloudOnlyShare, x.cloudOnlyShare] }
   : { enabled: x.factors[id]?.enabled ?? reg[id].enabled, weights: x.factors[id]?.weights ?? reg[id].weights };
 
+/** A factor's levels as the snapshot took them, else the registry's (RND-5: a moved first level does not move a session's arms). */
+const levelsOf = (x: ExperimentsSnapshot, id: FactorId, reg: Registry): readonly string[] => x.factors[id]?.levels ?? reg[id].levels;
+
 /** A unit's level of a factor (D61): drawn while the factor is enabled, else its default (the first level, RND-4). */
-export const assign = (x: ExperimentsSnapshot, id: FactorId, unit: string): string => {
-  const f = FACTORS[id], e = effective(x, id);
-  return e.enabled ? pick(f.levels, e.weights, draw(x.seed, id, unit)) : f.levels[0]!;
+export const assign = (x: ExperimentsSnapshot, id: FactorId, unit: string, reg: Registry = FACTORS): string => {
+  const levels = levelsOf(x, id, reg), e = effective(x, id, reg);
+  return e.enabled ? pick(levels, e.weights, draw(x.seed, id, unit)) : levels[0]!;
 };
 
 /** A unit's arms (spec §2.4 `arms`): `id=level` of every enabled factor of its kind, sorted; a disabled factor is absent.
  *  E0 is not among them: only an eligible cloud-first session draws it (D93), and the shell adds its arm. */
-export const armsOf = (x: ExperimentsSnapshot, kind: FactorUnit, unit: string): string[] =>
-  Object.values(FACTORS).filter((f) => f.id !== "E0" && f.unit === kind && effective(x, f.id).enabled).map((f) => `${f.id}=${assign(x, f.id, unit)}`).sort();
+export const armsOf = (x: ExperimentsSnapshot, kind: FactorUnit, unit: string, reg: Registry = FACTORS): string[] =>
+  Object.values(reg).filter((f) => f.id !== "E0" && f.unit === kind && effective(x, f.id, reg).enabled).map((f) => `${f.id}=${assign(x, f.id, unit, reg)}`).sort();
