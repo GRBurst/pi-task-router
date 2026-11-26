@@ -246,7 +246,7 @@ factors with `enabled` by settings.
 | `lf-start-child` | a slug may start twice | TREE-5 | [ ] |
 | `lf-placement` | `cwd` = the main's cwd | TREE-6 | [ ] |
 | `lf-merge-target` | target = the main branch | TREE-7 | [ ] |
-| `lf-tree-log` | `split` line without `depth` | TREE-11 | [ ] |
+| `lf-tree-log` | `split` line without `depth` | TREE-11 | [x] |
 | `lf-top-plan` | the root split stored on the main branch | TREE-12 | [ ] |
 | `lf-tiers` | elevated not capped | SIZE-1 | [ ] |
 | `lf-tiers-git` | untracked files not counted | SIZE-2 | [ ] |
@@ -744,7 +744,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: real git: worktree with an unrelated staged file → after `commitSplit`, HEAD's tree has `<plans.dir>/split/<node>.json` = the rendering, the unrelated file is still staged and uncommitted; a failing `pre-commit` hook → refusal with its output.
 - GREEN: D66.
 
-#### LF4.T6 `node` and `split` builders (TREE-11) `[ ] todo`
+#### LF4.T6 `node` and `split` builders (TREE-11) `[x] done`
 - Files: `core/outcome.ts`; test `lf-tree-log` (new) "builders".
 - RED: `nodeEvent`/`splitEvent` missing (import fails); then each field set ≠ spec §2.4 and `text-free` over both.
 - GREEN: `nodeEvent`, `splitEvent` per spec §2.4; `EVENTS_V2` += both; `ENUMS_V2` += `node.kind`, `node.outcome`, `split.reason`.

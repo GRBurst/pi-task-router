@@ -38,6 +38,8 @@ const KEYS = [
   "by",
   // outcome log v2: what a revert needs on a merge line (LOG-1); class, tier, actualTier, node from LF5/LF6
   "target", "repoId", "class", "tier", "actualTier", "node",
+  // the node and split lines (LF4.T6, TREE-11)
+  "parent", "depth", "fanout", "children", "planLines",
   // NOT listed: `arms` (RND-6, S33) is added by log.ts after the builders, and is not clipped to MAX_ITEMS: the registry has 21
   // factors, so a line can carry 21 `id=level` items, one more than the cap.
 ];
@@ -144,7 +146,7 @@ export const planEvent = (i: PlanLogInput & { now: Date }) =>
   finish({ ...base("plan", i.now, i.slug), action: i.action, trigger: i.trigger, nTasks: i.nTasks, reviewId: i.reviewId, full: i.full });
 
 /** The events v2 added (local-first spec §2.4, LOG-2); a consumer reads the event list from here. */
-export const EVENTS_V2 = ["session", "profile"] as const;
+export const EVENTS_V2 = ["session", "profile", "node", "split"] as const;
 /** The review line's `fallback` values. */
 export const FALLBACKS = ["budget", "error"] as const;
 export type Fallback = (typeof FALLBACKS)[number];
@@ -152,6 +154,9 @@ const PROFILES = ["cloud-first", "local-first", "local-mode"] as const;
 const LOCAL_MEMBERS = ["on", "off"] as const;
 const ROUTING_PROFILES = ["cloud-first", "local-first"] as const;
 const PROFILE_BY = ["settings", "command"] as const;
+const NODE_KINDS = ["leaf", "plan", "integration", "fix"] as const;
+const NODE_OUTCOMES = ["started", "split", "merged", "blocked", "abandoned"] as const;
+const SPLIT_REASONS = ["estimate", "breaker", "check", "choice", "review"] as const;
 /** Every v2 enumerated field's values, by `"<event>.<field>"` (LOG-4); the lists only grow. */
 export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = {
   "session.profile": PROFILES,
@@ -159,6 +164,9 @@ export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = 
   "profile.from": PROFILES,
   "profile.to": ROUTING_PROFILES,
   "profile.by": PROFILE_BY,
+  "node.kind": NODE_KINDS,
+  "node.outcome": NODE_OUTCOMES,
+  "split.reason": SPLIT_REASONS,
 };
 export type SessionInput = { now: Date; sessionId: string; profile: (typeof PROFILES)[number]; mainModel: string; startSet: boolean;
   localMembers?: (typeof LOCAL_MEMBERS)[number]; routerVersion: string };
@@ -174,6 +182,19 @@ export type ProfileInput = { now: Date; sessionId: string; from: (typeof PROFILE
 /** A routing-profile switch (PRO-2, spec §2.4): `taskId` is the session id; `from` may be the legacy local mode. */
 export const profileEvent = (i: ProfileInput) =>
   finish({ ...base("profile", i.now, i.sessionId), from: i.from, to: i.to, by: i.by });
+
+export type NodeOutcome = (typeof NODE_OUTCOMES)[number];
+export type SplitReason = (typeof SPLIT_REASONS)[number];
+export type NodeLogInput = { now: Date; node: string; parent?: string; depth: number; kind: (typeof NODE_KINDS)[number]; fanout: number;
+  outcome: NodeOutcome; tier: string; class?: string; profile: (typeof ROUTING_PROFILES)[number] };
+/** A node's state change (TREE-11, spec §2.4): `taskId` is the node id; `fanout` its split's child count (0 unsplit). */
+export const nodeEvent = (i: NodeLogInput) =>
+  finish({ ...base("node", i.now, i.node), parent: i.parent, depth: i.depth, kind: i.kind, fanout: i.fanout, outcome: i.outcome,
+    tier: i.tier, class: i.class, profile: i.profile });
+export type SplitLogInput = { now: Date; node: string; reason: SplitReason; children: number; depth: number; planLines: number };
+/** A split (TREE-11, spec §2.4): `taskId` and `node` are the split node; never the plan's text, only its counts. */
+export const splitEvent = (i: SplitLogInput) =>
+  finish({ ...base("split", i.now, i.node), node: i.node, reason: i.reason, children: i.children, depth: i.depth, planLines: i.planLines });
 
 export const serializeEvent = (e: OutcomeEvent): string => `${JSON.stringify(e)}\n`;
 
