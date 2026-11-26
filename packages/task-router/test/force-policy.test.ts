@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { RouterSettings } from "../core/types.ts";
+import { ARMS_TYPE } from "../core/armstore.ts";
 import { T0_ALL, accepted, card, harness } from "./harness.ts";
 
 type H = ReturnType<typeof harness>;
@@ -47,10 +48,10 @@ test("AC-F1: /force sonnet high next:2 — two forced spawns on Sonnet at high, 
   assert.deepEqual(forceLines(h), [["set", "command"], ["used", "command"], ["used", "command"], ["expired", "command"]]);
   assert.deepEqual(h.lines().filter((l) => l.event === "force" && l.action !== "set").map((l) => [l.model, l.effort]), [[SONNET, "high"], [SONNET, "high"], [SONNET, "high"]]);
   // the countdown is stored and shown: 2 left, 1 left, then cleared
-  assert.deepEqual(h.f.entries.filter((e) => e.type === "task-router/force").map((e) => e.data), [ // the arms snapshot (RND-5) aside
-    { model: SONNET, thinkingLevel: "high", scope: "next", remaining: 2, source: "command" },
-    { model: SONNET, thinkingLevel: "high", scope: "next", remaining: 1, source: "command" },
-    { cleared: true },
+  assert.deepEqual(h.f.entries.filter((e) => e.type !== ARMS_TYPE).map((e) => [e.type, e.data]), [ // the arms snapshot (RND-5) aside
+    ["task-router/force", { model: SONNET, thinkingLevel: "high", scope: "next", remaining: 2, source: "command" }],
+    ["task-router/force", { model: SONNET, thinkingLevel: "high", scope: "next", remaining: 1, source: "command" }],
+    ["task-router/force", { cleared: true }],
   ]);
   assert.deepEqual(status, [["task-router", `force ${SONNET} high (2 left)`], ["task-router", `force ${SONNET} high (1 left)`], ["task-router", undefined]]);
 });

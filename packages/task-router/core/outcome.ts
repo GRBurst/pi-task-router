@@ -36,6 +36,8 @@ const KEYS = [
   "profile", "mainModel", "startSet", "localMembers", "routerVersion",
   // outcome log v2: what a revert needs on a merge line (LOG-1); class, tier, actualTier, node from LF5/LF6
   "target", "repoId", "class", "tier", "actualTier", "node",
+  // NOT listed: `arms` (RND-6, S33) is added by log.ts after the builders, and is not clipped to MAX_ITEMS: the registry has 21
+  // factors, so a line can carry 21 `id=level` items, one more than the cap.
 ];
 const MAX_STR = 256;
 const MAX_ITEMS = 20;

@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { FORCE_TYPE } from "../core/force.ts";
+import { ARMS_TYPE } from "../core/armstore.ts";
 import { statusText } from "../core/local/mode.ts";
 import type { RouterSettings } from "../core/types.ts";
 import { harness } from "./harness.ts";
@@ -60,7 +61,7 @@ test("AC-F3: /force nosuch/model leaves the state unchanged, one error notificat
   await force(h, "nosuch/model", c.ctx);
   assert.deepEqual(c.notes, [[`task-router: /force: unknown model nosuch/model; available: ${KNOWN.slice(0, 10).join(", ")}`, "error"]]);
   assert.deepEqual(forceLines(h).map((l) => [l.action, l.source, l.model, l.reason]), [["rejected", "command", "nosuch/model", "unknown-model"]]);
-  assert.deepEqual(h.f.entries.filter((e) => e.type === FORCE_TYPE), []); // the session's arms snapshot (RND-5) is no force entry
+  assert.deepEqual(h.f.entries.filter((e) => e.type !== ARMS_TYPE), []); // no other entry: the arms snapshot (RND-5) aside
   assert.equal(await show(h, c), "task-router: no force; routing decides");
   // a set force survives a rejected one
   await force(h, "sonnet", c.ctx);
@@ -79,14 +80,14 @@ test("usage: a malformed /force is a warning and a force rejected usage line; no
   await force(h, "sonnet bogus", c.ctx);
   assert.deepEqual(c.notes, [[USAGE, "warning"]]);
   assert.deepEqual(forceLines(h).map((l) => [l.action, l.source, l.reason, "model" in l]), [["rejected", "command", "usage", false]]);
-  assert.deepEqual(h.f.entries.filter((e) => e.type === FORCE_TYPE), []);
+  assert.deepEqual(h.f.entries.filter((e) => e.type !== ARMS_TYPE), []);
 });
 
 test("set/show/off: entries, notifications, force lines and the status line in default mode", async () => {
   const { h, c } = start();
   assert.deepEqual(c.status, []); // default mode, no force: the status line is never touched
   await force(h, "sonnet high next:2", c.ctx);
-  assert.deepEqual(h.f.entries.filter((e) => e.type === FORCE_TYPE), [{ type: FORCE_TYPE, data: { model: SONNET, thinkingLevel: "high", scope: "next", remaining: 2, source: "command" } }]);
+  assert.deepEqual(h.f.entries.filter((e) => e.type !== ARMS_TYPE), [{ type: FORCE_TYPE, data: { model: SONNET, thinkingLevel: "high", scope: "next", remaining: 2, source: "command" } }]);
   assert.deepEqual(c.notes.at(-1), [`task-router: force ${SONNET} high for the next 2 spawns; ${NOT_FORCED}`, "info"]);
   assert.deepEqual(c.status.at(-1), ["task-router", `force ${SONNET} high (2 left)`]);
   assert.equal(await show(h, c), `task-router: force ${SONNET} high (2 left) (command)`);
