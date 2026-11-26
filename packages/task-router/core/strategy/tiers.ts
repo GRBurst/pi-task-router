@@ -1,6 +1,6 @@
 // Size tiers (local-first spec SIZE-1, design §5.3, plan S31): the budget of a tier in changed lines and the tier of a line
 // count. The constants are `localFirst.tiers`, given by the composition; the parts read no settings (D60). Pure: no I/O.
-import type { RiskClass, Tier } from "./types.ts";
+import type { Arms, RiskClass, Tier } from "./types.ts";
 
 /** `localFirst.tiers`: the changed-line budgets of the three sized tiers. */
 export interface TierLines { small: number; standard: number; large: number }
@@ -19,3 +19,9 @@ export const createTiers = (lines: TierLines): Tiers => ({
   },
   tierOfLines: (n) => (n <= lines.small ? "small" : n <= lines.standard ? "standard" : n <= lines.large ? "large" : "over"),
 });
+
+/** The session's tier (SIZE-3): the E2 level, `standard` while E2 is disabled (no arm); never `inert`. No settings read. */
+export const sessionTier = (arms: Arms): Exclude<Tier, "inert"> => {
+  const e2 = arms.E2;
+  return e2 === "small" || e2 === "standard" || e2 === "large" ? e2 : "standard";
+};

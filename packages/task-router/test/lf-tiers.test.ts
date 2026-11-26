@@ -2,7 +2,7 @@
 // session's tier (the E2 level). Pure: the parts take the settings' constants, never read settings themselves.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createTiers } from "../core/strategy/tiers.ts";
+import { createTiers, sessionTier } from "../core/strategy/tiers.ts";
 import type { Tier } from "../core/strategy/types.ts";
 import { defaults } from "../core/settings.ts";
 import { seeded } from "./rand.ts";
@@ -45,4 +45,26 @@ test("SIZE-1 the tier of a line count is monotone and edge-exact", () => {
   const custom = createTiers({ small: 10, standard: 20, large: 30 });
   assert.deepEqual([10, 11, 20, 21, 30, 31].map((n) => custom.tierOfLines(n)), ["small", "standard", "standard", "large", "large", "over"]);
   assert.equal(custom.tierBudget("large", "standard"), 30);
+});
+
+test("SIZE-3 the session tier is the E2 level, standard while E2 is absent", () => {
+  assert.equal(sessionTier({ E2: "large" }), "large");
+  assert.equal(sessionTier({ E2: "small" }), "small");
+  assert.equal(sessionTier({}), "standard");
+  assert.equal(sessionTier({ E3: "sonnet" }), "standard", "another factor's arm does not count");
+});
+
+test("SIZE-3 property: arms.E2 ?? standard, never inert", () => {
+  const rnd = seeded(5103);
+  const levels = ["small", "standard", "large"];
+  const other = ["E0", "E3", "E12", "E17"];
+  for (let i = 0; i < 300; i++) {
+    const arms: Record<string, string> = {};
+    for (const f of other) if (rnd(2)) arms[f] = ["opus", "sonnet", "xhigh", "cloud-only"][rnd(4)]!;
+    const e2 = rnd(4) === 3 ? undefined : levels[rnd(3)]!;
+    if (e2) arms.E2 = e2;
+    const t = sessionTier(arms);
+    assert.equal(t, e2 ?? "standard", JSON.stringify(arms));
+    assert.notEqual(t, "inert");
+  }
 });
