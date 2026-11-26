@@ -221,7 +221,7 @@ factors with `enabled` by settings.
 | `lf-default` NR-3 | a comment-free `globalThis.__piExperimentsApi_v1` read left in `shell.ts` | the source scan | [x] |
 | `lf-default` NR-2 | `spawnEvent` keeps `arm` | "NR-2 cloud-first lines" | [x] |
 | `lf-outcome` | a builder copies `goal` text into a field | LOG-3 text-free | [x] |
-| `lf-session-log` | write `session` in cloud-first with share 0 | MEAS-1 | [ ] |
+| `lf-session-log` | write `session` in cloud-first with share 0 | MEAS-1 | [x] |
 | `lf-merge-log` | `repoId` from `HEAD` instead of the root commit | LOG-1 | [ ] |
 | `lf-arms` RND-2 | `unit` dropped from the hash input | determinism-by-unit frequencies | [ ] |
 | `lf-arms` RND-3 | `id` dropped from the hash input | the joint-frequency property | [ ] |
@@ -571,7 +571,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: the harness' default settings, and the settings those files build, set `experiments.cloudOnlyShare: 0`; the cases pass with their assertions unchanged. LF1.T5 and LF1.T9 set the share explicitly.
 - Keep green: `local-default`.
 
-#### LF1.T5 `session` line (MEAS-1) `[ ] todo`
+#### LF1.T5 `session` line (MEAS-1) `[x] done`
 - Files: `core/shell.ts`; test `lf-session-log` (new).
 - RED: legacy local-mode harness session → one `session` line (`profile: "local-mode"`); cloud-first with share 0 → none; with the default share (0.1) → one, carrying `arms: ["E0=<level>"]` (LF2.T7; until then without `arms`).
 - GREEN: write it in the `session_start` handler (inside the guarded body); `routerVersion` from the package manifest's version constant.

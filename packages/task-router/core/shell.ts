@@ -35,7 +35,7 @@ import type { Child, PolicyDeps } from "./policy.ts";
 import type { SkillPort } from "./profile.ts";
 import type { ThinkingLevel } from "./types.ts";
 import type { FsPort } from "./verify.ts";
-import { outcomeFile, serializeEvent } from "./outcome.ts";
+import { outcomeFile, serializeEvent, sessionEvent } from "./outcome.ts";
 import type { OutcomeEvent } from "./outcome.ts";
 import { UNROUTED_CARD, unroutedPlan } from "./unrouted.ts";
 import { actorMissing, hasSubagentsApiV1, warnOnce } from "./runtime-guard.ts";
@@ -69,6 +69,10 @@ export type Deps = {
 };
 
 const VERDICTS = ["accepted", "partial", "rejected"] as const;
+/** The package manifest's version (local-first E1 splits the meter's timings by it); "" if the manifest is unreadable. */
+const ROUTER_VERSION: string = (() => {
+  try { return String(JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version ?? ""); } catch { return ""; }
+})();
 const text = (t: string, isError = false): ToolResult => ({ content: [{ type: "text", text: t }], details: {}, ...(isError ? { isError } : {}) });
 
 export function install(pi: PiLike, deps: Deps) {
@@ -227,6 +231,10 @@ export function install(pi: PiLike, deps: Deps) {
     force.start(ctx, problems); // plan D8: its problem joins the one notification below
     lm.start(ctx); // the Opus budget (D30) before the status line shows it
     showStatus(ctx, ctx?.model);
+    // MEAS-1 (local-first spec §2.4): a session line in legacy local mode, and in cloud-first while E0 runs (G7: none at share 0).
+    if (isLocal(settings) || settings.experiments.cloudOnlyShare > 0)
+      append(sessionEvent({ now: now(), sessionId: sessionId ?? "", profile: isLocal(settings) ? "local-mode" : "cloud-first",
+        mainModel: main ?? "", startSet: false, localMembers: "on", routerVersion: ROUTER_VERSION }));
     const a = api();
     active = hasSubagentsApiV1(a);
     if (active) { connect(); registerVerdict(); }
