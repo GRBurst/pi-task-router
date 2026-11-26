@@ -226,7 +226,7 @@ factors with `enabled` by settings.
 | `lf-arms` RND-2 | `unit` dropped from the hash input | determinism-by-unit frequencies | [x] |
 | `lf-arms` RND-3 | `id` dropped from the hash input | the joint-frequency property | [ ] |
 | `lf-arms-shell` RND-5 | draw from live settings instead of the snapshot | the resume property | [ ] |
-| `lf-e0` | cloud-only arm keeps `route: "local"` members | MEAS-2 | [ ] |
+| `lf-e0` | cloud-only arm keeps `route: "local"` members | MEAS-2 | [x] |
 | `lf-seams` NR-6 | `core/local/merge.ts` imports `core/strategy/tiers.ts` | the import scan | [ ] |
 | `lf-settings` PRO-1 | `mode: "local"` overrides `profile` | PRO-1 | [ ] |
 | `lf-profile` | restore takes the first entry | PRO-3 | [ ] |
@@ -591,7 +591,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: import fails; then: equal draws for equal inputs (property, 1 000 random triples), `pick` frequencies over 20 000 units within ±2 % of weights (1:1, 1:1:1, 9:1).
 - GREEN: S32 `draw`, `pick`.
 
-#### LF1.T9 E0 cloud-only arm (MEAS-2) `[ ] todo`
+#### LF1.T9 E0 cloud-only arm (MEAS-2) `[x] done`
 - Files: `core/policy.ts`, `core/shell.ts`; test `lf-e0` (new).
 - RED: cloud-first session with share 1 → no spawn placed on a `route: "local"` member (property over random cards from `rand.ts`), `session.localMembers = "off"`; share 0 → no draw, routing = today; a `/profile local-first` switch keeps a cloud-only draw (no local member in that session, MEAS-2); `router-golden` green with the default share (E0 lives in the session, never in `planSpawn`'s defaults).
 - GREEN: at `session_start`, `E0 = pick([as-used, cloud-only], [1-s, s], draw(seed, "E0", sessionId))`; the policy filters `route === "local"` members when `cloud-only`.

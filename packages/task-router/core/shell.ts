@@ -30,6 +30,7 @@ import type { LocalDeps } from "./local/install.ts";
 import type { Trip } from "./local/tripwires.ts";
 import { enabled } from "./members.ts";
 import { createPolicy } from "./policy.ts";
+import { draw, pick } from "./strategy/draw.ts";
 import { spotCheckDue, spotCheckText } from "./spotcheck.ts";
 import type { Child, PolicyDeps } from "./policy.ts";
 import type { SkillPort } from "./profile.ts";
@@ -107,8 +108,10 @@ export function install(pi: PiLike, deps: Deps) {
   const counter = createMemberCounter(join(deps.agentDir, "task-router", "member-count.json"), now);
   // The force override (design §3.6): `/force` and the settings force; the policy reads its port (plan D7).
   const force = installForce(pi, { settings, log, onChange: (ctx) => { ui = ctx?.ui ?? ui; render(); } });
+  // E0 (local-first spec §6, MEAS-2, D61): drawn at a cloud-first session_start while the share is above 0; else as used.
+  let e0: "as-used" | "cloud-only" = "as-used";
   const pd: PolicyDeps = {
-    settings, api, children, attempts: new Map(), now: nowMs, skills: () => skillPort,
+    cloudOnly: () => e0 === "cloud-only", settings, api, children, attempts: new Map(), now: nowMs, skills: () => skillPort,
     rng: deps.rng ?? Math.random, home: deps.home ?? homedir(),
     fs: deps.fs ?? { exists: existsSync, size: (p) => statSync(p).size, isDir: (p) => existsSync(p) && statSync(p).isDirectory() },
     sleep: deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))),
@@ -232,9 +235,11 @@ export function install(pi: PiLike, deps: Deps) {
     lm.start(ctx); // the Opus budget (D30) before the status line shows it
     showStatus(ctx, ctx?.model);
     // MEAS-1 (local-first spec §2.4): a session line in legacy local mode, and in cloud-first while E0 runs (G7: none at share 0).
-    if (isLocal(settings) || settings.experiments.cloudOnlyShare > 0)
+    const x = settings.experiments, e0runs = !isLocal(settings) && x.cloudOnlyShare > 0;
+    e0 = e0runs ? pick(["as-used", "cloud-only"], [1 - x.cloudOnlyShare, x.cloudOnlyShare], draw(x.seed, "E0", sessionId ?? "")) : "as-used";
+    if (isLocal(settings) || e0runs)
       append(sessionEvent({ now: now(), sessionId: sessionId ?? "", profile: isLocal(settings) ? "local-mode" : "cloud-first",
-        mainModel: main ?? "", startSet: false, localMembers: "on", routerVersion: ROUTER_VERSION }));
+        mainModel: main ?? "", startSet: false, localMembers: e0 === "cloud-only" ? "off" : "on", routerVersion: ROUTER_VERSION }));
     const a = api();
     active = hasSubagentsApiV1(a);
     if (active) { connect(); registerVerdict(); }

@@ -61,6 +61,8 @@ export type PolicyDeps = {
    *  `guard`: the local guards of a child session in `cwd`: git (design §2.2 item 3, §3.4.5) while the merge gate is on, the plan
    *  guard (§3.5.6) while plans are active. */
   local?: { activeWorktree(): string | undefined; guard?(cwd: string): Guard | undefined };
+  /** E0's `cloud-only` arm (local-first MEAS-2): the session drew it at its start; absent = as used. */
+  cloudOnly?: () => boolean;
 };
 
 const POLL_MS = 2000;
@@ -143,10 +145,14 @@ export async function resolveLeg(d: PolicyDeps, x: {
   }
 }
 
-export function createPolicy(d: PolicyDeps): SpawnPolicy {
-  const s = d.settings;
+export function createPolicy(base: PolicyDeps): SpawnPolicy {
+  // MEAS-2: in E0's cloud-only arm the `route: "local"` members do not exist (`model: ""`, like a blank member), for the
+  // plan, the selection and the failover alike; a force still finds its member in the settings (a force is no routing).
+  const models = Object.fromEntries(Object.entries(base.settings.models).map(([n, m]) => [n, m.route === "local" ? { ...m, model: "" } : m]));
+  const cloud: PolicyDeps = { ...base, settings: { ...base.settings, models } };
   const reject = (errors: string[]) => ({ reject: errors.join("; ") });
   return async (args, caller: Caller) => {
+    const d = base.cloudOnly?.() ? cloud : base, s = d.settings;
     // D25 (design §3.2.2 step 3): the router's own spawn first, whatever routing and a force say; an unknown ticket is no card field.
     const t = d.tickets?.take((args.task as { ticket?: unknown } | undefined)?.ticket, args.name, caller.sessionId, d.now());
     if (t) {
@@ -206,7 +212,7 @@ export function createPolicy(d: PolicyDeps): SpawnPolicy {
       // fails over (`failover: []`, A4); a non-member starts at once with no slot. Nothing is used when the spawn is rejected.
       const effort = f.thinkingLevel ?? plan.worker.effort;
       const forced: Forced = { source: f.source, routedModel: plan.worker.model, routedEffort: plan.worker.effort };
-      const member = byModel(s.models, f.model);
+      const member = byModel(base.settings.models, f.model);
       plan.reasons.push(`force: ${f.model} ${effort} (${f.source})`);
       if (member) {
         const to = await resolveLeg(d, { name: args.name, cands: [member], planned: member, step: plan.worker.step, effort, pinned: true, failover: [],
