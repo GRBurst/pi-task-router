@@ -66,6 +66,8 @@ test("all errors are reported together", () => {
   assert.ok(errorsOf({}).length >= 5);
 });
 
+// Local-first LF3.T2a (PRO-10, S34b): a built-in carries its placement in a local-first session; nothing else changed.
+const LOCAL = { placement: "local" }, CLOUD = { placement: "cloud" };
 test("profileFor: built-ins", () => {
   const s = defaults();
   const p = (k: string) => {
@@ -73,14 +75,14 @@ test("profileFor: built-ins", () => {
     assert.ok(r.ok, k);
     return r.ok ? r.value : undefined;
   };
-  assert.deepEqual(p("scout"), { ability: "read", minLevel: 2, tools: "read-only", skills: [], report: "answer" });
-  assert.deepEqual(p("mechanical"), { tools: "all", skills: [], report: "default" });
-  assert.deepEqual(p("implement"), { tools: "all", skills: [], report: "default" });
-  assert.deepEqual(p("debug-design"), { minLevel: 1, tools: "all", skills: ["systematic-debugging"], report: "default" });
-  assert.deepEqual(p("review"), { ability: "read", table: "review", minLevel: 2, tools: "read-only", skills: ["code-reviewer"], report: "review" });
-  assert.deepEqual(p("plan"), { level: "top", tools: "read-only+files", skills: ["tdd-implementation-planner"], report: "plan" });
+  assert.deepEqual(p("scout"), { ability: "read", minLevel: 2, tools: "read-only", skills: [], report: "answer", localFirst: LOCAL });
+  assert.deepEqual(p("mechanical"), { tools: "all", skills: [], report: "default", localFirst: LOCAL });
+  assert.deepEqual(p("implement"), { tools: "all", skills: [], report: "default", localFirst: LOCAL });
+  assert.deepEqual(p("debug-design"), { minLevel: 1, tools: "all", skills: ["systematic-debugging"], report: "default", localFirst: LOCAL });
+  assert.deepEqual(p("review"), { ability: "read", table: "review", minLevel: 2, tools: "read-only", skills: ["code-reviewer"], report: "review", localFirst: CLOUD });
+  assert.deepEqual(p("plan"), { level: "top", tools: "read-only+files", skills: ["tdd-implementation-planner"], report: "plan", localFirst: CLOUD });
   // T5.8 (D13, OD15): the narrow scout; routes like `scout` until the scout gate (M6) sets its level
-  assert.deepEqual(p("lookup"), { ability: "read", minLevel: 2, tools: "read-only", skills: [], report: "answer" });
+  assert.deepEqual(p("lookup"), { ability: "read", minLevel: 2, tools: "read-only", skills: [], report: "answer", localFirst: LOCAL });
 });
 
 test("profileFor: settings override fields of a built-in and add new kinds", () => {
@@ -88,7 +90,7 @@ test("profileFor: settings override fields of a built-in and add new kinds", () 
     implement: { minTier: "T1" },
     spike: { tier: "T1", tools: "read-only", skills: ["a"], report: "answer" },
   } }).settings; // legacy keys are the loader's job (spec §5.4 row 7)
-  assert.deepEqual(profileFor("implement", s), { ok: true, value: { minLevel: 1, tools: "all", skills: [], report: "default" } });
+  assert.deepEqual(profileFor("implement", s), { ok: true, value: { minLevel: 1, tools: "all", skills: [], report: "default", localFirst: LOCAL } });
   assert.deepEqual(profileFor("spike", s), { ok: true, value: { level: 1, tools: "read-only", skills: ["a"], report: "answer" } });
 });
 

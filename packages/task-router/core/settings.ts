@@ -14,16 +14,18 @@ export const ROUTER_VERSION: string = (() => {
   try { return String(JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version ?? ""); } catch { return ""; }
 })();
 
-/** Built-in profiles (spec §4.3): the requirement each kind carries. */
+/** Built-in profiles (spec §4.3): the requirement each kind carries; `localFirst` = the placement in a local-first session
+ *  (local-first S34b: executors local; review and plan cloud, where the reviewer table and E16 decide). */
+const LOCAL = { placement: "local" } as const, CLOUD = { placement: "cloud" } as const;
 export const BUILTIN_PROFILES: Record<string, Profile> = {
-  scout: { ability: "read", minLevel: 2, tools: "read-only", skills: [], report: "answer" },
-  mechanical: { tools: "all", skills: [], report: "default" },
-  implement: { tools: "all", skills: [], report: "default" },
-  "debug-design": { minLevel: 1, tools: "all", skills: ["systematic-debugging"], report: "default" },
-  review: { ability: "read", table: "review", minLevel: 2, tools: "read-only", skills: ["code-reviewer"], report: "review" },
-  plan: { level: "top", tools: "read-only+files", skills: ["tdd-implementation-planner"], report: "plan" },
+  scout: { ability: "read", minLevel: 2, tools: "read-only", skills: [], report: "answer", localFirst: LOCAL },
+  mechanical: { tools: "all", skills: [], report: "default", localFirst: LOCAL },
+  implement: { tools: "all", skills: [], report: "default", localFirst: LOCAL },
+  "debug-design": { minLevel: 1, tools: "all", skills: ["systematic-debugging"], report: "default", localFirst: LOCAL },
+  review: { ability: "read", table: "review", minLevel: 2, tools: "read-only", skills: ["code-reviewer"], report: "review", localFirst: CLOUD },
+  plan: { level: "top", tools: "read-only+files", skills: ["tdd-implementation-planner"], report: "plan", localFirst: CLOUD },
   // D13 (OD15, T5.8): the narrow scout; read 2 like `scout` until the scout gate (D16): H6.4 decides, T6.1 alone lowers minLevel.
-  lookup: { ability: "read", minLevel: 2, tools: "read-only", skills: [], report: "answer" },
+  lookup: { ability: "read", minLevel: 2, tools: "read-only", skills: [], report: "answer", localFirst: LOCAL },
 };
 
 export function defaults(): Settings {
@@ -218,6 +220,12 @@ function mapLegacyProfiles(s: Settings, raw: Record<string, unknown>, problems: 
       else if (!ls.length) problems.push(`legacy key ${from} dropped: no enabled member has tier ${String(q[old])}`);
       else { q[now] = Math.min(...ls); problems.push(`legacy key ${from} mapped to ${to}`); }
       delete q[old];
+    }
+    // PRO-10: `{placement: "local" | "cloud"}` only; anything else is dropped (the kind's built-in placement stays)
+    const lf = q.localFirst;
+    if (lf !== undefined && !(isObj(lf) && Object.keys(lf).length === 1 && (lf.placement === "local" || lf.placement === "cloud"))) {
+      problems.push(`profiles.${kind}.localFirst: must be {placement: "local" | "cloud"}; dropped`);
+      delete q.localFirst;
     }
     out[kind] = q as unknown as Profile;
   }

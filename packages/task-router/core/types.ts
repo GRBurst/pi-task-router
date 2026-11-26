@@ -15,6 +15,8 @@ export type Profile = {
   tools: "all" | "read-only" | "read-only+files";
   skills: string[];
   report: "default" | "answer" | "plan" | "review";
+  /** Where a card of this kind runs in a local-first session (PRO-10, S34b); read only there (LF4.T12). */
+  localFirst?: { placement: "local" | "cloud" };
 };
 
 export type T0 = {

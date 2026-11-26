@@ -1,7 +1,9 @@
 // Local-first plan LF1.T4 (spec §2.1): the `experiments` settings. E0 runs from the first release (D64: cloudOnlyShare 0.1).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseSettings } from "../core/settings.ts";
+import { readFileSync } from "node:fs";
+import { BUILTIN_PROFILES, parseSettings } from "../core/settings.ts";
+import { profileFor } from "../core/profile.ts";
 
 test("experiments keys", () => {
   const set = parseSettings({ experiments: { seed: "s", cloudOnlyShare: 0.2 } });
@@ -127,4 +129,34 @@ test("PRO-9", () => {
   assert.equal(parseSettings({ profile: "local-first", localFirst: { experimental: "yes" } }, PREVIEW).settings.profile, "cloud-first");
   assert.equal(parseSettings({ profile: "local-first", ...XP }, "0.3.0").settings.profile, "local-first");
   assert.equal(parseSettings({ profile: "local-first" }, "").settings.profile, "cloud-first", "an unreadable version stays gated");
+});
+
+// LF3.T2a (spec §2.1, PRO-10, D82, S34b): a card kind's placement in a local-first session, `profiles.<kind>.localFirst`.
+// The field is optional and read only in a local-first session (LF4.T12); every other field and reader of `Profile` stays.
+test("PRO-10", () => {
+  const ok = parseSettings({ profiles: { scout: { localFirst: { placement: "cloud" } } } }, PREVIEW);
+  assert.deepEqual(ok.problems, []);
+  assert.deepEqual(ok.settings.profiles.scout?.localFirst, { placement: "cloud" });
+  const pf = profileFor("scout", ok.settings);
+  assert.ok(pf.ok && pf.value.localFirst?.placement === "cloud" && pf.value.tools === "read-only");
+  for (const bad of [{ placement: "x" }, { placement: "local", extra: 1 }, "local", null, {}]) {
+    const r = parseSettings({ profiles: { scout: { localFirst: bad, report: "default" } } }, PREVIEW);
+    assert.deepEqual(r.problems, ['profiles.scout.localFirst: must be {placement: "local" | "cloud"}; dropped'], JSON.stringify(bad));
+    assert.deepEqual(r.settings.profiles.scout, { report: "default" }, JSON.stringify(bad));
+  }
+  // the built-ins (S34b): executors local, review and plan cloud (the reviewer table and E16 decide those)
+  const want: Record<string, string> = { scout: "local", lookup: "local", mechanical: "local", implement: "local", "debug-design": "local", review: "cloud", plan: "cloud" };
+  assert.deepEqual(Object.fromEntries(Object.entries(BUILTIN_PROFILES).map(([k, p]) => [k, p.localFirst])),
+    Object.fromEntries(Object.entries(want).map(([k, v]) => [k, { placement: v }])));
+  // property: profileFor minus localFirst = before the task (test/fixtures/profile-for-before.json, recorded at its RED from the
+  // code before it: every built-in kind and a custom one, seeded random overrides without localFirst, through parseSettings)
+  const before: { kind: string; over: Record<string, unknown> | null; profile: Record<string, unknown> }[] =
+    JSON.parse(readFileSync(new URL("./fixtures/profile-for-before.json", import.meta.url), "utf8"));
+  assert.equal(before.length, 168);
+  for (const b of before) {
+    const r = profileFor(b.kind, parseSettings(b.over === null ? {} : { profiles: { [b.kind]: b.over } }, PREVIEW).settings);
+    assert.ok(r.ok, b.kind);
+    const { localFirst: _, ...rest } = r.value;
+    assert.deepEqual(rest, b.profile, JSON.stringify(b));
+  }
 });

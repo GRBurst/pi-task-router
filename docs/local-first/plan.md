@@ -281,7 +281,7 @@ factors with `enabled` by settings.
 | `lf-merge-target` TREE-7 no push (LF4.T11d) | the node→parent merge calls `pushPort` | the fake remote records a push | [ ] |
 | `lf-merge-target` TREE-14 (LF4.T12a) | the scope check only for `plan`-bound branches | a path outside the package's `files` merges | [ ] |
 | `lf-settings` PRO-9 (LF3.T2) | `experimental` ignored | local-first active without it before LF12.T10 | [x] |
-| `lf-settings` PRO-10 (LF3.T2a) | `localFirst` added to the built-in `scout` without `placement` | the built-in table case; the snapshot property catches a changed `tools` | [ ] |
+| `lf-settings` PRO-10 (LF3.T2a) | `localFirst` added to the built-in `scout` without `placement` | the built-in table case; the snapshot property catches a changed `tools` | [x] |
 | `lf-planreview` CON-12 | children start before the verdict | "ticket" (no child before the verdict) | [ ] |
 | `lf-planreview` amend | the amendment replaces started children | the started-slug case and the TREE-3 property | [ ] |
 | `lf-integration` CON-13 | the integration reviewer from the leaf's drawn tier, not the combined diff's actual size | the reviewer property | [ ] |
@@ -670,7 +670,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `profile` parsed; invalid → problem + `cloud-first`; an object (a card-kind profile in the wrong key) → the problem `profile takes cloud-first | local-first; card-kind profiles go under profiles.<kind>`; `{profile: "cloud-first", mode: "local"}` → `cloud-first`; `{mode: "local"}` → legacy local mode, unchanged; PRO-9 a: `profile: "local-first"` without `localFirst.experimental: true` → the problem `profile local-first is experimental before 0.5.0; set localFirst.experimental` and `cloud-first`.
 - GREEN: `profile?: RoutingProfile` (`core/types.ts`; the card-kind `Profile` keeps its name and shape); `localFirst` defaults (§2.1) as one nested object, `experimental: false`.
 
-#### LF3.T2a Card kinds in local-first: `profiles.<kind>.localFirst` (PRO-10, M6) `[ ] todo`
+#### LF3.T2a Card kinds in local-first: `profiles.<kind>.localFirst` (PRO-10, M6) `[x] done`
 - Files: `core/types.ts`, `core/settings.ts`; test `lf-settings` "PRO-10".
 - Keep green: `brief`, `card`, `policy`, `prompt`, `requirement`, `route`, `settings`, `table`, `top` (every reader of `Profile`/`profiles`, unmodified).
 - RED: `profiles.scout.localFirst = {placement: "cloud"}` parsed; `{placement: "x"}` → one problem; `BUILTIN_PROFILES.<kind>.localFirst` per S34b; property: for every built-in kind and random overrides without `localFirst`, `profileFor(kind, s)` minus `localFirst` deep-equals the value before this task (a snapshot taken in the RED commit).
