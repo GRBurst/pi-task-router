@@ -227,7 +227,7 @@ factors with `enabled` by settings.
 | `lf-merge-log` | `repoId` from `HEAD` instead of the root commit | LOG-1 | [x] |
 | `lf-arms` RND-2 | `unit` dropped from the hash input | determinism-by-unit frequencies | [x] |
 | `lf-arms` RND-3 | `id` dropped from the hash input | the joint-frequency property | [x] |
-| `lf-arms-shell` RND-5 | draw from live settings instead of the snapshot | the resume property | [ ] |
+| `lf-arms-shell` RND-5 | draw from live settings instead of the snapshot | the resume property | [x] |
 | `lf-e0` | cloud-only arm keeps `route: "local"` members | MEAS-2 | [x] |
 | `lf-e0` | the force looks its member up in the cloud-only view | "MEAS-2 force" | [x] |
 | `lf-e0` | E0 drawn with routing off, with no cloud member, or with the explicit local model's old refusal text | "MEAS-2 routing off", "MEAS-2 eligibility", "MEAS-2 refusals" | [x] |
@@ -638,7 +638,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `experiments.factors.E2 = {enabled: true, weights: [1, 1, 1]}` parsed; an unknown id, a wrong weight count, a negative weight → one problem each; with an injected router version `0.3.0`, `E2.enabled` → the problem `experiments.factors.E2 is available from 0.4.0` and E2 stays disabled (spec §2.8; the version is a parameter, so the case survives releases).
 - GREEN: validate against `FACTORS` (count = levels; `from` ≤ the router's version by a numeric triple compare).
 
-#### LF2.T5 Arms snapshot entry (RND-5) `[ ] todo`
+#### LF2.T5 Arms snapshot entry (RND-5) `[x] done`
 - Files: `core/armstore.ts` (new), `core/shell.ts`; test `lf-arms-shell` (new) "RND-5".
 - RED: settings change between two `session_start`s of one session (`fake-pi` branch with the entry) → the draws equal the first snapshot's (property over 50 sessions); the same for a changed code default (the deps inject a `FACTORS` copy with E2 enabled) — the snapshot holds the effective set.
 - GREEN: `createArmStore(append, factors = FACTORS)`: at `session_start` restore `task-router/arms` or write one holding, for every factor id, the effective `{enabled, weights}` (code default merged with settings) plus `seed` and `cloudOnlyShare`; `armsFor(unitKind, unit)`.

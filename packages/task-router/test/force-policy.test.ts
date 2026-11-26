@@ -47,7 +47,7 @@ test("AC-F1: /force sonnet high next:2 — two forced spawns on Sonnet at high, 
   assert.deepEqual(forceLines(h), [["set", "command"], ["used", "command"], ["used", "command"], ["expired", "command"]]);
   assert.deepEqual(h.lines().filter((l) => l.event === "force" && l.action !== "set").map((l) => [l.model, l.effort]), [[SONNET, "high"], [SONNET, "high"], [SONNET, "high"]]);
   // the countdown is stored and shown: 2 left, 1 left, then cleared
-  assert.deepEqual(h.f.entries.map((e) => e.data), [
+  assert.deepEqual(h.f.entries.filter((e) => e.type === "task-router/force").map((e) => e.data), [ // the arms snapshot (RND-5) aside
     { model: SONNET, thinkingLevel: "high", scope: "next", remaining: 2, source: "command" },
     { model: SONNET, thinkingLevel: "high", scope: "next", remaining: 1, source: "command" },
     { cleared: true },

@@ -17,6 +17,9 @@ export interface Factor {
   enabled: false;
 }
 
+/** A registry: today's `FACTORS`, or another release's code defaults (a snapshot keeps those it was taken with, RND-5). */
+export type Registry = Readonly<Record<FactorId, Omit<Factor, "enabled"> & { enabled: boolean }>>;
+
 /** Equal weights unless given. */
 const factor = (id: FactorId, unit: FactorUnit, levels: readonly string[], from: string, weights?: readonly number[]): Factor =>
   ({ id, unit, levels, weights: weights ?? levels.map(() => 1), from, enabled: false });
@@ -50,8 +53,8 @@ export const FACTORS: Readonly<Record<FactorId, Factor>> = {
 export type ExperimentsSnapshot = ExperimentsSettings;
 
 /** A factor's effective switch and weights: the snapshot's, else the registry's. */
-export const effective = (x: ExperimentsSnapshot, id: FactorId): { enabled: boolean; weights: readonly number[] } =>
-  ({ enabled: x.factors[id]?.enabled ?? FACTORS[id].enabled, weights: x.factors[id]?.weights ?? FACTORS[id].weights });
+export const effective = (x: ExperimentsSnapshot, id: FactorId, reg: Registry = FACTORS): { enabled: boolean; weights: readonly number[] } =>
+  ({ enabled: x.factors[id]?.enabled ?? reg[id].enabled, weights: x.factors[id]?.weights ?? reg[id].weights });
 
 /** A unit's level of a factor (D61): drawn while the factor is enabled, else its default (the first level, RND-4). */
 export const assign = (x: ExperimentsSnapshot, id: FactorId, unit: string): string => {

@@ -5,6 +5,8 @@ import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ApiEvent, SpawnPolicy, SubagentsApiV1 } from "./api.ts";
+import { createArmStore } from "./armstore.ts";
+import type { Registry } from "./strategy/arms.ts";
 import { createProbes } from "./health.ts";
 import type { FetchLike } from "./health.ts";
 import { createMemberCounter } from "./counter.ts";
@@ -40,7 +42,7 @@ import { outcomeFile, serializeEvent, sessionEvent } from "./outcome.ts";
 import type { OutcomeEvent } from "./outcome.ts";
 import { UNROUTED_CARD, unroutedPlan } from "./unrouted.ts";
 import { actorMissing, hasSubagentsApiV1, warnOnce } from "./runtime-guard.ts";
-import { defaults } from "./settings.ts";
+import { ROUTER_VERSION, defaults } from "./settings.ts";
 import type { Settings } from "./settings.ts";
 
 export type ToolResult = { content: { type: "text"; text: string }[]; details: unknown; isError?: boolean };
@@ -67,13 +69,11 @@ export type Deps = {
   hash?: LocalDeps["hash"]; detect?: LocalDeps["detect"];
   /** The git port of the worktree code (test seam; default: the real git). */
   git?: LocalDeps["git"];
+  /** The factors' code defaults (test seam: another release's registry; default `FACTORS`). */
+  factors?: Registry;
 };
 
 const VERDICTS = ["accepted", "partial", "rejected"] as const;
-/** The package manifest's version (local-first E1 splits the meter's timings by it); "" if the manifest is unreadable. */
-const ROUTER_VERSION: string = (() => {
-  try { return String(JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version ?? ""); } catch { return ""; }
-})();
 const text = (t: string, isError = false): ToolResult => ({ content: [{ type: "text", text: t }], details: {}, ...(isError ? { isError } : {}) });
 
 export function install(pi: PiLike, deps: Deps) {
@@ -108,6 +108,8 @@ export function install(pi: PiLike, deps: Deps) {
   const counter = createMemberCounter(join(deps.agentDir, "task-router", "member-count.json"), now);
   // The force override (design §3.6): `/force` and the settings force; the policy reads its port (plan D7).
   const force = installForce(pi, { settings, log, onChange: (ctx) => { ui = ctx?.ui ?? ui; render(); } });
+  // The session's experiments snapshot (RND-5): every draw of the session reads it.
+  const arms = createArmStore((type, data) => pi.appendEntry?.(type, data), deps.factors);
   // E0 (local-first spec §6, MEAS-2, D61): drawn at a cloud-first session_start while the share is above 0; else as used.
   let e0: "as-used" | "cloud-only" = "as-used";
   const pd: PolicyDeps = {
@@ -231,6 +233,10 @@ export function install(pi: PiLike, deps: Deps) {
   let spawnWarned = false;
   pi.on("session_start", (e, ctx) => {
     track(ctx);
+    // Legacy local mode draws nothing (no E0, no factor) and keeps its entries (NR-7): no snapshot there.
+    let branch: unknown[] = [];
+    try { branch = ctx?.sessionManager?.getBranch?.() ?? []; } catch { branch = []; }
+    if (!isLocal(settings)) arms.start(sessionId ?? "", Array.isArray(branch) ? branch : [], settings.experiments, ROUTER_VERSION);
     force.start(ctx, problems); // plan D8: its problem joins the one notification below
     lm.start(ctx); // the Opus budget (D30) before the status line shows it
     showStatus(ctx, ctx?.model);
@@ -296,5 +302,5 @@ export function install(pi: PiLike, deps: Deps) {
     else delete sections.task_cards;
   });
 
-  return { log, settings, tickets, overseer: lm.overseer, budget: lm.budget, branches: lm.branches, approvals: lm.approvals, fixer: lm.fixer, ready: lm.ready, settled: lm.settled };
+  return { log, settings, arms, tickets, overseer: lm.overseer, budget: lm.budget, branches: lm.branches, approvals: lm.approvals, fixer: lm.fixer, ready: lm.ready, settled: lm.settled };
 }
