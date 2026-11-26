@@ -180,9 +180,10 @@ test("PRO-9", async () => {
 // default registers the tools at its first switch to local-first (once); back in cloud-first they leave the active set (pi
 // cannot unregister a tool) and the hooks of the local install stand still. The legacy local mode keeps its install-time set.
 const LOCAL_TOOLS = ["amend_plan", "plan_request", "request_merge", "start_branch"];
-function rig7(id: string, raw: Record<string, unknown>) {
+function rig7(id: string, raw: Record<string, unknown>, stored: { type: string; data: unknown }[] = []) {
   const g = fakeGit({ repos: [{ root: "/r/x" }] });
   const h = harness({ extra: { settings: parseSettings({ experiments: { cloudOnlyShare: 0 }, ...raw }, "0.4.0").settings, git: g.git } as never });
+  h.f.entries.push(...stored);
   const c = { hasUI: true, cwd: "/r/x", ui: { notify: () => {}, setStatus: () => {} },
     sessionManager: { getSessionId: () => id, getBranch: () => h.f.entries.map((e) => ({ type: "custom", customType: e.type, data: e.data })) } };
   h.f.fire("session_start", { reason: "startup" }, c);
@@ -196,7 +197,7 @@ function rig7(id: string, raw: Record<string, unknown>) {
   /** The main git guard's blocks of a commit on main (a hook of the local install). */
   const blocks = async () => (await Promise.all(h.f.fire("tool_call", { toolName: "bash", toolCallId: `t${Math.random()}`, input: { command: "git commit -qm x" } }, c)))
     .filter((x) => x !== undefined).length;
-  return { h, run, tools, active, section, blocks };
+  return { h, g, c, run, tools, active, section, blocks };
 }
 
 test("PRO-7", async () => {
@@ -221,4 +222,34 @@ test("PRO-7 legacy local mode: the install-time tools and section, no setActiveT
   assert.deepEqual([s.tools(), s.active(), s.h.f.activeSets], [LOCAL_TOOLS, LOCAL_TOOLS, []]);
   assert.equal(s.section(), localSection(s.h.router.settings, activeSet(s.h.router.settings)));
   assert.equal(await s.blocks(), 1);
+});
+
+// LF3 review E (PRO-7): a tool a cloud-first session registered because its own component is "on" (worktrees, mergeGate) reads the
+// plan store and the merge gate's state when it is called, not as they were at its registration: after a switch to local-first
+// plans and the gate are active, and `start_branch` and `request_merge` use them.
+test("PRO-7 start_branch and request_merge read the plan store and the gate state live", async () => {
+  const FILE = "docs/plans/p.md", PLAN = { slug: "p", repo: "/r/x", file: FILE, skeletonHash: "h", approvedBy: "u", triggers: [] };
+  const reason = async (s: ReturnType<typeof rig7>, params: unknown) => (await s.h.f.callTool("start_branch", params, s.c) as { content: { text: string }[] }).content[0]!.text;
+  // plans: active only in local-first, so a plan-bound start_branch is "not active" before the switch and goes on after it
+  const a = rig7("s-e1", { worktrees: { enabled: "on" }, mergeGate: { enabled: "on" }, localFirst: { experimental: true } }, [{ type: "task-router/plan", data: PLAN }]);
+  assert.deepEqual(a.tools(), ["request_merge", "start_branch"], "cloud-first, the two components on: their tools only");
+  assert.equal(await reason(a, { plan: { slug: "p", id: "M1.T1" } }), "plans are not active");
+  await a.run("local-first");
+  assert.notEqual(await reason(a, { plan: { slug: "p", id: "M1.T1" } }), "plans are not active", "the plan store is read at the call");
+  // request_merge: a branch without a plan that changes an approved plan's file is refused plan-changed (plans active)
+  const started = JSON.parse(await reason(a, { slug: "tidy", goal: "tidy up", check: "true" })) as { worktree: string };
+  a.g.commit(started.worktree, [{ path: FILE, added: 1, deleted: 0 }]);
+  const merged = await a.h.f.callTool("request_merge", {}, a.c) as { details: { status: string; reason?: string } };
+  assert.deepEqual([merged.details.status, merged.details.reason], ["refused", "plan-changed"]);
+  // the gate: start_branch takes the main tip's baseline after it started a branch while the gate is on, so a move of main after
+  // it is a bypass at the next bash result
+  const b = rig7("s-e2", { worktrees: { enabled: "on" }, localFirst: { experimental: true } });
+  assert.deepEqual(b.tools(), ["start_branch"]);
+  await b.run("local-first");
+  await reason(b, { slug: "tidy", goal: "tidy up", check: "true" });
+  b.g.repos.get("/r/x")!.refs.set("main", "b".repeat(40));
+  await Promise.all(b.h.f.fire("tool_call", { toolName: "bash", toolCallId: "t1", input: { command: "true" } }, b.c));
+  b.h.f.fire("tool_result", { toolName: "bash", toolCallId: "t1", input: { command: "true" }, content: [{ type: "text", text: "ok" }], isError: false }, b.c);
+  await b.h.router.settled();
+  assert.deepEqual(b.h.lines().filter((l) => l.event === "gatebypass").map((l) => [l.from, l.to]), [["a".repeat(40), "b".repeat(40)]]);
 });
