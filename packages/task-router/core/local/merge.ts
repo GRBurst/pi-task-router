@@ -20,7 +20,8 @@ import { errorReply } from "./branchtool.ts";
 import { type Milestone, parsePlan, planBudget, type PlanRecord, type Skeleton, skeletonHash, type Task, tickOnly } from "./plan.ts";
 import { mergedUnits, type PlanStore } from "./plans.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
-import { nodeLine, nodeOf, nodeOfBranch, parentOf, type Node, type Tree } from "./tree.ts";
+import { contractOf, nodeLine, nodeOf, nodeOfBranch, parentOf, type Node, type Tree } from "./tree.ts";
+import { isSplitFile } from "./split.ts";
 
 export const REASONS = ["main-branch", "dirty", "behind", "fixer-running", "abandoned", "blocked", "size", "scope",
   "check", "main-dirty", "plan-changed", "no-worktree", "review-unavailable", "aborted", "git"] as const;
@@ -378,7 +379,14 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     const r = refuse("size", { lines: String(z.lines), files: String(z.files), maxLines: String(lim.lines), maxFiles: String(lim.files) }, commit);
     return bound ? { ...r, detail: r.detail + opened(trigger(bound, "over-budget")) } : r;
   }
-  // ── 4 scope (plan-bound): the unit's files ∪ create, or the plan file ticked for the unit's own tasks ──
+  // ── 4 scope (plan-bound): the unit's files ∪ create, or the plan file ticked for the unit's own tasks; a package node
+  //    (TREE-14) by its contract: its split child's files, none of its forbidden, the router's split files exempt (D85) ──
+  const nodes = p.nodes?.tree.tree(), pkgNode = nodes && nodeOfBranch(nodes, branch), pkg = nodes && pkgNode && contractOf(nodes, pkgNode);
+  if (pkg) {
+    const out = st.map((f) => f.path).filter((f) => !isSplitFile(s.plans.dir, f) &&
+      (!pkg.files.some((g) => globMatch(g, f)) || (pkg.forbidden ?? []).some((g) => globMatch(g, f))));
+    if (out.length) return { ...refuse("scope", {}, commit), detail: `the node changes files outside its package contract (${pkgNode!.id}): ${out.join(", ")}` };
+  }
   if (bound) {
     const allowed = new Set(bound.tasks.flatMap((x) => [...x.files, ...(x.create ?? [])]));
     const own = new Set(bound.tasks.map((x) => x.id));

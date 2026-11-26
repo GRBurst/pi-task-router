@@ -175,3 +175,25 @@ test("TREE-7 guard", async () => {
   assert.deepEqual(await blocks(root.worktree), [], "after the last child merged");
   assert.deepEqual(await blocks(s.r.dir), [MERGE_REASON("main")]);
 });
+
+test("TREE-14", async () => {
+  const x = nodeRig();
+  await x.node({ slug: "auth", estimate: { kind: "plan", lines: 0 } });
+  const child = (slug: string) => ({ slug, goal: `do ${slug}`, files: [`src/${slug}/**`], estimate: { lines: 5, kind: "code" as const }, check: "true", forbidden: [`src/${slug}/secret.ts`] });
+  assert.equal(x.tree.apply({ op: "split", node: "auth", plan: { summary: "three", children: [child("out"), child("bad"), child("ok")] } }), undefined);
+  const kid = async (slug: string, files: string[]) => {
+    const r = await startNode({ git: x.git, store: x.store, settings: x.settings }, x.nodes, { parent: "auth", child: slug }, x.r.dir);
+    if (!r.ok) throw new Error(r.errors.join("; "));
+    for (const f of files) x.r.commit(f, "a\n", f, r.value.worktree);
+    return x.merge({ branch: r.value.branch });
+  };
+  // outside the split child's files; inside them but forbidden: refused scope, naming the path
+  const out = await kid("out", ["src/out/a.ts", "src/other.ts"]);
+  assert.deepEqual([out.status, out.reason], ["refused", "scope"], out.detail);
+  assert.ok(out.detail.endsWith(": src/other.ts"), out.detail);
+  const bad = await kid("bad", ["src/bad/secret.ts"]);
+  assert.deepEqual([bad.reason, bad.detail.endsWith(": src/bad/secret.ts")], ["scope", true], bad.detail);
+  // inside, and the router's own split file (its submit_split): no scope refusal
+  const ok = await kid("ok", ["src/ok/a.ts", `${x.settings.plans.dir}/split/auth.ok.json`]);
+  assert.equal(ok.status, "merged", ok.detail);
+});

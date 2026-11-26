@@ -279,7 +279,7 @@ factors with `enabled` by settings.
 | `lf-default` NR-2 v1 capture (LF1.T1a) | the fixture empty | the capture case | [x] |
 | `lf-merge-target` TREE-7 base (LF4.T11b) | `behind` keeps `main.sha` | a child cut after main moved is refused `behind` | [x] |
 | `lf-merge-target` TREE-7 no push (LF4.T11d) | the node→parent merge calls `pushPort` | the fake remote records a push | [x] |
-| `lf-merge-target` TREE-14 (LF4.T12a) | the scope check only for `plan`-bound branches | a path outside the package's `files` merges | [ ] |
+| `lf-merge-target` TREE-14 (LF4.T12a) | the scope check only for `plan`-bound branches | a path outside the package's `files` merges | [x] |
 | `lf-settings` PRO-9 (LF3.T2) | `experimental` ignored | local-first active without it before LF12.T10 | [x] |
 | `lf-settings` PRO-10 (LF3.T2a) | `localFirst` added to the built-in `scout` without `placement` | the built-in table case; the snapshot property catches a changed `tools` | [x] |
 | `lf-planreview` CON-12 | children start before the verdict | "ticket" (no child before the verdict) | [ ] |
@@ -804,7 +804,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: a spawn card with `package: "<node>"` in a local-first session → `PolicyResult` with the local member, `cwd` = the node's worktree, `briefAppend` = the package contract, `meta.node`; a `t2` card with `package` → the cloud route and a `contact` of shape `open` (counted in LF8); PRO-10 b: a card without `package` whose kind's `localFirst.placement` is `local` → the start member, `meta.ungated = true` (a CON-8 (ii) unit); `cloud` → today's planning.
 - GREEN: `placePackage(card, tree, strategy, arms)`; the card field `package` (validated: an `active` node); `placeByKind(card, profile)`.
 
-#### LF4.T12a Package scope at the gate (TREE-14) `[ ] todo`
+#### LF4.T12a Package scope at the gate (TREE-14) `[x] done`
 - Files: `core/local/merge.ts` (the scope refusal, `:344–350`, today for plan-bound branches only), `core/local/tree.ts` (`contractOf(node)`); test `lf-merge-target` "TREE-14".
 - RED: a package node whose diff touches a path outside its split child's `files` → refused `scope` naming the path; a path matching `forbidden` → refused `scope`; inside → not refused; the router-owned `<plans.dir>/split/**` is never a scope violation.
 - GREEN: package nodes are plan-bound: the scope check reads `contractOf(node)` as it reads a plan task's files today. `boundOf(…, main.sha, …)` (`:329`) is not consulted for package nodes, so `main.sha` there does not matter.
