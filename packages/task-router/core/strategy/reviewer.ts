@@ -6,7 +6,10 @@
 import type { Arms, ReviewerChoice, ReviewerName, RiskClass, Tier } from "./types.ts";
 
 type Part = { reviewer: ReviewerName | "none"; binding: boolean; stratum?: "small" | "inert-like" };
-const STRENGTH: Record<ReviewerName | "none", number> = { none: 0, haiku: 1, qwen: 1, sonnet: 2, opus: 3 };
+const STRENGTH: Record<Exclude<ReviewerName, "qwen"> | "none", number> = { none: 0, haiku: 1, sonnet: 2, opus: 3 };
+/** S39: qwen is the strength of its role, `qwen-advisory` 1 (= haiku), `qwen-binding` 2 (= sonnet); LF18 returns it (E17). */
+export const strength = (reviewer: ReviewerName | "none", binding: boolean): number =>
+  reviewer === "qwen" ? (binding ? STRENGTH.sonnet : STRENGTH.haiku) : STRENGTH[reviewer];
 const NONE: Part = { reviewer: "none", binding: false };
 const OPUS: Part = { reviewer: "opus", binding: true };
 
@@ -29,6 +32,6 @@ const byTier = (actual: Tier | "over", advisory: boolean, review: Arms): Part =>
 export function reviewer(i: { cls: RiskClass; actual: Tier | "over"; inertLike: boolean; review: Arms }): ReviewerChoice {
   const actual = i.cls === "inert" ? "inert" : i.actual === "inert" ? "small" : i.actual;
   const c = byClass(i.cls), t = byTier(actual, i.inertLike && i.cls === "standard", i.review);
-  const pick = STRENGTH[c.reviewer] >= STRENGTH[t.reviewer] ? c : t;
+  const pick = strength(c.reviewer, c.binding) >= strength(t.reviewer, t.binding) ? c : t;
   return { reviewer: pick.reviewer, binding: pick.binding, fresh: true, orthogonal: i.cls === "elevated", ...(pick.stratum ? { stratum: pick.stratum } : {}) };
 }

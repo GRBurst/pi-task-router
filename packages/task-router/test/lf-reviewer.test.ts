@@ -2,7 +2,7 @@
 // and the actual-size tier's; elevated adds the orthogonal check; a drawn tier never enters (the actual lines do).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { reviewer } from "../core/strategy/reviewer.ts";
+import { reviewer, strength } from "../core/strategy/reviewer.ts";
 import { createTiers, sessionTier } from "../core/strategy/tiers.ts";
 import type { Arms, ReviewerChoice, RiskClass, Tier } from "../core/strategy/types.ts";
 import { defaults } from "../core/settings.ts";
@@ -59,6 +59,14 @@ test("REV-1 property: strength = max(class's, tier's), orthogonal iff elevated",
     assert.equal(r.orthogonal, c === "elevated");
     assert.equal(r.binding, r.reviewer === "sonnet" || r.reviewer === "opus");
   }
+});
+
+test("REV-1 strength (S39): none 0 < haiku 1 = qwen advisory < sonnet 2 = qwen binding < opus 3", () => {
+  // LF6 review m5: qwen's strength follows its binding (LF18 will return it as a reviewer: E17)
+  assert.deepEqual(
+    [strength("none", false), strength("haiku", false), strength("qwen", false), strength("sonnet", true), strength("qwen", true), strength("opus", true)],
+    [0, 1, 1, 2, 2, 3],
+  );
 });
 
 test("REV-1 monotone: a larger actual tier never weakens the reviewer", () => {
