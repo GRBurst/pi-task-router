@@ -222,7 +222,7 @@ factors with `enabled` by settings.
 | `lf-default` NR-2 | `spawnEvent` keeps `arm` | "NR-2 cloud-first lines" | [x] |
 | `lf-outcome` | a builder copies `goal` text into a field | LOG-3 text-free | [x] |
 | `lf-session-log` | write `session` in cloud-first with share 0 | MEAS-1 | [x] |
-| `lf-merge-log` | `repoId` from `HEAD` instead of the root commit | LOG-1 | [ ] |
+| `lf-merge-log` | `repoId` from `HEAD` instead of the root commit | LOG-1 | [x] |
 | `lf-arms` RND-2 | `unit` dropped from the hash input | determinism-by-unit frequencies | [ ] |
 | `lf-arms` RND-3 | `id` dropped from the hash input | the joint-frequency property | [ ] |
 | `lf-arms-shell` RND-5 | draw from live settings instead of the snapshot | the resume property | [ ] |
@@ -581,7 +581,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `mergeEvent({…, base, target, repoId})` drops the fields.
 - GREEN: optional fields `base`, `target`, `repoId`, `class`, `tier`, `actualTier`, `node` (the last four filled from LF5/LF6).
 
-#### LF1.T7 Merge-line fields for reverts: the gate fills them (LOG-1) `[ ] todo`
+#### LF1.T7 Merge-line fields for reverts: the gate fills them (LOG-1) `[x] done`
 - Files: `core/local/merge.ts`, `core/local/gitcmd.ts` (a `rootCommit` port if the port set lacks one); test `lf-merge-log` "LOG-1 git".
 - RED: a real-git merge (`git-repo.ts`, `merge-rig.ts`) → the line's `repoId` = first 12 hex of `git rev-list --max-parents=0 HEAD` (sorted, first), `base` = the target tip before, `target` = the branch merged into.
 - GREEN: compute at step 9 (`advanceMain`); `repoId` cached per repository.

@@ -52,9 +52,12 @@ test("AC-L2 merge: one line per request_merge call, every status; error → fail
   ]);
 
   const b = await rig();
+  const base = b.r.git(["rev-parse", "main"]), repoId = b.r.git(["rev-list", "--max-parents=0", "HEAD"]).slice(0, 12);
   const ok = await b.call({ summary: "adds x" });
   assert.equal(ok.status, "merged", JSON.stringify(ok));
-  assert.deepEqual(b.merges(), [{ taskId: b.rec.branch, outcome: "merged", commit: ok.commit, nLines: 2, nFiles: 1, reviewId: ok.reviewId }]);
+  // local-first LOG-1: a merged line also names what a revert needs
+  assert.deepEqual(b.merges(), [{ taskId: b.rec.branch, outcome: "merged", commit: ok.commit, nLines: 2, nFiles: 1, reviewId: ok.reviewId,
+    base, target: "main", repo: "repo", repoId }]);
 
   const c = await rig({ apiExt: false });
   const err = await c.call();

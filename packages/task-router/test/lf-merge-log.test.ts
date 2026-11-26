@@ -2,7 +2,9 @@
 // merge (`base`), the branch merged into (`target`), the repository (`repo` basename, `repoId` its root commit).
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { basename } from "node:path";
 import { mergeEvent } from "../core/outcome.ts";
+import { mergeRig } from "./merge-rig.ts";
 
 const NOW = new Date(Date.UTC(2026, 9, 2, 12, 0, 0));
 const SHA = "0123456789abcdef0123456789abcdef01234567";
@@ -15,4 +17,24 @@ test("LOG-1 builder", () => {
     { ...head, repo: "repo", ...full });
   // optional: a line without them has none
   assert.deepEqual(mergeEvent({ now: NOW, branch: "lm/x", outcome: "merged", commit: SHA }), head);
+});
+
+test("LOG-1 git", async () => {
+  const m = mergeRig({ settings: { mergeGate: { redRun: false } } });
+  const lines: Record<string, unknown>[] = [];
+  m.ports.log = (i) => { lines.push(mergeEvent({ ...i, now: NOW })); };
+  let asked = 0; // the root commit is asked once per repository
+  m.ports.git = { ...m.git, rootCommit: (repo) => { asked++; return m.git.rootCommit!(repo); } };
+  const roots = m.r.git(["rev-list", "--max-parents=0", "HEAD"]).split("\n").sort();
+  const fields = (l: Record<string, unknown> | undefined) => l && { base: l.base, target: l.target, repo: l.repo, repoId: l.repoId };
+  for (const slug of ["x", "y"]) {
+    const rec = await m.start(slug);
+    m.r.commit(`${slug}.ts`, "x\n", slug, rec.worktree);
+    const before = m.mainSha();
+    const res = await m.merge();
+    assert.equal(res.status, "merged", JSON.stringify(res));
+    assert.notEqual(m.mainSha(), roots[0], "HEAD is not the root commit");
+    assert.deepEqual(fields(lines.at(-1)), { base: before, target: "main", repo: basename(m.r.dir), repoId: roots[0]!.slice(0, 12) });
+  }
+  assert.equal(asked, 1);
 });

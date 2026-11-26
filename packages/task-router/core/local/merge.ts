@@ -171,7 +171,17 @@ export type MergePorts = {
   plans?: PlanStore;
 };
 /** What the pipeline learned before it returned, for the `merge` line. */
-type Seen = { branch?: string; nLines?: number; nFiles?: number };
+type Seen = { branch?: string; nLines?: number; nFiles?: number; base?: string; target?: string; repo?: string; repoId?: string };
+/** A repository's id on the merge line (LOG-1): its root commit's first 12 hex, asked once per git port and repository. */
+const roots = new WeakMap<Git, Map<string, string>>();
+async function repoIdOf(git: Git, repo: string): Promise<string | undefined> {
+  const known = roots.get(git) ?? new Map<string, string>();
+  roots.set(git, known);
+  try {
+    if (!known.has(repo)) { const root = await git.rootCommit?.(repo); if (root !== undefined) known.set(repo, root.slice(0, 12)); }
+  } catch { /* best effort: main has moved already */ }
+  return known.get(repo);
+}
 type Input = { branch?: string; summary?: string };
 /** A check the pipeline ran (step 5), for the review input (S27). */
 export type CheckRun = { cmd: string; exit: number; output: string };
@@ -217,7 +227,8 @@ export async function requestMerge(p: MergePorts, input: Input, cwd: string): Pr
   try {
     const named = seen.branch ?? (typeof input.branch === "string" ? input.branch : "");
     p.log?.({ branch: branchName(named) ? named : "", outcome: r.status === "error" ? "failed" : r.status,
-      reason: r.reason, commit: r.commit, nLines: seen.nLines, nFiles: seen.nFiles, reviewId: r.reviewId, pushed: r.pushed });
+      reason: r.reason, commit: r.commit, nLines: seen.nLines, nFiles: seen.nFiles, reviewId: r.reviewId, pushed: r.pushed,
+      base: seen.base, target: seen.target, repo: seen.repo, repoId: seen.repoId });
   } catch { /* the line is best effort */ }
   return r;
 }
@@ -440,6 +451,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   if ((await git.sha(wt.dir, "HEAD")) !== commit) return "moved";
   const adv = await advanceMain(p, repo, main, commit);
   if (!adv.ok) return { ...(adv.reason === "main-dirty" ? refuse("main-dirty", { checkout: adv.checkout }, commit) : gitError(adv.err, commit)), reviewId };
+  Object.assign(seen, { base: main.sha, target: main.name, repo, repoId: await repoIdOf(git, repo) }); // LOG-1: what a revert needs
   let detail = `merged ${branch} into ${main.name} at ${commit.slice(0, 7)}${adv.push}`;
   const pushed = adv.pushed;
   // A branch the router made becomes `merged` and is cleaned up; one made by hand (D40, with or without a hand-made record of its

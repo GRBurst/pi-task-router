@@ -76,6 +76,10 @@ export type Git = {
   commitFile(repo: string, parent: string, path: string, content: string, message: string): Promise<Res>;
   /** The content of the file `path` at `rev` (a commit or branch; `git cat-file blob`); undefined for an unknown rev or path. */
   show(repo: string, rev: string, path: string): Promise<string | undefined>;
+  // ── the merge line (local-first LOG-1) ──
+  /** The repository's root commit: the first of `git rev-list --max-parents=0 HEAD`, sorted; undefined when git fails.
+   *  Optional: without it a merge line has no `repoId`. */
+  rootCommit?(repo: string): Promise<string | undefined>;
 };
 /** A command that either gave its stdout or failed with the tail of its stderr (2048 characters). */
 export type Res = { ok: true; out: string } | { ok: false; err: string };
@@ -125,6 +129,10 @@ export function createGit(run: GitRun): Git {
       return r.exit === 0 ? parseWorktrees(r.out) : [];
     },
     sha: (repo, ref) => line(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], repo),
+    async rootCommit(repo) {
+      const r = await run(["rev-list", "--max-parents=0", "HEAD"], repo, SHORT_MS);
+      return r.exit === 0 ? r.out.split("\n").map((l) => l.trim()).filter((l) => l !== "").sort()[0] : undefined;
+    },
     async worktreeAdd(repo, dir, branch, base) { return res(await run(["worktree", "add", "-q", "-b", branch, dir, base], repo, ADD_MS)); },
     async worktreeRemove(repo, dir, force = false) { return res(await run(["worktree", "remove", ...(force ? ["--force"] : []), dir], repo, ADD_MS)); },
     async branchDelete(repo, branch, force = false) { return res(await run(["branch", force ? "-D" : "-d", branch], repo, SHORT_MS)); },
