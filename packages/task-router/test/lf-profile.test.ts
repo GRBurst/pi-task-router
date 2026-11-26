@@ -74,3 +74,52 @@ test("PRO-3 shell: the first local-first session_start writes the settings' entr
     assert.deepEqual(force.map((l) => "arms" in l), [armed], JSON.stringify(force));
   }
 });
+
+/** A main session `id` with a UI: its notifications and the router's status line. */
+function withUi(id: string, raw: Record<string, unknown>) {
+  const h = harness({ extra: { settings: parseSettings({ experiments: { cloudOnlyShare: 0 }, ...raw }, "0.4.0").settings } as never });
+  const notes: [string, string][] = [], status = new Map<string, string | undefined>();
+  const c = {
+    hasUI: true, ui: { notify: (t: string, l: string) => void notes.push([t, l]), setStatus: (k: string, v: string | undefined) => void status.set(k, v) },
+    sessionManager: { getSessionId: () => id, getBranch: () => h.f.entries.map((e) => ({ type: "custom", customType: e.type, data: e.data })) },
+  };
+  h.f.fire("session_start", { reason: "startup" }, c);
+  const run = (args: string) => h.f.commands.get("profile")!.handler(args, c);
+  const entries = () => h.f.entries.filter((e) => e.type === PROFILE_TYPE).map((e): Record<string, unknown> => ({ ...(e.data as object), at: "-" }));
+  const lines = () => h.lines().filter((l) => l.event === "profile").map(({ ts: _, ...l }) => l);
+  return { h, c, notes, status, run, entries, lines };
+}
+
+// LF3.T5 (spec §2.3, PRO-2, S34): `/profile` shows or switches the session's routing profile: one entry `by: "command"`, one
+// `profile` line, the status line; an unknown name → the usage, nothing written.
+test("PRO-2", async () => {
+  const s = withUi("s-p2", { localFirst: { experimental: true } });
+  assert.equal(s.status.get("task-router"), undefined, "cloud-first never touches the status line");
+  await s.run("local-first");
+  assert.deepEqual(s.entries(), [{ v: 1, profile: "local-first", by: "command", at: "-" }]);
+  assert.deepEqual(s.lines(), [{ v: 2, event: "profile", taskId: "s-p2", from: "cloud-first", to: "local-first", by: "command", arms: [] }]);
+  assert.equal(s.status.get("task-router"), "local-first");
+  assert.equal(s.h.router.profile.current(), "local-first");
+  // none → shows the profile; an unknown name → usage; the same profile → no second entry
+  await s.run("");
+  assert.deepEqual(s.notes.at(-1), ["task-router profile: local-first", "info"]);
+  await s.run("bogus");
+  assert.deepEqual(s.notes.at(-1), ["usage: /profile [cloud-first | local-first]", "warning"]);
+  await s.run(" local-first ");
+  assert.equal(s.entries().length, 1);
+  // back to cloud-first: one more entry and line; the status line is cleared
+  await s.run("cloud-first");
+  assert.deepEqual(s.entries().map((e) => [e.profile, e.by]), [["local-first", "command"], ["cloud-first", "command"]]);
+  assert.deepEqual(s.lines().map((l) => [l.from, l.to, "arms" in l]), [["cloud-first", "local-first", true], ["local-first", "cloud-first", false]]);
+  assert.equal(s.status.get("task-router"), undefined);
+  // the switch is restored on resume
+  assert.equal(withUi("s-p2", {}).h.router.profile.current(), "cloud-first");
+});
+
+// LF3.T5 (spec PRO-9 a, D81): before 0.5.0 `/profile local-first` needs `localFirst.experimental`; else the notice and no entry.
+test("PRO-9", async () => {
+  const s = withUi("s-p9", {});
+  await s.run("local-first");
+  assert.deepEqual(s.notes.at(-1), ["profile local-first is experimental before 0.5.0; set localFirst.experimental", "warning"]);
+  assert.deepEqual([s.entries(), s.lines(), s.h.router.profile.current()], [[], [], "cloud-first"]);
+});

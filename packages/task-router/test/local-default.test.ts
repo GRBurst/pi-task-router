@@ -23,7 +23,8 @@ test("default mode: inventory", () => {
   const h = harness();
   h.f.fire("session_start", {}, {});
   assert.deepEqual([...h.f.tools.keys()], ["task_verdict"]);
-  assert.deepEqual([...h.f.commands.keys()], ["force"]); // L2.T4: AC-N3's final form (plan X9)
+  // L2.T4: AC-N3's final form (plan X9); local-first LF3.T5 adds `/profile` (PRO-2: the switch from the cloud-first default)
+  assert.deepEqual([...h.f.commands.keys()], ["force", "profile"]);
   assert.deepEqual(h.f.hookNames(), TODAY_HOOKS);
 });
 

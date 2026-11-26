@@ -438,6 +438,9 @@ function validate(s: Settings, base: Settings, problems: string[], raw: Record<s
 
 /** Local-first opens at this release (PRO-9 b, D81); before it `localFirst.experimental` is required. */
 const LOCAL_FIRST_OPEN = "0.5.0";
+/** PRO-9 a: the problem (the settings) or the notice (`/profile`) while local-first is gated; undefined once it is not. */
+export const localFirstGate = (s: Settings, version = ROUTER_VERSION): string | undefined =>
+  s.localFirst.experimental || atLeast(version, LOCAL_FIRST_OPEN) ? undefined : `profile local-first is experimental before ${LOCAL_FIRST_OPEN}; set localFirst.experimental`;
 /** PRO-1, PRO-9 a (spec §2.1): `profile` wins over `mode` when set; an invalid value is dropped (then `mode` decides). */
 function validateProfile(s: Settings, problems: string[], raw: Record<string, unknown>, version: string): void {
   if (!(isObj(raw.localFirst) && isObj(raw.localFirst.breakers) && "turns" in raw.localFirst.breakers)) s.localFirst.breakers.turns = s.plans.taskTurns;
@@ -447,10 +450,8 @@ function validateProfile(s: Settings, problems: string[], raw: Record<string, un
   if (p !== "cloud-first" && p !== "local-first") return void problems.push('profile: must be "cloud-first" or "local-first"; default kept');
   s.mode = "default";
   s.profile = p;
-  if (p === "local-first" && !s.localFirst.experimental && !atLeast(version, LOCAL_FIRST_OPEN)) {
-    problems.push(`profile local-first is experimental before ${LOCAL_FIRST_OPEN}; set localFirst.experimental`);
-    s.profile = "cloud-first";
-  }
+  const gated = p === "local-first" ? localFirstGate(s, version) : undefined;
+  if (gated !== undefined) { problems.push(gated); s.profile = "cloud-first"; }
 }
 
 /** "a.b.c" at least "x.y.z", numerically; an unreadable version proves nothing (false). */

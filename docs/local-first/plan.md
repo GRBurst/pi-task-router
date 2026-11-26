@@ -231,7 +231,7 @@ factors with `enabled` by settings.
 | `lf-e0` | cloud-only arm keeps `route: "local"` members | MEAS-2 | [x] |
 | `lf-e0` | the force looks its member up in the cloud-only view | "MEAS-2 force" | [x] |
 | `lf-e0` | E0 drawn with routing off, with no cloud member, or with the explicit local model's old refusal text | "MEAS-2 routing off", "MEAS-2 eligibility", "MEAS-2 refusals" | [x] |
-| `lf-e0` (LF3.T5) | a `/profile` switch redraws or drops the `cloud-only` arm | "MEAS-2 profile switch" | [ ] |
+| `lf-e0` (LF3.T5) | a `/profile` switch redraws or drops the `cloud-only` arm | "MEAS-2 profile switch" | [x] |
 | `lf-arms` RND-2 | the hash shifts 10 bits, not 11 | "RND-2 known answers" | [x] |
 | `lf-outcome` | the shell writes `localMembers: "other"` | LOG-4 | [x] |
 | `lf-session-log` | the draw uses `Math.random` | "MEAS-1 resume" | [x] |
@@ -687,7 +687,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `profileEvent` missing (import fails); then its fields ≠ spec §2.4 and `text-free` over it.
 - GREEN: `profileEvent({from, to, by})`; `EVENTS_V2` += `profile`; `ENUMS_V2["profile.by"]`.
 
-#### LF3.T5 `/profile` (PRO-2) `[ ] todo`
+#### LF3.T5 `/profile` (PRO-2) `[x] done`
 - Files: `core/profile.ts`, `core/shell.ts`; test `lf-profile` "PRO-2".
 - RED: `fake-pi` command call `local-first` (with `localFirst.experimental`) → one entry `by: "command"`, one `profile` line, status `local-first`; without it → the PRO-9 notice, no entry; `bogus` → usage text, no entry; none → the current profile.
 - GREEN: `pi.registerCommand("profile", …)` in the guarded body; the status line from `profile.current()`.

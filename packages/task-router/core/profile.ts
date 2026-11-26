@@ -68,6 +68,21 @@ export function createRoutingProfile(settings: RouterSettings, append: (type: st
   };
 }
 
+export const PROFILE_USAGE = "usage: /profile [cloud-first | local-first]";
+/** S34's `/profile` (PRO-2): none or the current profile → shows it; a routing profile → the switch (`gate` may refuse
+ *  local-first, PRO-9), then `switched` writes its line and redraws the status line; anything else → the usage. */
+export const profileCommand = (store: ReturnType<typeof createRoutingProfile>,
+  d: { gate(): string | undefined; switched(from: SessionProfile, to: RoutingProfile, ctx: any): void }) => (args: string, ctx: any): void => {
+  const say = (t: string, level: "info" | "warning"): void => { ctx?.ui?.notify?.(t, level); };
+  const to = String(args ?? "").trim(), from = store.current();
+  if (to === "" || to === from) return say(`task-router profile: ${from}`, "info");
+  if (to !== "cloud-first" && to !== "local-first") return say(PROFILE_USAGE, "warning");
+  const refused = to === "local-first" ? d.gate() : undefined;
+  if (refused !== undefined) return say(refused, "warning");
+  store.set(to, "command");
+  d.switched(from, to, ctx);
+};
+
 /** Skills inlined into the brief: profile's then the card's, deduplicated, order kept (P-profile). */
 export function skillNames(p: Profile, c: { skills?: string[] }): string[] {
   return [...new Set([...p.skills, ...(c.skills ?? [])])];

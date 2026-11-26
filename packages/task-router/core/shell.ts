@@ -35,15 +35,15 @@ import { createPolicy } from "./policy.ts";
 import { assign } from "./strategy/arms.ts";
 import { spotCheckDue, spotCheckText } from "./spotcheck.ts";
 import type { Child, PolicyDeps } from "./policy.ts";
-import { createRoutingProfile } from "./profile.ts";
+import { createRoutingProfile, profileCommand } from "./profile.ts";
 import type { SkillPort } from "./profile.ts";
 import type { ThinkingLevel } from "./types.ts";
 import type { FsPort } from "./verify.ts";
-import { outcomeFile, serializeEvent, sessionEvent } from "./outcome.ts";
+import { outcomeFile, profileEvent, serializeEvent, sessionEvent } from "./outcome.ts";
 import type { OutcomeEvent } from "./outcome.ts";
 import { UNROUTED_CARD, unroutedPlan } from "./unrouted.ts";
 import { actorMissing, hasSubagentsApiV1, warnOnce } from "./runtime-guard.ts";
-import { ROUTER_VERSION, defaults } from "./settings.ts";
+import { ROUTER_VERSION, defaults, localFirstGate } from "./settings.ts";
 import type { Settings } from "./settings.ts";
 
 export type ToolResult = { content: { type: "text"; text: string }[]; details: unknown; isError?: boolean };
@@ -230,8 +230,9 @@ export function install(pi: PiLike, deps: Deps) {
   const localModels = enabled(settings.models).filter((m) => m.route === "local").map((m) => m.model);
   let ui: any, main: string | undefined, shown = false, hint: Trip | undefined;
   const render = (): void => {
-    const f = force.port.active(), local = isLocal(settings);
-    const t = statusText({ local, main, localModels, force: f && describeForce(f), opusLeft: local ? opusLeft(settings, lm.budget) : undefined, hint });
+    const f = force.port.active(), p = profile.current(), local = p === "local-mode";
+    const s = statusText({ local, main, localModels, force: f && describeForce(f), opusLeft: local ? opusLeft(settings, lm.budget) : undefined, hint });
+    const t = p === "local-first" ? ["local-first", ...(s === undefined ? [] : [s])].join(" · ") : s; // PRO-2
     if (t !== undefined) { ui?.setStatus?.("task-router", t); shown = true; }
     else if (shown) { ui?.setStatus?.("task-router", undefined); shown = false; }
   };
@@ -243,6 +244,12 @@ export function install(pi: PiLike, deps: Deps) {
   let spawnWarned = false;
   pi.on("session_start", (e, ctx) => {
     track(ctx);
+    const sid = sessionId && !isChild(ctx) ? sessionId : undefined;
+    let branch: unknown[] = [];
+    try { branch = ctx?.sessionManager?.getBranch?.() ?? []; } catch { branch = []; }
+    if (!Array.isArray(branch)) branch = [];
+    // PRO-3 (spec §2.2): the last profile entry, else the settings; the first local-first start records the settings' choice.
+    if (!profile.restore(branch) && sid && profile.current() === "local-first") profile.set("local-first", "settings");
     force.start(ctx, problems); // plan D8: its problem joins the one notification below
     lm.start(ctx); // the Opus budget (D30) before the status line shows it
     showStatus(ctx, ctx?.model);
@@ -252,14 +259,9 @@ export function install(pi: PiLike, deps: Deps) {
     // Only a main session with an id has one: a child inherits the root's arm and writes none, and an empty id would draw one
     // arm for every such session. E0 (MEAS-2) is drawn only where routing can place a spawn and a cloud member can take it;
     // outside it the line has no `localMembers`.
+    // E0 is drawn here only: a `/profile` switch keeps the session's arm (MEAS-2).
     e0 = "as-used";
     e0drawn = false;
-    const sid = sessionId && !isChild(ctx) ? sessionId : undefined;
-    let branch: unknown[] = [];
-    try { branch = ctx?.sessionManager?.getBranch?.() ?? []; } catch { branch = []; }
-    if (!Array.isArray(branch)) branch = [];
-    // PRO-3 (spec §2.2): the last profile entry, else the settings; the first local-first start records the settings' choice.
-    if (!profile.restore(branch) && sid && profile.current() === "local-first") profile.set("local-first", "settings");
     const p = profile.current(), local = p === "local-mode";
     // The experiments snapshot (RND-5), read by every draw of the session: a main session with an id only, and not in legacy
     // local mode, which draws nothing and keeps its entries (NR-7).
@@ -292,6 +294,14 @@ export function install(pi: PiLike, deps: Deps) {
     else for (const p of problems) console.warn(`task-router: ${p}`);
   });
   if (isLocal(settings)) pi.on("model_select", (e, ctx) => { showStatus(ctx, e?.model); });
+  // `/profile` (PRO-2, S34): one entry (the store), one `profile` line, the status line.
+  pi.registerCommand?.("profile", { description: "Show or switch the routing profile: /profile [cloud-first | local-first]",
+    handler: profileCommand(profile, { gate: () => localFirstGate(settings), switched: (from, to, ctx) => {
+      track(ctx);
+      append({ ...profileEvent({ now: now(), sessionId: sessionId ?? "", from, to, by: "command" }), ...(armed() ? { arms: sessionArms() } : {}) });
+      ui = ctx?.ui ?? ui;
+      render();
+    } }) });
   pi.on("session_shutdown", () => { off.forEach((f) => f()); off = []; });
   installEffortGuard(pi, settings.maxBurstTurns);
   installFreshOnCold(pi, { settings, api, now: nowMs });

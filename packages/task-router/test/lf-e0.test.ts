@@ -174,3 +174,30 @@ test("E0 via registry", () => {
   none.f.fire("session_start", { reason: "startup" }, ctx("s-c1"));
   assert.deepEqual([none.f.entries, none.lines()], [[], []]);
 });
+
+// LF3.T5 (MEAS-2, deferred from LF1.T9): E0 is drawn at session_start only; a `/profile local-first` switch neither redraws
+// nor drops the session's arm, and writes no second session line.
+test("MEAS-2 profile switch", async () => {
+  const cs = cards(40);
+  const run = async (share: number, id: string, sw: boolean) => {
+    const { h, c } = e0({ experiments: { cloudOnlyShare: share }, localFirst: { experimental: true } }, id);
+    if (sw) await h.f.commands.get("profile")!.handler("local-first", c);
+    provideSkills(h, SKILLS);
+    const models: string[] = [];
+    for (const [i, k] of cs.entries()) {
+      const r = await h.a.spawn({ name: `c${i}`, task: k });
+      models.push("reject" in r ? "REJECT" : (r as { model: string }).model);
+      h.clock.t += 61_000;
+    }
+    return { models, sessions: sessionLines(h).map((l) => l.localMembers), arms: h.f.entries.filter((e) => e.type === "task-router/arms").length,
+      profile: h.router.profile.current() };
+  };
+  const off = await run(1, "s-off", true);
+  assert.equal(off.profile, "local-first");
+  assert.deepEqual([off.sessions, off.arms], [["off"], 1]);
+  assert.deepEqual(off.models.filter((m) => LOCAL.includes(m)), [], "cloud-only stays cloud-only");
+  const used = await run(0.1, "s-main", true), plain = await run(0.1, "s-main", false);
+  assert.deepEqual([used.sessions, used.arms], [["on"], 1]);
+  assert.deepEqual(used.models, plain.models, "as-used stays as-used");
+  assert.ok(used.models.some((m) => LOCAL.includes(m)));
+});
