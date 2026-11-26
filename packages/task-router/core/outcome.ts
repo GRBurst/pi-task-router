@@ -34,6 +34,8 @@ const KEYS = [
   "trigger", "nTasks", "full",
   // outcome log v2 (local-first spec §2.4): the session line
   "profile", "mainModel", "startSet", "localMembers", "routerVersion",
+  // the profile line (LF3.T4)
+  "by",
   // outcome log v2: what a revert needs on a merge line (LOG-1); class, tier, actualTier, node from LF5/LF6
   "target", "repoId", "class", "tier", "actualTier", "node",
   // NOT listed: `arms` (RND-6, S33) is added by log.ts after the builders, and is not clipped to MAX_ITEMS: the registry has 21
@@ -142,16 +144,21 @@ export const planEvent = (i: PlanLogInput & { now: Date }) =>
   finish({ ...base("plan", i.now, i.slug), action: i.action, trigger: i.trigger, nTasks: i.nTasks, reviewId: i.reviewId, full: i.full });
 
 /** The events v2 added (local-first spec §2.4, LOG-2); a consumer reads the event list from here. */
-export const EVENTS_V2 = ["session"] as const;
+export const EVENTS_V2 = ["session", "profile"] as const;
 /** The review line's `fallback` values. */
 export const FALLBACKS = ["budget", "error"] as const;
 export type Fallback = (typeof FALLBACKS)[number];
 const PROFILES = ["cloud-first", "local-first", "local-mode"] as const;
 const LOCAL_MEMBERS = ["on", "off"] as const;
+const ROUTING_PROFILES = ["cloud-first", "local-first"] as const;
+const PROFILE_BY = ["settings", "command"] as const;
 /** Every v2 enumerated field's values, by `"<event>.<field>"` (LOG-4); the lists only grow. */
 export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = {
   "session.profile": PROFILES,
   "session.localMembers": LOCAL_MEMBERS,
+  "profile.from": PROFILES,
+  "profile.to": ROUTING_PROFILES,
+  "profile.by": PROFILE_BY,
 };
 export type SessionInput = { now: Date; sessionId: string; profile: (typeof PROFILES)[number]; mainModel: string; startSet: boolean;
   localMembers?: (typeof LOCAL_MEMBERS)[number]; routerVersion: string };
@@ -161,6 +168,12 @@ export type SessionInput = { now: Date; sessionId: string; profile: (typeof PROF
 export const sessionEvent = (i: SessionInput) =>
   finish({ ...base("session", i.now, i.sessionId), profile: i.profile, mainModel: i.mainModel, startSet: i.startSet,
     localMembers: i.localMembers, routerVersion: i.routerVersion });
+
+export type ProfileInput = { now: Date; sessionId: string; from: (typeof PROFILES)[number]; to: (typeof ROUTING_PROFILES)[number];
+  by: (typeof PROFILE_BY)[number] };
+/** A routing-profile switch (PRO-2, spec §2.4): `taskId` is the session id; `from` may be the legacy local mode. */
+export const profileEvent = (i: ProfileInput) =>
+  finish({ ...base("profile", i.now, i.sessionId), from: i.from, to: i.to, by: i.by });
 
 export const serializeEvent = (e: OutcomeEvent): string => `${JSON.stringify(e)}\n`;
 

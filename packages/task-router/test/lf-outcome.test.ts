@@ -2,7 +2,7 @@
 // log's closed sets from. Each later builder task adds its builder to `LINES` and its event to `EVENTS_V2`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ENUMS_V2, EVENTS_V2, FALLBACKS, SCHEMA_VERSION, sessionEvent } from "../core/outcome.ts";
+import { ENUMS_V2, EVENTS_V2, FALLBACKS, SCHEMA_VERSION, profileEvent, sessionEvent } from "../core/outcome.ts";
 import { TRIPS } from "../core/local/tripwires.ts";
 import { ROLES } from "../core/local/overseer.ts";
 import { REASONS } from "../core/local/merge.ts";
@@ -27,6 +27,10 @@ const LINES: Array<(rnd: Rnd) => Record<string, unknown>> = [
     ...stray(rnd), now: NOW, sessionId: `s-${rnd(1e6).toString(16)}`, profile: one(rnd, ["cloud-first", "local-first", "local-mode"] as const),
     mainModel: one(rnd, ["anthropic/claude-opus-5-5", "local/qwen", "openrouter/qwen/free"]), startSet: rnd(2) === 1,
     ...(rnd(3) ? { localMembers: one(rnd, ["on", "off"] as const) } : {}), routerVersion: one(rnd, ["0.4.0", "0.5.0-rc.1"]),
+  }),
+  (rnd) => profileEvent({
+    ...stray(rnd), now: NOW, sessionId: `s-${rnd(1e6).toString(16)}`, from: one(rnd, ["cloud-first", "local-first", "local-mode"] as const),
+    to: one(rnd, ["cloud-first", "local-first"] as const), by: one(rnd, ["settings", "command"] as const),
   }),
 ];
 
@@ -66,6 +70,9 @@ const REQUIRED: Record<string, readonly string[]> = {
   FALLBACKS: ["budget", "error"],
   "session.profile": ["cloud-first", "local-first", "local-mode"],
   "session.localMembers": ["on", "off"],
+  "profile.from": ["cloud-first", "local-first", "local-mode"],
+  "profile.to": ["cloud-first", "local-first"],
+  "profile.by": ["settings", "command"],
 };
 const lacking = (have: readonly (string | number)[], want: readonly string[]): string[] => want.filter((v) => !have.includes(v));
 
@@ -91,7 +98,7 @@ test("LOG-4", () => {
   // the required members are included, not the whole list: a later stage may add values
   assert.deepEqual(lacking(FALLBACKS, REQUIRED.FALLBACKS!), []);
   for (const key of Object.keys(REQUIRED).filter((k) => k !== "FALLBACKS")) assert.deepEqual(lacking(ENUMS_V2[key] ?? [], REQUIRED[key]!), [], key);
-  assert.deepEqual(lacking(EVENTS_V2, ["session"]), []);
+  assert.deepEqual(lacking(EVENTS_V2, ["session", "profile"]), []);
   // the property: every enumerated field of a line the router really writes holds a value of its ENUMS_V2 list (the lists are
   // not the generator), and the runs reach every value the lists name for the session (no vacuous pass)
   const lines = written();
@@ -108,4 +115,13 @@ test("LOG-4", () => {
   assert.deepEqual(lacking([...(seen.get("session.profile") ?? [])], ["cloud-first", "local-mode"]), []);
   // a builder line outside the lists is caught (the plant: `localMembers: "other"`)
   assert.ok(!ENUMS_V2["session.localMembers"]!.includes("other"));
+});
+
+// LF3.T4 (spec §2.4, LOG-2): a routing-profile switch; `taskId` is the session id. `from` may be the legacy local mode.
+test("profile", () => {
+  assert.deepEqual(profileEvent({ now: NOW, sessionId: "s-main", from: "cloud-first", to: "local-first", by: "command" }),
+    { v: SCHEMA_VERSION, ts: NOW.toISOString(), event: "profile", taskId: "s-main", from: "cloud-first", to: "local-first", by: "command" });
+  assert.ok((EVENTS_V2 as readonly string[]).includes("profile"));
+  assert.deepEqual([ENUMS_V2["profile.from"], ENUMS_V2["profile.to"], ENUMS_V2["profile.by"]],
+    [["cloud-first", "local-first", "local-mode"], ["cloud-first", "local-first"], ["settings", "command"]]);
 });

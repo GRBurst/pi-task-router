@@ -682,7 +682,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: property over random entry sequences: restored = the last entry's profile; none → settings.
 - GREEN: S34 `createRoutingProfile`, `PROFILE_TYPE = "task-router/profile"`.
 
-#### LF3.T4 `profile` builder (LOG-2) `[ ] todo`
+#### LF3.T4 `profile` builder (LOG-2) `[x] done`
 - Files: `core/outcome.ts`; test `lf-outcome` "profile".
 - RED: `profileEvent` missing (import fails); then its fields ≠ spec §2.4 and `text-free` over it.
 - GREEN: `profileEvent({from, to, by})`; `EVENTS_V2` += `profile`; `ENUMS_V2["profile.by"]`.
