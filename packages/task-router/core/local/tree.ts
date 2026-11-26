@@ -72,3 +72,17 @@ export function canSplit(t: Tree, id: string, n: number, caps: Caps): string | u
   if (n > caps.maxChildren) return `${n} children exceed maxChildren ${caps.maxChildren}`;
   return undefined;
 }
+
+/** The node `id`, or undefined (own keys only: an id is model text). */
+export const nodeOf = (t: Tree, id: string): Node | undefined => (Object.hasOwn(t.nodes, id) ? t.nodes[id] : undefined);
+/** TREE-5: the package `slug` of `parent`'s recorded split, to start as a child node; else the reason it cannot start (the parent
+ *  is unknown or not split, the slug is not in the split or started already). */
+export function startable(t: Tree, parent: string, slug: string): SplitChild | string {
+  const p = nodeOf(t, parent);
+  if (!p) return `unknown node ${parent}`;
+  if (p.state !== "split" || !p.split) return `node ${parent} is ${p.state}, not split: split it first`;
+  const c = p.split.children.find((x) => x.slug === slug);
+  if (!c) return `the split of ${parent} has no child ${slug}`;
+  if (p.started.includes(slug)) return `${parent}.${slug} is started already`;
+  return structuredClone(c);
+}

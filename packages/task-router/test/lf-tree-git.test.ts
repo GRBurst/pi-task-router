@@ -2,26 +2,9 @@
 // level-0 node off the main tip (the request node, D65); `parent`: a node one level below, off the parent node's tip. Real git.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createGit, gitRunner } from "../core/local/git.ts";
-import { TREE_TYPE } from "../core/local/treestore.ts";
 import { START_BRANCH_SCHEMA } from "../core/local/branchtool.ts";
-import { harness } from "./harness.ts";
-import { tempRepo } from "./git-repo.ts";
+import { LF, treeRig } from "./tree-rig.ts";
 
-const LF = { profile: "local-first", localFirst: { experimental: true } };
-type Reply = { content: { text: string }[]; details: Record<string, any>; isError?: boolean };
-
-export function treeRig(settings: Record<string, unknown> = LF) {
-  const r = tempRepo();
-  const git = createGit(gitRunner("git", r.env));
-  const h = harness({ settings: settings as never, extra: { git } as never });
-  const ctx = { sessionManager: { getSessionId: () => "s-main", getBranch: () => [] }, cwd: r.dir };
-  h.f.fire("session_start", { reason: "startup" }, ctx);
-  const start = async (params: Record<string, unknown>) => (await h.f.callTool("start_branch", params, ctx)) as Reply;
-  const ops = () => h.f.entries.filter((e) => e.type === TREE_TYPE).map((e) => e.data as Record<string, any>);
-  const nodes = () => h.lines().filter((l) => l.event === "node");
-  return { r, git, h, ctx, start, ops, nodes };
-}
 const ROOT = { slug: "auth", goal: "add a login", check: "true", estimate: { kind: "plan", lines: 0 } };
 const LOGIN = { parent: "auth", slug: "login", goal: "the form", check: "true", estimate: { kind: "code", lines: 40 } };
 

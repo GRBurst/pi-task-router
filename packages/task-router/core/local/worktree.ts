@@ -104,8 +104,10 @@ const readText = (p: string): string | undefined => { try { return readFileSync(
 /** `start_branch` (design §3.3.2): validates everything first, so a failure changes nothing; an existing branch in a worktree is
  *  re-activated (idempotent; one in the state merged, fixer or blocked is refused); else `git worktree add -b`. A slug needs a
  *  goal and a check; a plan unit (L7) takes them from the plan, and needs the plan store. `at` (a node, local-first TREE-1):
- *  `name` replaces the slug in the branch name (the node id), `from` the main branch as the base (the parent node's branch). */
-export async function startBranch(d: StartDeps, input: unknown, cwd: string, at?: { name: string; from?: string }): Promise<Result<Started>> {
+ *  `name` replaces the slug in the branch name (the node id), `from` the main branch as the base (the parent node's branch);
+ *  `unit`: a split package's goal and check (TREE-5), validated by the split (a goal of up to 400 characters). */
+export async function startBranch(d: StartDeps, input: unknown, cwd: string,
+  at?: { name: string; from?: string; unit?: { goal: string; check: string } }): Promise<Result<Started>> {
   const i = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
   if (i.slug !== undefined && i.plan !== undefined) return fail("give either a slug or a plan, not both");
   if (i.slug === undefined && i.plan === undefined) return fail("a slug or a plan is required");
@@ -118,7 +120,7 @@ export async function startBranch(d: StartDeps, input: unknown, cwd: string, at?
   } else {
     if (typeof i.slug !== "string" || !SLUG.test(i.slug)) return fail("slug must match ^[a-z0-9-]{1,40}$");
     if (i.slug.includes("--")) return fail('slug must not contain "--" (the worktree directory joins plan units with it)');
-    for (const k of ["goal", "check"] as const) {
+    for (const k of at?.unit ? [] : ["goal", "check"] as const) {
       if (typeof i[k] !== "string" || i[k] === "") return fail(`${k} is required`);
       if ((i[k] as string).length > MAX_TEXT) return fail(`${k} is longer than ${MAX_TEXT} characters`);
     }
@@ -134,7 +136,8 @@ export async function startBranch(d: StartDeps, input: unknown, cwd: string, at?
   const wts = await d.git.worktrees(repo);
   const u: Result<Unit> = d.plans && plan
     ? await planUnit(d, d.plans, plan.slug as string, plan.id as string, repo, main, wts)
-    : { ok: true, value: { branch: branchName(d.settings.worktrees.branchPrefix, { slug: at?.name ?? (i.slug as string) }), goal: i.goal as string, check: i.check as string } };
+    : { ok: true, value: { branch: branchName(d.settings.worktrees.branchPrefix, { slug: at?.name ?? (i.slug as string) }), goal: at?.unit?.goal ?? (i.goal as string),
+      check: at?.unit?.check ?? (i.check as string) } };
   if (!u.ok) return u;
   const { branch, goal, check, files } = u.value;
   const known = d.store.get(repo, branch);

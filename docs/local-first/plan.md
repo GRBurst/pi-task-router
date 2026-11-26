@@ -243,7 +243,7 @@ factors with `enabled` by settings.
 | `lf-tree` | `maxDepth` compared with `<` instead of `≤` | TREE-2 | [x] |
 | `lf-split` / `lf-split-git` | the commit takes every staged file (`commit -a`) | TREE-4 commit (a staged unrelated file stays uncommitted) | [x] |
 | `lf-tree-git` | the base stays the main tip | TREE-1 | [x] |
-| `lf-start-child` | a slug may start twice | TREE-5 | [ ] |
+| `lf-start-child` | a slug may start twice | TREE-5 | [x] |
 | `lf-placement` | `cwd` = the main's cwd | TREE-6 | [ ] |
 | `lf-merge-target` | target = the main branch | TREE-7 | [ ] |
 | `lf-tree-log` | `split` line without `depth` | TREE-11 | [x] |
@@ -754,7 +754,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: real git: `start_branch({goal, estimate: {kind: "plan", lines: 0}})` → a level-0 node off the main tip; `start_branch({parent: root, …})` → its branch's base = the root's tip (not the main tip); `add` op and a `node` line written.
 - GREEN: `startBranch(d, input, cwd, base?)`; the schema gains `parent`, `child`, `estimate` (spec §2.3), validated in local-first only (legacy schema unchanged: `local-schema` green).
 
-#### LF4.T8 Start a child of a split (TREE-5) `[ ] todo`
+#### LF4.T8 Start a child of a split (TREE-5) `[x] done`
 - Files: `core/local/branchtool.ts`, `core/local/tree.ts`; test `lf-start-child` (new).
 - RED: `{parent, child: slug}` takes goal/files/estimate/check from the split; parent not `split` / unknown slug / started slug → one refusal each.
 - GREEN: lookup + `started` bookkeeping (tree op `add` with `parent`).

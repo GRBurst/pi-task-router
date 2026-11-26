@@ -3,7 +3,7 @@
 // tree (local-first spec §2.3, TREE-1): `parent` cuts it from that node's tip, else from the main tip (the request node, D65).
 import type { NodeLogInput } from "../outcome.ts";
 import type { Result } from "../types.ts";
-import type { Caps, Estimate, Node } from "./tree.ts";
+import { nodeOf, startable, type Caps, type Estimate, type Node, type SplitChild } from "./tree.ts";
 import type { TreeStore } from "./treestore.ts";
 import { startBranch, type StartDeps, type Started } from "./worktree.ts";
 
@@ -56,24 +56,34 @@ export async function startNode(d: StartDeps, n: NodeDeps, input: unknown, cwd: 
     if (i.parent !== undefined || i.child !== undefined || i.estimate !== undefined) return fail("parent, child and estimate need a local-first session");
     return startBranch(d, input, cwd);
   }
-  if (i.estimate === undefined) return fail("estimate is required in a local-first session");
-  const estimate = estimateOf(i.estimate);
-  if (!estimate) return fail("estimate must be {lines: an integer ≥ 0, kind: code, plan or inert}");
   if (i.parent !== undefined && typeof i.parent !== "string") return fail("parent must be a node id");
-  const nodes = n.tree.tree().nodes, caps = n.caps();
-  const parent = i.parent === undefined ? undefined : nodes[i.parent as string];
+  const tree = n.tree.tree(), caps = n.caps();
+  // TREE-5: a package of the parent's split brings its slug, goal, check, estimate and files
+  let pkg: SplitChild | undefined;
+  if (i.child !== undefined) {
+    if (i.parent === undefined) return fail("child needs a parent");
+    if (["slug", "goal", "check", "estimate"].some((k) => i[k] !== undefined)) {
+      return fail("child takes its slug, goal, check and estimate from the split; give none of them");
+    }
+    const c = startable(tree, i.parent as string, String(i.child));
+    if (typeof c === "string") return fail(c);
+    pkg = c;
+  } else if (i.estimate === undefined) return fail("estimate is required in a local-first session");
+  const estimate = pkg?.estimate ?? estimateOf(i.estimate);
+  if (!estimate) return fail("estimate must be {lines: an integer ≥ 0, kind: code, plan or inert}");
+  const parent = i.parent === undefined ? undefined : nodeOf(tree, i.parent as string);
   if (i.parent !== undefined && !parent) return fail(`unknown node ${i.parent as string}`);
   if (parent && parent.state !== "active" && parent.state !== "split") return fail(`node ${parent.id} is ${parent.state}`);
   if (parent && parent.depth + 1 > caps.maxDepth) {
     return fail(`node ${parent.id} is at depth ${parent.depth}: maxDepth ${caps.maxDepth} allows no node below it`);
   }
-  const id = parent ? `${parent.id}.${String(i.slug)}` : String(i.slug);
+  const id = parent ? `${parent.id}.${String(pkg?.slug ?? i.slug)}` : String(i.slug);
   // a child lives in its parent's repository (a branch record knows it); else the input's or the cwd's
   const repo = i.repo ?? (parent && d.store.all().find((r) => r.branch === parent.branch && r.worktree === parent.worktree)?.repo);
-  const res = await startBranch(d, { ...i, ...(repo !== undefined && { repo }), parent: undefined, estimate: undefined }, cwd,
-    { name: id, ...(parent && { from: parent.branch }) });
+  const res = await startBranch(d, { ...i, ...(repo !== undefined && { repo }), ...(pkg && { slug: pkg.slug }), parent: undefined, child: undefined,
+    estimate: undefined }, cwd, { name: id, ...(parent && { from: parent.branch }), ...(pkg && { unit: { goal: pkg.goal, check: pkg.check } }) });
   if (!res.ok) return res;
-  if (!Object.hasOwn(nodes, id)) {
+  if (!nodeOf(tree, id)) {
     const node: Node = { id, ...(parent && { parent: parent.id }), depth: parent ? parent.depth + 1 : 0, kind: estimate.kind === "plan" ? "plan" : "leaf",
       branch: res.value.branch, worktree: res.value.worktree, base: res.value.base, profile: "local-first", estimate, state: "active",
       started: [], merged: [], contacts: {}, ladder: [], effort: "medium" };
@@ -82,7 +92,7 @@ export async function startNode(d: StartDeps, n: NodeDeps, input: unknown, cwd: 
     n.log({ node: id, ...(parent && { parent: parent.id }), depth: node.depth, kind: node.kind, fanout: 0, outcome: "started",
       tier: estimate.kind === "inert" ? "inert" : "standard", profile: "local-first" });
   }
-  return { ok: true, value: { ...res.value, node: id } };
+  return { ok: true, value: { ...res.value, node: id, ...(pkg && { files: pkg.files }) } };
 }
 
 /** `after`: awaited after a branch started, before the result (the merge gate's baseline of the repository's main tip).
