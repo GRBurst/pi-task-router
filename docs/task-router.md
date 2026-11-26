@@ -108,11 +108,66 @@ arm. Under local-first:
   do-or-split rule.
 - *Tools and hooks.* The local components whose switch is `auto`
   (`worktrees`, `mergeGate`, `plans`, `hints`) are on, as in local mode:
-  `start_branch`, `request_merge`, `plan_request` and `amend_plan` register at
+  `start_branch`, `request_merge`, `split`, `plan_request` and `amend_plan` register at
   the session's first local-first moment (a cloud-first session has none).
   Back in cloud-first they leave the active tool set (pi cannot unregister a
   tool), the hooks of those components stand still and the card section
   returns.
+
+### The work tree (local-first)
+
+A local-first request is a tree of nodes (local-first plan LF4; the design:
+`docs/local-first/design.md` §5.2). Each node is a branch with its own
+worktree; a node either does its work or is split into packages, each a child
+node. Splitting replaces the size limit: a package small enough to do in one
+child's session is done there, anything larger is split first.
+
+- *Nodes.* In a local-first session `start_branch` takes an `estimate`
+  (`{lines, kind: "code" | "plan" | "inert"}`, the changed lines expected).
+  Without `parent` it starts the request node, cut from the main branch's tip
+  as today. With `parent` (a node id) it cuts the new node from the parent
+  node's branch tip; the node id is `<parent>.<slug>` and the branch
+  `<branchPrefix><id>`, at most `localFirst.tree.maxDepth` levels below the
+  request. A node keeps the profile it started in: after a switch to
+  cloud-first its `request_merge` still runs the local-first gate, while new
+  nodes cannot start. The tree lives in the session as entries
+  `task-router/tree` (one op per change: `add`, `state`, `split`, …); a
+  reload replays them. The outcome log gets a `node` line per node change and a
+  `split` line per split (`docs/outcome-log.md`).
+- *Split plans.* `split({node?, summary, children})` splits a node; without
+  `node` it splits the root of the active node (the top-level plan). A plan has
+  1 to `localFirst.tree.maxChildren` children, each `{slug, goal, files (1–30
+  globs), estimate, check, forbidden?}` (`forbidden`: globs the package must
+  not touch). The router validates it, commits it as canonical JSON at
+  `<plans.dir>/split/<node>.json` on the node's branch (never on the main
+  branch) and marks the node `split`. These split files are the router's
+  own: they never count as a scope violation. `start_branch({parent, child:
+  slug})` starts one package of the recorded split, its goal, files, estimate
+  and check taken from the plan; each slug starts once.
+- *Package children.* A spawn card with `package: "<node id>"` (an active node
+  started from a split) runs on `localFirst.startMember` at `xhigh`, in the
+  node's worktree, and its brief carries the package contract: goal, files,
+  budget (the estimate), check and forbidden globs. A card with `t2` triggers
+  is routed to the cloud instead, still in the worktree under the contract and
+  marked an open-ended contact. Below the depth cap the child also gets the
+  tool `submit_split` and the do-or-split rule: it does its package, or it
+  submits a split of it (`split`'s input without `node`, for its own node)
+  and ends; the router tells the main, which starts the new children. Only
+  the main starts children. A package child never reaches a remote: its
+  shell's `git push`, `remote`, `fetch`, `pull`, `clone` and `ls-remote`
+  are refused. A card without `package` goes to the start member when its
+  kind's placement is `local` (its output is not gated), else it is routed as
+  in cloud-first, and so is every `t2` card. Cloud-first ignores `package`.
+- *Merges.* `request_merge` merges a node into its parent node's branch, the
+  request node into the main branch. `behind`, the size, the red run and the
+  review diff are taken against the parent's tip. The parent moves by a
+  fast-forward in its own worktree (a dirty one refuses `dirty`); only the
+  request node's merge into main pushes (`mergeGate.push`) and records the
+  main tip. A package node's merge is refused `scope`, naming the path, when it
+  changes a file outside its contract's `files` or one matching `forbidden`.
+  While a node has started children that are not merged yet, its branch is
+  protected like the main branch: the git guard blocks committing or merging
+  into it directly, in the main session and in children.
 
 ## Local mode
 

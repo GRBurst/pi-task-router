@@ -819,7 +819,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: depth < cap → `childTools` has `submit_split` and the brief states the rule; at the cap → neither; calling it → validate, commit, op `split`, `terminate: true`, one message to the main naming the node.
 - GREEN: the child tool's `execute` calls `validateSplit`/`commitSplit`.
 
-#### LF4.T14 Docs `[ ] todo`
+#### LF4.T14 Docs `[x] done`
 - Files: `docs/task-router.md` (nodes, the tree, split plans, the tools).
 
 ### LF5 — Size tiers and hints (design §5.3; gaps 6, 7)
