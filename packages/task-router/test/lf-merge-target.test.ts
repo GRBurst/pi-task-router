@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { startNode, type NodeDeps } from "../core/local/branchtool.ts";
 import type { MergeInput } from "../core/outcome.ts";
-import { reasonText, targetOf } from "../core/local/merge.ts";
+import { MAIN_REF_TYPE, reasonText, targetOf } from "../core/local/merge.ts";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { replay, type Node, type TreeOp } from "../core/local/tree.ts";
@@ -140,4 +140,14 @@ test("TREE-7 no push: a dirty parent worktree", async () => {
   assert.equal(x.r.git(["rev-parse", root.branch]), before);
   assert.equal(x.tree.tree().nodes["auth.form"]?.state, "active");
   assert.equal(pushed(), "");
+});
+
+test("TREE-7 main-ref", async () => {
+  const x = nodeRig();
+  const { root, child, tip } = await pushShape(x);
+  const refs = () => x.entries.filter((e) => e.type === MAIN_REF_TYPE).map((e) => e.data);
+  assert.equal((await x.merge({ branch: child.branch })).status, "merged");
+  assert.deepEqual(refs(), []); // node → parent: none
+  assert.equal((await x.merge({ branch: root.branch })).status, "merged");
+  assert.deepEqual(refs(), [{ repo: x.r.dir, branch: "main", sha: tip }]); // root → main: one
 });

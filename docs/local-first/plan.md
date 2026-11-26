@@ -789,7 +789,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: real git with a fake remote and `mergeGate.push = true`: a node→parent merge fast-forwards the parent branch by `git -C <parent worktree> merge --ff-only` (its worktree stays in sync), and the remote records no push; a dirty parent worktree → refused `dirty`; the root→main merge pushes once, as today (`:233–253`).
 - GREEN: advance branches on `target` being a main branch: main → today's step 9; else `ffIn(parent worktree)`, no push.
 
-#### LF4.T11e The main-ref record only for main (TREE-7 e) `[ ] todo`
+#### LF4.T11e The main-ref record only for main (TREE-7 e) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-merge-target` "TREE-7 main-ref".
 - RED: a node→parent merge writes no `task-router/main-ref` entry; the root→main merge writes one (`:443`).
 - GREEN: the entry under the main-target branch of T11d.
