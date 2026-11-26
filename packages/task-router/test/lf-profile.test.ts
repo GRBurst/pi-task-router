@@ -70,7 +70,7 @@ test("PRO-3 shell: the first local-first session_start writes the settings' entr
   assert.equal(first.written.length, 1);
   assert.deepEqual({ ...(first.written[0] as object), at: "-" }, { v: 1, profile: "local-first", by: "settings", at: "-" });
   const session = first.h.lines().filter((l) => l.event === "session");
-  assert.deepEqual(session.map((l) => [l.profile, l.localMembers, l.arms]), [["local-first", "on", []]], "MEAS-1: no E0 draw in local-first");
+  assert.deepEqual(session.map((l) => [l.profile, l.localMembers, l.arms]), [["local-first", undefined, []]], "MEAS-1: no E0 draw in local-first, so no localMembers (spec §2.4: E0 only)");
   // a resume with cloud-first settings (the flag still on) keeps the entry's profile and writes nothing
   const resumed = start("s-lf", { localFirst: { experimental: true } }, first.h.f.entries);
   assert.deepEqual(resumed.written, []);

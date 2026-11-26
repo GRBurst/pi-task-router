@@ -279,7 +279,7 @@ export function install(pi: PiLike, deps: Deps) {
     // MEAS-1 (local-first spec §2.4): a session line in legacy local mode, and in cloud-first while E0 runs (G7: none at share 0).
     // Only a main session with an id has one: a child inherits the root's arm and writes none, and an empty id would draw one
     // arm for every such session. E0 (MEAS-2) is drawn only where routing can place a spawn and a cloud member can take it;
-    // outside it the line has no `localMembers`.
+    // outside it the line has no `localMembers` (a local-first session is outside it; the legacy local mode's LF1 line says "on").
     // E0 is drawn here only: a `/profile` switch keeps the session's arm (MEAS-2).
     e0 = "as-used";
     e0drawn = false;
@@ -296,7 +296,7 @@ export function install(pi: PiLike, deps: Deps) {
       const eligible = settings.routing && active && enabled(settings.models).some((m) => m.route !== "local");
       if (p === "cloud-first" && eligible) { e0 = assign(x, "E0", sid) as E0Level; e0drawn = true; }
       const line = (startSet: boolean): void => append({ ...sessionEvent({ now: now(), sessionId: sid, profile: p, mainModel: main ?? "", startSet,
-        ...(p !== "cloud-first" || eligible ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}), routerVersion: ROUTER_VERSION }),
+        ...(p === "local-mode" || (p === "cloud-first" && eligible) ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}), routerVersion: ROUTER_VERSION }),
         ...(armed() || sessionArms().length ? { arms: sessionArms() } : {}) });
       // The line waits for the start model: its main model and `startSet` are the session's start.
       if (start && "model" in start) pending = setStart(start, ctx).then(line);
