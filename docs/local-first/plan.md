@@ -218,7 +218,7 @@ factors with `enabled` by settings.
 
 | Check (test file) | Plant | Must FAIL | Seen |
 |---|---|---|---|
-| `lf-default` NR-3 | a comment-free `globalThis.__piExperimentsApi_v1` read left in `shell.ts` | the source scan | [ ] |
+| `lf-default` NR-3 | a comment-free `globalThis.__piExperimentsApi_v1` read left in `shell.ts` | the source scan | [x] |
 | `lf-default` NR-2 | `spawnEvent` keeps `arm` | "NR-2 cloud-first lines" | [ ] |
 | `lf-outcome` | a builder copies `goal` text into a field | LOG-3 text-free | [ ] |
 | `lf-session-log` | write `session` in cloud-first with share 0 | MEAS-1 | [ ] |
@@ -543,7 +543,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 #### LF1.T1c Flag cases through settings: `review-log`, `rule` (X37a) `[x] done`
 - As LF1.T1b for `review-log` and `rule`.
 
-#### LF1.T1 Drop the experiments read (NR-3) `[ ] todo`
+#### LF1.T1 Drop the experiments read (NR-3) `[x] done`
 - Files: `core/shell.ts`; test `lf-default` "NR-3 no experiments read".
 - XR: PE-1 (pi-economics' `iface-experiments-task-router` reads `ExperimentsApi`); the commit says so.
 - RED: "NR-3 no experiments read" scans `core/**/*.ts` for `__piExperimentsApi_v1|ExperimentsApi` → hits `shell.ts:56–83`.

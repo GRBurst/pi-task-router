@@ -53,8 +53,6 @@ export type PiLike = NudgePi & ForcePi & {
   getThinkingLevel?(): ThinkingLevel;
   setThinkingLevel?(level: ThinkingLevel): void;
 };
-/** What the task-router reads of the experiments package's globalThis.__piExperimentsApi_v1; the type check compares it with the provider's ExperimentsApiV1 (spec §5.3). */
-export type ExperimentsApi = { flag(n: string, d: string, s?: string): string; armFor?(s: string): { id?: string } | undefined };
 export type Deps = {
   agentDir: string; now?: () => Date; settings?: Settings;
   /** What the settings loader found wrong (spec §5.4); reported once by the shell (T1.8). */
@@ -75,12 +73,10 @@ const text = (t: string, isError = false): ToolResult => ({ content: [{ type: "t
 
 export function install(pi: PiLike, deps: Deps) {
   const own = deps.settings ?? defaults();
-  // routing / verifyGate / autoEscalate / freshOnCold come from the experiments arm when that package is loaded.
+  // routing / verifyGate / autoEscalate / freshOnCold / the delegation rule are the router's own settings (local-first NR-3:
+  // no experiments package is read; the router randomizes its own levers).
   let sessionId: string | undefined;
-  const settings = withFlags(own, (name, def) =>
-    (globalThis as { __piExperimentsApi_v1?: ExperimentsApi }).__piExperimentsApi_v1?.flag(name, def, sessionId) ?? def);
-  const armOf = (sid: string): string | undefined =>
-    (globalThis as { __piExperimentsApi_v1?: ExperimentsApi }).__piExperimentsApi_v1?.armFor?.(sid)?.id;
+  const settings = withFlags(own, (_name, value) => value);
   const track = (ctx: any): void => { sessionId = ctx?.sessionManager?.getSessionId?.() ?? sessionId; };
   const now = deps.now ?? (() => new Date());
   const made = new Set<string>();
@@ -133,10 +129,10 @@ export function install(pi: PiLike, deps: Deps) {
     const t = e.type === "spawn" ? tickets.owner(e.name) : undefined;
     if (e.type === "spawn" && t) {
       log.ticketSpawn({ taskId: e.name, role: t.role, member: t.member, tier: settings.models[t.member]?.tier ?? "?", model: t.model, effort: t.effort,
-        arm: t.parentSession && armOf(t.parentSession), sessionId: e.childSessionId, parentSessionId: t.parentSession, forced: t.forced });
+        sessionId: e.childSessionId, parentSessionId: t.parentSession, forced: t.forced });
     }
     if (e.type === "spawn" && c) {
-      log.spawn({ taskId: e.name, card: c.card, plan: c.plan, start: c.start, arm: armOf(c.parentSession), sessionId: e.childSessionId, parentSessionId: c.parentSession, unresolved: c.unresolved, forced: c.forced });
+      log.spawn({ taskId: e.name, card: c.card, plan: c.plan, start: c.start, sessionId: e.childSessionId, parentSessionId: c.parentSession, unresolved: c.unresolved, forced: c.forced });
       if (c.esc) { // from the attempt state (D9): the failed attempt's entry may be gone (killed), its ranMember is not
         // An unknown attempt (RG6): its stand-in member is the new plan's, not where it ran, so the line names no `from` side.
         const ran = c.esc.known ? settings.models[c.esc.ranMember] : undefined, to = settings.models[c.start.member];
@@ -150,7 +146,7 @@ export function install(pi: PiLike, deps: Deps) {
       const agents = api()?.list() ?? [];
       const kid = agents.find((a) => a.name === e.name);
       const parentSession = agents.find((a) => a.name === e.parent)?.sessionId;
-      if (kid) log.spawn({ taskId: e.name, card: UNROUTED_CARD, plan: unroutedPlan(kid, settings), arm: parentSession && armOf(parentSession), sessionId: e.childSessionId, parentSessionId: parentSession });
+      if (kid) log.spawn({ taskId: e.name, card: UNROUTED_CARD, plan: unroutedPlan(kid, settings), sessionId: e.childSessionId, parentSessionId: parentSession });
     }
     if (e.type === "turn" && c && settings.models[c.member]?.dailyCap !== undefined) counter.bump(c.member); // one request per turn, 429 retries included
     // L4 note, decided in L6: a ticket child's turns count toward its member's cap too; a forced one runs on another model.
