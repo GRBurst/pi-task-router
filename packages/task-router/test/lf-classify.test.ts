@@ -112,3 +112,19 @@ test("CLS-1 an error fails closed: elevated, why [error]", () => {
   const bad = classify([{ path: undefined as unknown as string, added: 0, deleted: 0 }], POLICY, CTX);
   assert.deepEqual([bad.cls, bad.why], ["elevated", ["error"]]);
 });
+
+test("split files: <plans.dir>/split/** is router-owned, dropped before the rules (D85)", () => {
+  // alone: not elevated by the config rule or any other; the empty remainder is standard (no files, no check yet)
+  const only = run(["docs/plans/split/n1.json"]);
+  assert.deepEqual([only.cls, only.why], ["standard", []]);
+  // with a config file elsewhere they would be two components of config: dropped, there is one config file
+  assert.deepEqual([run(["docs/plans/split/n1.json", "svc/a.json"]).cls, run(["docs/plans/split/n1.json", "svc/a.json"]).why], ["standard", []]);
+  assert.equal(run(["docs/other/n1.json", "svc/a.json"]).cls, "elevated", "the same file under another path counts");
+  // with one code file: the code file's class
+  assert.equal(run(["docs/plans/split/n1.json", "src/a.ts"]).cls, "standard");
+  assert.deepEqual([run(["docs/plans/split/n1.json", "src/auth/a.ts"]).cls, run(["docs/plans/split/n1.json", "src/auth/a.ts"]).why], ["elevated", ["risk"]]);
+  // a custom plans dir
+  assert.equal(run(["plans/split/n1.json", "svc/a.json"], POLICY, { ...CTX, plansDir: "plans" }).cls, "standard");
+  // only the split directory is dropped, other plan files are not
+  assert.equal(run(["docs/plans/p1.json", "svc/a.json"]).cls, "elevated");
+});

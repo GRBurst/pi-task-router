@@ -29,7 +29,9 @@ export function classify(files: readonly FileFact[], p: Policy, ctx: ClassifyCon
   }
 }
 
-function classifyFiles(files: readonly FileFact[], p: Policy, ctx: ClassifyContext): Classification {
+function classifyFiles(all: readonly FileFact[], p: Policy, ctx: ClassifyContext): Classification {
+  // D85: the router owns `<plans.dir>/split/**`; it never counts toward class, size or scope
+  const files = all.filter((x) => !ctx.glob(`${ctx.plansDir}/split/**`, x.path));
   const any = (globs: readonly string[], path: string): boolean => globs.some((g) => ctx.glob(g, path));
   const depth = Number.isInteger(p.componentDepth) && p.componentDepth >= 1 ? p.componentDepth : 1;
   const why = new Set<string>();
