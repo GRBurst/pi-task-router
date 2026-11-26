@@ -410,7 +410,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   }
   // ── 6 red run (a branch without a plan; its own check only). A plan unit's ran at plan time (§3.5.2): `vacuousCheck` ──
   const red: Red = bound ? (bound.tasks.some((x) => x.vacuousCheck) ? "passed" : "failed")
-    : g.redRun && rec?.check ? await redRun(p, repo, main.sha, rec.check) : "skipped";
+    : g.redRun && rec?.check ? await redRun(p, repo, target.sha, rec.check) : "skipped"; // TREE-7 c: at the target
   if (p.signal?.aborted) return aborted(commit);
   // ── 7 approval reuse: (repo, branch, commit, tree) ──
   const tree = await git.tree(repo, commit);
@@ -420,15 +420,15 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   if (reviewId === undefined) {
     // ── 8 review: the merge overseer in the main checkout, the worktree by its absolute path (LD14) ──
     const globs = riskGlobsOf(s), paths = st.map((f) => f.path), budget = diffBudget(g);
-    const diff = await git.diff(repo, main.sha, commit, budget);
+    const diff = await git.diff(repo, target.sha, commit, budget); // TREE-7 c: the diff against the target
     if (cutDiff(diff)) { // review F9: the review never approves hunks it did not see
-      return done("error", "review-unavailable", `${reasonText("review-unavailable", {})}: the diff ${main.name}..${commit.slice(0, 7)} is longer than the review's ${budget} lines`, commit);
+      return done("error", "review-unavailable", `${reasonText("review-unavailable", {})}: the diff ${target.name}..${commit.slice(0, 7)} is longer than the review's ${budget} lines`, commit);
     }
-    if (diff === "" && st.length > 0) return gitError(`cannot read the diff ${main.name}..${commit}`, commit);
+    if (diff === "" && st.length > 0) return gitError(`cannot read the diff ${target.name}..${commit}`, commit);
     const goal = bound ? (bound.tasks.length === 1 && bound.tasks[0]!.id === bound.id ? bound.tasks[0]!.goal : bound.milestone.goal) : rec?.goal;
     const invariants = bound ? [...bound.sk.invariants, ...bound.tasks.flatMap((x) => x.forbidden.map((f) => `${x.id} forbidden: ${f}`))].join("; ") : undefined;
     const text = reviewInput({ goal, summary: input.summary, invariants, checks, red, risky: paths.filter((f) => globs.some((x) => globMatch(x, f))),
-      stat: st, base: main.sha, commit, diff, maxLines: budget });
+      stat: st, base: target.sha, commit, diff, maxLines: budget });
     const out = await p.overseer.run({ role: "merge", input: text, cwd: p.branches.facts.mainCheckout.get(repo) ?? repo, worktree: wt.dir,
       submit: verdictSubmit(new Set(paths)), commit, branch, signal: p.signal });
     if (!out.ok) {
@@ -437,7 +437,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     }
     if (!approve(out.value.findings)) {
       // Review F8: a branch without a record (D40) gets a hand-made one, which holds its counts and is never active.
-      const now = p.branches.get(repo, branch) ?? { repo, branch, worktree: wt.dir, base: main.sha, state: "active" as const, rejections: 0, fixerRuns: 0, handmade: true as const };
+      const now = p.branches.get(repo, branch) ?? { repo, branch, worktree: wt.dir, base: target.sha, state: "active" as const, rejections: 0, fixerRuns: 0, handmade: true as const };
       const rej: BranchRecord = { ...now, rejections: now.rejections + 1 }, findings = out.value.findings.map(findingLine);
       const answer = { commit, reviewId: out.reviewId, findings };
       // S28: a fixer round rejected again with fixerRounds used up blocks the branch; else the fixer after enough rejections.

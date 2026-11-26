@@ -779,7 +779,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: real git: root cut from main; main gains a commit; a child cut from the root; the child's `request_merge` → not refused `behind` (today `merge.ts:324` tests `isAncestor(main.sha, commit)`), and the line's `nLines` = numstat(root tip, child tip), not numstat(main, child) (`:335`).
 - GREEN: `:324` and `:335` take `target.sha`.
 
-#### LF4.T11c Red run and review diff against the target (TREE-7 c) `[ ] todo`
+#### LF4.T11c Red run and review diff against the target (TREE-7 c) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-merge-target` "TREE-7 red-run base".
 - RED: real git, the same shape as T11b: the red run's recorded base (fake runner) = the root tip (`:385`); the review input's diff = `target..commit` (`:395`), the review ticket's `base` (`:403`) and the `branches.put` record's `base` (`:412`) = the target tip.
 - GREEN: all four (`:385`, `:395`, `:403`, `:412`) take `target.sha`.

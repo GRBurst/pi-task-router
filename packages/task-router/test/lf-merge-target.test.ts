@@ -10,7 +10,7 @@ import { targetOf } from "../core/local/merge.ts";
 import { replay, type Node, type TreeOp } from "../core/local/tree.ts";
 import { createTreeStore } from "../core/local/treestore.ts";
 import { fakeGit } from "./fake-git.ts";
-import { mergeRig } from "./merge-rig.ts";
+import { mergeRig, REVISE } from "./merge-rig.ts";
 
 /** The merge rig with a work tree: `node(input)` starts a node by start_branch's local-first path, `lines` the merge lines. */
 function nodeRig(settings: Record<string, unknown> = {}) {
@@ -67,4 +67,21 @@ test("TREE-7 base", async () => {
   const st = await x.git.numstat(x.r.dir, x.r.git(["rev-parse", root.branch]), x.r.git(["rev-parse", child.branch]));
   assert.deepEqual([x.lines[0]?.nLines, x.lines[0]?.nFiles], [st!.reduce((a, f) => a + f.added + f.deleted, 0), 1]);
   assert.equal(x.lines[0]?.nLines, 2);
+});
+
+test("TREE-7 red-run base", async () => {
+  const x = nodeRig();
+  const { root, child } = await x.shape();
+  // the red run's base: the HEAD of its temporary worktree while the check runs
+  const bases: string[] = [], run = x.ports.run;
+  x.ports.run = (cmd, cwd, ms, signal) => { if (cwd.includes("/red-")) bases.push(x.r.git(["rev-parse", "HEAD"], cwd)); return run(cmd, cwd, ms, signal); };
+  x.verdicts.push(REVISE);
+  const r = await x.merge({ branch: child.branch });
+  assert.equal(r.status, "revise", r.detail);
+  const rootTip = x.r.git(["rev-parse", root.branch]), childTip = x.r.git(["rev-parse", child.branch]);
+  assert.deepEqual(bases, [rootTip]);
+  const input = String(x.reviews[0]?.input);
+  assert.ok(input.includes(`Diff ${rootTip}..${childTip}`), input);
+  assert.ok(input.includes("form.ts") && !input.includes("docs/auth.md") && !input.includes("main.txt"), input);
+  assert.equal(x.store.get(x.r.dir, child.branch)?.base, rootTip);
 });
