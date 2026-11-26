@@ -4,7 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { draw, pick } from "../core/strategy/draw.ts";
-import { FACTORS } from "../core/strategy/arms.ts";
+import { FACTORS, armsOf, assign } from "../core/strategy/arms.ts";
+import type { ExperimentsSettings } from "../core/types.ts";
 import { seeded } from "./rand.ts";
 
 const word = (rnd: (n: number) => number): string => Array.from({ length: 1 + rnd(12) }, () => "ab-_0Z\u00e9 \u0000"[rnd(9)]).join("");
@@ -82,4 +83,22 @@ test("RND-1", () => {
     assert.equal(f.weights.length, f.levels.length, f.id);
     assert.ok(f.weights.every((w) => w >= 0) && f.weights.some((w) => w > 0), f.id);
   }
+});
+
+test("RND-4", () => {
+  const off: ExperimentsSettings = { seed: "task-router", cloudOnlyShare: 0, factors: {} };
+  const on: ExperimentsSettings = { ...off, factors: { E2: { enabled: true, weights: [0, 1, 0] } } };
+  const units = Array.from({ length: 300 }, (_, i) => `s-${i}`);
+  // disabled (the code default, or switched off with weights) → the first level for every unit, and in no unit's arms
+  for (const x of [off, { ...off, factors: { E2: { enabled: false, weights: [0, 1, 0] } } }])
+    for (const f of Object.values(FACTORS)) for (const u of units.slice(0, 20)) assert.equal(assign(x, f.id, u), f.levels[0], `${f.id} ${u}`);
+  for (const k of ["session", "review", "child", "request", "node", "package", "ladder"] as const) assert.deepEqual(armsOf(off, k, "u-1"), [], k);
+  // enabled: weights from the settings, else the factor's (equal: every level drawn)
+  assert.deepEqual(new Set(units.map((u) => assign(on, "E2", u))), new Set(["small"]));
+  const eq = { ...off, factors: { E2: { enabled: true } } };
+  assert.deepEqual(new Set(units.map((u) => assign(eq, "E2", u))), new Set(["standard", "small", "large"]));
+  // a unit's arms: its kind's enabled factors, `id=level`, sorted
+  const two: ExperimentsSettings = { ...off, factors: { E2: { enabled: true, weights: [0, 1, 0] }, E4: { enabled: true, weights: [0, 1] }, E3: { enabled: true } } };
+  assert.deepEqual(armsOf(two, "session", "s-1"), ["E2=small", "E4=on"]);
+  assert.deepEqual(armsOf(two, "review", "r-1"), [`E3=${assign(two, "E3", "r-1")}`]);
 });

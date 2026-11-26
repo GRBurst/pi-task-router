@@ -1,6 +1,8 @@
 // The router's factor registry (local-first spec §2.8, D61–D63, plan S32): each factor's unit, its levels (the default
 // first) and the release whose mechanism first runs it. Every factor ships disabled (D63); the owner enables one in
 // settings (`experiments.factors.<id>`). E0 is switched by `experiments.cloudOnlyShare`, not by `enabled`. Pure: no I/O.
+import type { ExperimentsSettings } from "../types.ts";
+import { draw, pick } from "./draw.ts";
 
 export type FactorId =
   | "E0" | "E2" | "E3" | "E12" | "E13" | "E4" | "E5" | "E6" | "E7" | "E8" | "E9" | "E10" | "E11"
@@ -43,3 +45,20 @@ export const FACTORS: Readonly<Record<FactorId, Factor>> = {
   E17: factor("E17", "review", ["cloud", "qwen"], "0.8.0"),
   E18: factor("E18", "child", ["full", "lean"], "0.8.0"),
 };
+
+/** What a draw reads: the session's snapshot (spec §2.2) or settings of the same shape. */
+export type ExperimentsSnapshot = ExperimentsSettings;
+
+/** A factor's effective switch and weights: the snapshot's, else the registry's. */
+export const effective = (x: ExperimentsSnapshot, id: FactorId): { enabled: boolean; weights: readonly number[] } =>
+  ({ enabled: x.factors[id]?.enabled ?? FACTORS[id].enabled, weights: x.factors[id]?.weights ?? FACTORS[id].weights });
+
+/** A unit's level of a factor (D61): drawn while the factor is enabled, else its default (the first level, RND-4). */
+export const assign = (x: ExperimentsSnapshot, id: FactorId, unit: string): string => {
+  const f = FACTORS[id], e = effective(x, id);
+  return e.enabled ? pick(f.levels, e.weights, draw(x.seed, id, unit)) : f.levels[0]!;
+};
+
+/** A unit's arms (spec §2.4 `arms`): `id=level` of every enabled factor of its kind, sorted; a disabled factor is absent. */
+export const armsOf = (x: ExperimentsSnapshot, kind: FactorUnit, unit: string): string[] =>
+  Object.values(FACTORS).filter((f) => f.unit === kind && effective(x, f.id).enabled).map((f) => `${f.id}=${assign(x, f.id, unit)}`).sort();

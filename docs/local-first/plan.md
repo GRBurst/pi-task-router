@@ -623,7 +623,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `FACTORS` deep-equals spec §2.8 (literal table: ids, units, levels, `from`; all `enabled: false`, D63).
 - GREEN: S32 `Factor`, `FactorId` union, `FACTORS`.
 
-#### LF2.T2 Assignment and the disabled default (RND-4) `[ ] todo`
+#### LF2.T2 Assignment and the disabled default (RND-4) `[x] done`
 - Files: `core/strategy/arms.ts`; test `lf-arms` "RND-4".
 - RED: `assign(snap, "E2", u)` with E2 disabled → `"standard"` for all units; enabled with weights [0,1,0] → `"small"`.
 - GREEN: `assign` per S32; weights from the snapshot, else the factor's.
