@@ -2,20 +2,7 @@
 // the base commit, `core/local/policyfile.ts`) to a class and the proxies that fired. A mixed change takes its highest file
 // class; any error fails closed. Pure: the glob matcher is injected, because a strategy part imports nothing outside
 // `core/strategy/` (NR-6); the composition passes `globMatch` (`core/glob.ts`).
-import type { FileFact, Policy, RiskClass } from "./types.ts";
-
-/** What the classifier needs besides the files and the policy: settings-level constants and the matcher. */
-export interface ClassifyContext {
-  /** `plans.dir`: its files are never inert (a plan rewrite goes through a code review, MGS §2.1). */
-  plansDir: string;
-  /** `localFirst.policyFile`: an edit of it is `policy-edit`. */
-  policyFile: string;
-  /** CLS-3: a configured `mergeGate.extraChecks` entry exists and passes (the branch's own check does not count). */
-  inertChecked: boolean;
-  /** Anchored glob match: `**\/` any leading directories, `**` anything, `*` within a segment (`core/glob.ts`). */
-  glob: (glob: string, path: string) => boolean;
-}
-export interface Classification { cls: RiskClass; inertLike: boolean; why: string[] }
+import type { Classification, ClassifyContext, FileFact, Policy } from "./types.ts";
 
 /** The gate's own configuration besides the policy file (S38). */
 const GATE_CONFIG = [".pi/**", "**/task-router*.json"];

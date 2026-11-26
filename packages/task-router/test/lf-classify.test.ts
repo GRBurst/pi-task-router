@@ -3,9 +3,9 @@
 // component is the first `componentDepth` directories of a path.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classify, type ClassifyContext } from "../core/strategy/classify.ts";
+import { classify } from "../core/strategy/classify.ts";
 import { globMatch } from "../core/glob.ts";
-import type { FileFact, Policy } from "../core/strategy/types.ts";
+import type { ClassifyContext, FileFact, Policy } from "../core/strategy/types.ts";
 
 const POLICY: Policy = {
   inertGlobs: ["**/*.md", "**/*.txt", "**/*.rst", "**/LICENSE", "**/NOTICE"],
