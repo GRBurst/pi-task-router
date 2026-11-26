@@ -13,6 +13,7 @@ import type { RouterSettings } from "../types.ts";
 import { BRANCH_TYPE, createBranchStore } from "./branches.ts";
 import type { BranchRecord } from "./branches.ts";
 import { startBranchTool } from "./branchtool.ts";
+import { splitTool } from "./splittool.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { createGit, gitRunner } from "./git.ts";
 import type { Git } from "./git.ts";
@@ -267,6 +268,9 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     // Review F2: a repository start_branch registers gets its baseline before the tool returns.
     if (x.worktrees) register(startBranchTool({ git, store: branches, settings: s, get plans() { return planned().plans; } }, () => ready,
       () => act().mergeGate ? checkRefs() : Promise.resolve(), d.nodes), () => act().worktrees);
+    // split (local-first spec §2.3, S34a): with the work tree, live while the session is local-first
+    const nodes = d.nodes;
+    if (x.worktrees && nodes) register(splitTool({ git, branches, settings: s, nodes }, () => ready), () => act().worktrees && nodes.localFirst());
     // request_merge (design §3.4.1) while the merge gate is active; one set of ports per call, with its AbortSignal (D49).
     if (x.mergeGate) {
       register(requestMergeTool((signal) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,

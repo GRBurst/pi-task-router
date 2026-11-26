@@ -1,9 +1,9 @@
 // The `start_branch` tool (design §3.3.2; plan D48): the main session's way to a worktree. The logic is `startBranch`; this is
 // the tool's shape: the schema, and the result as text plus `details`. In a local-first session it starts a node of the work
 // tree (local-first spec §2.3, TREE-1): `parent` cuts it from that node's tip, else from the main tip (the request node, D65).
-import type { NodeLogInput } from "../outcome.ts";
+import type { NodeLogInput, SplitLogInput } from "../outcome.ts";
 import type { Result } from "../types.ts";
-import { nodeOf, startable, type Caps, type Estimate, type Node, type SplitChild } from "./tree.ts";
+import { nodeLine, nodeOf, startable, type Caps, type Estimate, type Node, type SplitChild } from "./tree.ts";
 import type { TreeStore } from "./treestore.ts";
 import { startBranch, type StartDeps, type Started } from "./worktree.ts";
 
@@ -39,8 +39,9 @@ export const START_NODE_SCHEMA = {
 /** The error shape of D48: the reason as text, `{status: "error", reason}` as details, `isError`. */
 export const errorReply = (reason: string): ToolReply => ({ content: [{ type: "text", text: reason }], details: { status: "error", reason }, isError: true });
 
-/** The work tree's ports (local-first): the store, whether the session is local-first now, the caps, the `node` line. */
-export type NodeDeps = { tree: TreeStore; localFirst(): boolean; caps(): Caps; log(i: Omit<NodeLogInput, "now">): void };
+/** The work tree's ports (local-first): the store, whether the session is local-first now, the caps, the `node` and `split` lines. */
+export type NodeDeps = { tree: TreeStore; localFirst(): boolean; caps(): Caps;
+  log: { node(i: Omit<NodeLogInput, "now">): void; split(i: Omit<SplitLogInput, "now">): void } };
 const fail = (e: string): Result<never> => ({ ok: false, errors: [e] });
 const estimateOf = (x: unknown): Estimate | undefined => {
   const e = x as Partial<Estimate> | null;
@@ -88,9 +89,7 @@ export async function startNode(d: StartDeps, n: NodeDeps, input: unknown, cwd: 
       branch: res.value.branch, worktree: res.value.worktree, base: res.value.base, profile: "local-first", estimate, state: "active",
       started: [], merged: [], contacts: {}, ladder: [], effort: "medium" };
     n.tree.apply({ op: "add", node });
-    // tier: the session tier (SIZE-3) is `standard` until LF5 wires `sessionTier(arms)`; an inert node has no budget
-    n.log({ node: id, ...(parent && { parent: parent.id }), depth: node.depth, kind: node.kind, fanout: 0, outcome: "started",
-      tier: estimate.kind === "inert" ? "inert" : "standard", profile: "local-first" });
+    n.log.node(nodeLine(node));
   }
   return { ok: true, value: { ...res.value, node: id, ...(pkg && { files: pkg.files }) } };
 }

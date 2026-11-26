@@ -1,6 +1,7 @@
 // The work tree (local-first design §5.2; plan S35, spec TREE-3): nodes are branches with worktrees; the request node is
 // level 0, a split's children are one level below. The tree is a pure fold of tree ops, so the session's `task-router/tree`
 // entries replay to the live tree (S36). Pure: no I/O.
+import type { NodeLogInput } from "../outcome.ts";
 import type { ContactKind, LadderStep, NodeKind, RoutingProfile } from "../strategy/types.ts";
 
 /** A package's size estimate (spec §2.3). */
@@ -86,3 +87,15 @@ export function startable(t: Tree, parent: string, slug: string): SplitChild | s
   if (p.started.includes(slug)) return `${parent}.${slug} is started already`;
   return structuredClone(c);
 }
+/** The level-0 node above `id` (itself at level 0); undefined for an unknown node. */
+export function rootOf(t: Tree, id: string): Node | undefined {
+  let n = nodeOf(t, id);
+  for (let i = 0; n?.parent !== undefined && i < 64; i++) n = nodeOf(t, n.parent);
+  return n;
+}
+/** TREE-11: the `node` line of `n` after a state change (`outcome`: its new state, `started` for `active`). `tier`: the session
+ *  tier (SIZE-3) is `standard` until LF5 wires `sessionTier(arms)`; an inert node has no budget. */
+export const nodeLine = (n: Node): Omit<NodeLogInput, "now"> => ({
+  node: n.id, ...(n.parent !== undefined && { parent: n.parent }), depth: n.depth, kind: n.kind, fanout: n.split?.children.length ?? 0,
+  outcome: n.state === "active" ? "started" : n.state, tier: n.estimate.kind === "inert" ? "inert" : "standard", profile: n.profile,
+});

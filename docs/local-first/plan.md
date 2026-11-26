@@ -247,7 +247,7 @@ factors with `enabled` by settings.
 | `lf-placement` | `cwd` = the main's cwd | TREE-6 | [ ] |
 | `lf-merge-target` | target = the main branch | TREE-7 | [ ] |
 | `lf-tree-log` | `split` line without `depth` | TREE-11 | [x] |
-| `lf-top-plan` | the root split stored on the main branch | TREE-12 | [ ] |
+| `lf-top-plan` | the root split stored on the main branch | TREE-12 | [x] |
 | `lf-tiers` | elevated not capped | SIZE-1 | [ ] |
 | `lf-tiers-git` | untracked files not counted | SIZE-2 | [ ] |
 | `lf-start-refusal` | inert estimates refused | SIZE-4 | [ ] |
@@ -759,7 +759,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `{parent, child: slug}` takes goal/files/estimate/check from the split; parent not `split` / unknown slug / started slug → one refusal each.
 - GREEN: lookup + `started` bookkeeping (tree op `add` with `parent`).
 
-#### LF4.T9 The `split` tool (TREE-4, TREE-12 a) `[ ] todo`
+#### LF4.T9 The `split` tool (TREE-4, TREE-12 a) `[x] done`
 - Files: `core/local/splittool.ts` (new), `core/local/install.ts`; test `lf-top-plan` (new) "TREE-12 local".
 - RED: the main's `split({node: root, …})` validates, commits on the root's branch (not the main branch), writes op `split`, one `split` line (`reason: "choice"`), node state `split`.
 - GREEN: tool registration in the local-first tool set (S34a).
