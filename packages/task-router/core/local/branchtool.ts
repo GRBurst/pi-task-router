@@ -1,6 +1,11 @@
 // The `start_branch` tool (design §3.3.2; plan D48): the main session's way to a worktree. The logic is `startBranch`; this is
-// the tool's shape: the schema, and the result as text plus `details`.
-import { startBranch, type StartDeps } from "./worktree.ts";
+// the tool's shape: the schema, and the result as text plus `details`. In a local-first session it starts a node of the work
+// tree (local-first spec §2.3, TREE-1): `parent` cuts it from that node's tip, else from the main tip (the request node, D65).
+import type { NodeLogInput } from "../outcome.ts";
+import type { Result } from "../types.ts";
+import type { Caps, Estimate, Node } from "./tree.ts";
+import type { TreeStore } from "./treestore.ts";
+import { startBranch, type StartDeps, type Started } from "./worktree.ts";
 
 export type ToolReply = { content: { type: "text"; text: string }[]; details: unknown; isError?: boolean };
 export type RouterTool = {
@@ -18,21 +23,82 @@ export const START_BRANCH_SCHEMA = {
     repo: { type: "string", description: "absolute path; default: the session cwd's repository" },
   },
 };
+const ESTIMATE_KINDS: readonly Estimate["kind"][] = ["code", "plan", "inert"];
+/** Local-first spec §2.3: today's fields + `parent`, `child`, `estimate` (registered when `localFirst.experimental` is on). */
+export const START_NODE_SCHEMA = {
+  ...START_BRANCH_SCHEMA,
+  properties: {
+    ...START_BRANCH_SCHEMA.properties,
+    parent: { type: "string", description: "a node id: the new node branches off that node's tip; absent: off the main branch" },
+    child: { type: "string", pattern: "^[a-z0-9-]{1,40}$", description: "a slug of the parent's recorded split" },
+    estimate: { type: "object", additionalProperties: false, required: ["lines", "kind"],
+      properties: { lines: { type: "integer", minimum: 0 }, kind: { type: "string", enum: ESTIMATE_KINDS } } },
+  },
+};
 
 /** The error shape of D48: the reason as text, `{status: "error", reason}` as details, `isError`. */
 export const errorReply = (reason: string): ToolReply => ({ content: [{ type: "text", text: reason }], details: { status: "error", reason }, isError: true });
 
-/** `after`: awaited after a branch started, before the result (the merge gate's baseline of the repository's main tip). */
-export function startBranchTool(d: StartDeps, ready: () => Promise<void> = async () => undefined, after?: () => Promise<void>): RouterTool {
+/** The work tree's ports (local-first): the store, whether the session is local-first now, the caps, the `node` line. */
+export type NodeDeps = { tree: TreeStore; localFirst(): boolean; caps(): Caps; log(i: Omit<NodeLogInput, "now">): void };
+const fail = (e: string): Result<never> => ({ ok: false, errors: [e] });
+const estimateOf = (x: unknown): Estimate | undefined => {
+  const e = x as Partial<Estimate> | null;
+  return typeof e === "object" && e !== null && Number.isInteger(e.lines) && e.lines! >= 0 && ESTIMATE_KINDS.includes(e.kind!)
+    ? { lines: e.lines!, kind: e.kind! } : undefined;
+};
+
+/** `start_branch` in a local-first session (TREE-1): a slug start is a node; the same node again re-activates it (no second op
+ *  or line). A plan unit (L7) stays a plain branch. Validates before it touches git, so a refusal changes nothing. */
+export async function startNode(d: StartDeps, n: NodeDeps, input: unknown, cwd: string): Promise<Result<Started & { node?: string }>> {
+  const i = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
+  if (!n.localFirst() || i.plan !== undefined) {
+    if (i.parent !== undefined || i.child !== undefined || i.estimate !== undefined) return fail("parent, child and estimate need a local-first session");
+    return startBranch(d, input, cwd);
+  }
+  if (i.estimate === undefined) return fail("estimate is required in a local-first session");
+  const estimate = estimateOf(i.estimate);
+  if (!estimate) return fail("estimate must be {lines: an integer ≥ 0, kind: code, plan or inert}");
+  if (i.parent !== undefined && typeof i.parent !== "string") return fail("parent must be a node id");
+  const nodes = n.tree.tree().nodes, caps = n.caps();
+  const parent = i.parent === undefined ? undefined : nodes[i.parent as string];
+  if (i.parent !== undefined && !parent) return fail(`unknown node ${i.parent as string}`);
+  if (parent && parent.state !== "active" && parent.state !== "split") return fail(`node ${parent.id} is ${parent.state}`);
+  if (parent && parent.depth + 1 > caps.maxDepth) {
+    return fail(`node ${parent.id} is at depth ${parent.depth}: maxDepth ${caps.maxDepth} allows no node below it`);
+  }
+  const id = parent ? `${parent.id}.${String(i.slug)}` : String(i.slug);
+  // a child lives in its parent's repository (a branch record knows it); else the input's or the cwd's
+  const repo = i.repo ?? (parent && d.store.all().find((r) => r.branch === parent.branch && r.worktree === parent.worktree)?.repo);
+  const res = await startBranch(d, { ...i, ...(repo !== undefined && { repo }), parent: undefined, estimate: undefined }, cwd,
+    { name: id, ...(parent && { from: parent.branch }) });
+  if (!res.ok) return res;
+  if (!Object.hasOwn(nodes, id)) {
+    const node: Node = { id, ...(parent && { parent: parent.id }), depth: parent ? parent.depth + 1 : 0, kind: estimate.kind === "plan" ? "plan" : "leaf",
+      branch: res.value.branch, worktree: res.value.worktree, base: res.value.base, profile: "local-first", estimate, state: "active",
+      started: [], merged: [], contacts: {}, ladder: [], effort: "medium" };
+    n.tree.apply({ op: "add", node });
+    // tier: the session tier (SIZE-3) is `standard` until LF5 wires `sessionTier(arms)`; an inert node has no budget
+    n.log({ node: id, ...(parent && { parent: parent.id }), depth: node.depth, kind: node.kind, fanout: 0, outcome: "started",
+      tier: estimate.kind === "inert" ? "inert" : "standard", profile: "local-first" });
+  }
+  return { ok: true, value: { ...res.value, node: id } };
+}
+
+/** `after`: awaited after a branch started, before the result (the merge gate's baseline of the repository's main tip).
+ *  `nodes`: the work tree's ports; with them the schema is local-first's (spec §2.3) and a local-first session starts nodes. */
+export function startBranchTool(d: StartDeps, ready: () => Promise<void> = async () => undefined, after?: () => Promise<void>, nodes?: NodeDeps): RouterTool {
   return {
     name: "start_branch",
     label: "Start branch",
     description: "Start a branch for a code change: makes a git worktree on a new branch from the main branch and returns its directory; "
-      + "it becomes the active worktree. Give a slug, a goal and the check command that proves the change. The same slug again re-activates the branch.",
-    parameters: START_BRANCH_SCHEMA,
+      + "it becomes the active worktree. Give a slug, a goal and the check command that proves the change. The same slug again re-activates the branch."
+      + (nodes ? " In a local-first session give an estimate; parent starts the branch off that node's tip." : ""),
+    parameters: nodes ? START_NODE_SCHEMA : START_BRANCH_SCHEMA,
     async execute(_id, params, _signal, _update, ctx) {
       await ready(); // the session_start work (abandoned branches, facts) comes first
-      const res = await startBranch(d, params, typeof ctx?.cwd === "string" ? ctx.cwd : process.cwd());
+      const cwd = typeof ctx?.cwd === "string" ? ctx.cwd : process.cwd();
+      const res = nodes ? await startNode(d, nodes, params, cwd) : await startBranch(d, params, cwd);
       if (!res.ok) return errorReply(res.errors.join("; "));
       await after?.();
       return { content: [{ type: "text", text: JSON.stringify(res.value) }], details: res.value };

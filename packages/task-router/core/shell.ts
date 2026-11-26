@@ -34,6 +34,7 @@ import type { Trip } from "./local/tripwires.ts";
 import { enabled } from "./members.ts";
 import { createPolicy } from "./policy.ts";
 import { assign } from "./strategy/arms.ts";
+import { localFirst } from "./strategy/local-first.ts";
 import { spotCheckDue, spotCheckText } from "./spotcheck.ts";
 import type { Child, PolicyDeps } from "./policy.ts";
 import { createRoutingProfile, profileCommand, startModel, userChoseModel } from "./profile.ts";
@@ -111,6 +112,8 @@ export function install(pi: PiLike, deps: Deps) {
   const profile = createRoutingProfile(settings, (type, data) => pi.appendEntry?.(type, data), now);
   // The work tree (TREE-3, S36): restored at every session_start from its `task-router/tree` entries.
   const tree = createTreeStore((type, data) => pi.appendEntry?.(type, data));
+  // The local-first strategy (D60, NR-6): the one composition the mechanism reads its parts from.
+  const strategy = localFirst(settings);
   // E0 (local-first spec §6, MEAS-2, D61, D93): drawn from the snapshot at the start of an eligible cloud-first session; else as used.
   type E0Level = "as-used" | "cloud-only";
   let e0: E0Level = "as-used", e0drawn = false;
@@ -349,7 +352,9 @@ export function install(pi: PiLike, deps: Deps) {
   // The overseer (design §3.2) lives here too: its spawn line comes from `onEvent` (D26), its events from its own subscription.
   const lm = installLocal(pi, { settings, log, isChild, sessionId: () => sessionId, hash: deps.hash, detect: deps.detect, git: deps.git, onTrip: (t) => { hint = t; render(); },
     api, tickets, hex, now: nowMs, sleep: pd.sleep, onBudget: render, force: force.port, run: deps.run, policyOn: () => off.length > 0,
-    placed: (n) => placed.has(n), local: () => profile.current() !== "cloud-first" });
+    placed: (n) => placed.has(n), local: () => profile.current() !== "cloud-first",
+    ...(settings.localFirst.experimental && { nodes: { tree, localFirst: () => profile.current() === "local-first", caps: () => strategy.treeCaps({}),
+      log: (i) => log.node(i) } }) });
   // PRO-7 (S34a): a local session registers the local tools and hooks it lacks (a cloud-first default: at its first switch to
   // local-first); the tools whose component the profile turns off leave the active set (pi cannot unregister a tool) and come
   // back with it. Nothing changes while the set stays (the legacy local mode, a cloud-first session).

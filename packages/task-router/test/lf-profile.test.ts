@@ -237,7 +237,7 @@ test("PRO-7 start_branch and request_merge read the plan store and the gate stat
   await a.run("local-first");
   assert.notEqual(await reason(a, { plan: { slug: "p", id: "M1.T1" } }), "plans are not active", "the plan store is read at the call");
   // request_merge: a branch without a plan that changes an approved plan's file is refused plan-changed (plans active)
-  const started = JSON.parse(await reason(a, { slug: "tidy", goal: "tidy up", check: "true" })) as { worktree: string };
+  const started = JSON.parse(await reason(a, { slug: "tidy", goal: "tidy up", check: "true", estimate: { kind: "code", lines: 1 } })) as { worktree: string };
   a.g.commit(started.worktree, [{ path: FILE, added: 1, deleted: 0 }]);
   const merged = await a.h.f.callTool("request_merge", {}, a.c) as { details: { status: string; reason?: string } };
   assert.deepEqual([merged.details.status, merged.details.reason], ["refused", "plan-changed"]);
@@ -246,7 +246,7 @@ test("PRO-7 start_branch and request_merge read the plan store and the gate stat
   const b = rig7("s-e2", { worktrees: { enabled: "on" }, localFirst: { experimental: true } });
   assert.deepEqual(b.tools(), ["start_branch"]);
   await b.run("local-first");
-  await reason(b, { slug: "tidy", goal: "tidy up", check: "true" });
+  await reason(b, { slug: "tidy", goal: "tidy up", check: "true", estimate: { kind: "code", lines: 1 } });
   b.g.repos.get("/r/x")!.refs.set("main", "b".repeat(40));
   await Promise.all(b.h.f.fire("tool_call", { toolName: "bash", toolCallId: "t1", input: { command: "true" } }, b.c));
   b.h.f.fire("tool_result", { toolName: "bash", toolCallId: "t1", input: { command: "true" }, content: [{ type: "text", text: "ok" }], isError: false }, b.c);

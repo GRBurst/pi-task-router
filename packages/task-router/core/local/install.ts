@@ -13,7 +13,7 @@ import type { RouterSettings } from "../types.ts";
 import { BRANCH_TYPE, createBranchStore } from "./branches.ts";
 import type { BranchRecord } from "./branches.ts";
 import { startBranchTool } from "./branchtool.ts";
-import type { RouterTool } from "./branchtool.ts";
+import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { createGit, gitRunner } from "./git.ts";
 import type { Git } from "./git.ts";
 import { block, createHintEngine } from "./hints.ts";
@@ -68,6 +68,8 @@ export type LocalDeps = {
   onTrip?(trip: Trip | undefined): void;
   /** The session is local (PRO-7): the legacy local mode, or local-first; the components' "auto" follows it. Default: the mode. */
   local?(): boolean;
+  /** The work tree's ports (local-first, TREE-1): given when `localFirst.experimental` is on. */
+  nodes?: NodeDeps;
 };
 
 const WRITERS = new Set(["edit", "write"]);
@@ -264,7 +266,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     const planned = (): { plans?: PlanStore } => act().plans ? { plans } : {};
     // Review F2: a repository start_branch registers gets its baseline before the tool returns.
     if (x.worktrees) register(startBranchTool({ git, store: branches, settings: s, get plans() { return planned().plans; } }, () => ready,
-      () => act().mergeGate ? checkRefs() : Promise.resolve()), () => act().worktrees);
+      () => act().mergeGate ? checkRefs() : Promise.resolve(), d.nodes), () => act().worktrees);
     // request_merge (design §3.4.1) while the merge gate is active; one set of ports per call, with its AbortSignal (D49).
     if (x.mergeGate) {
       register(requestMergeTool((signal) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,

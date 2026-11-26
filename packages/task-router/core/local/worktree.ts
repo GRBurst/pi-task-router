@@ -28,7 +28,7 @@ export const inside = (p: string, dir: string): boolean => {
 // ── start_branch (design §3.3.2) ──
 /** `plans`: the plan store when plans are active (L7); without it a plan-bound branch is refused. */
 export type StartDeps = { git: Git; store: BranchStore; settings: RouterSettings; plans?: PlanStore };
-/** What `start_branch` returns: `base` is the main tip the branch was made at (a commit); `files`: a plan unit's whitelist. */
+/** What `start_branch` returns: `base` is the commit the branch was made at (the main tip; a node: its parent node's tip); `files`: a plan unit's whitelist. */
 export type Started = { branch: string; worktree: string; base: string; check: string; files?: string[] };
 const MAX_TEXT = 300;
 const fail = (e: string): Result<never> => ({ ok: false, errors: [e] });
@@ -103,8 +103,9 @@ const readText = (p: string): string | undefined => { try { return readFileSync(
 
 /** `start_branch` (design §3.3.2): validates everything first, so a failure changes nothing; an existing branch in a worktree is
  *  re-activated (idempotent; one in the state merged, fixer or blocked is refused); else `git worktree add -b`. A slug needs a
- *  goal and a check; a plan unit (L7) takes them from the plan, and needs the plan store. */
-export async function startBranch(d: StartDeps, input: unknown, cwd: string): Promise<Result<Started>> {
+ *  goal and a check; a plan unit (L7) takes them from the plan, and needs the plan store. `at` (a node, local-first TREE-1):
+ *  `name` replaces the slug in the branch name (the node id), `from` the main branch as the base (the parent node's branch). */
+export async function startBranch(d: StartDeps, input: unknown, cwd: string, at?: { name: string; from?: string }): Promise<Result<Started>> {
   const i = (typeof input === "object" && input !== null ? input : {}) as Record<string, unknown>;
   if (i.slug !== undefined && i.plan !== undefined) return fail("give either a slug or a plan, not both");
   if (i.slug === undefined && i.plan === undefined) return fail("a slug or a plan is required");
@@ -128,10 +129,12 @@ export async function startBranch(d: StartDeps, input: unknown, cwd: string): Pr
   if (repo === undefined) return fail(`${from} is not in a git repository`);
   const main = await mainTip(d, repo);
   if (main === undefined) return fail(`none of the main branches (${d.settings.mergeGate.mainBranches.join(", ")}) exists in ${repo}`);
+  const base = at?.from === undefined ? main.sha : await d.git.sha(repo, at.from);
+  if (base === undefined) return fail(`the branch ${at!.from} does not exist in ${repo}`);
   const wts = await d.git.worktrees(repo);
   const u: Result<Unit> = d.plans && plan
     ? await planUnit(d, d.plans, plan.slug as string, plan.id as string, repo, main, wts)
-    : { ok: true, value: { branch: branchName(d.settings.worktrees.branchPrefix, { slug: i.slug as string }), goal: i.goal as string, check: i.check as string } };
+    : { ok: true, value: { branch: branchName(d.settings.worktrees.branchPrefix, { slug: at?.name ?? (i.slug as string) }), goal: i.goal as string, check: i.check as string } };
   if (!u.ok) return u;
   const { branch, goal, check, files } = u.value;
   const known = d.store.get(repo, branch);
@@ -147,7 +150,7 @@ export async function startBranch(d: StartDeps, input: unknown, cwd: string): Pr
     }
     if (known && known.state !== "active" && known.state !== "abandoned") return fail(`branch ${branch} is ${known.state}; start another`);
     // review F8: a hand-made record is adopted (the router's from now on)
-    const { handmade: _adopted, ...prior } = known ?? { repo, branch, base: main.sha, rejections: 0, fixerRuns: 0 };
+    const { handmade: _adopted, ...prior } = known ?? { repo, branch, base, rejections: 0, fixerRuns: 0 };
     rec = { ...prior, ...(u.value.plan && { plan: u.value.plan }), worktree: there.dir, state: "active", goal, check, ...(files && { files }) };
     const current = d.store.active();
     const same = known !== undefined && current?.repo === repo && current.branch === branch && current.goal === goal && current.check === check
@@ -155,13 +158,13 @@ export async function startBranch(d: StartDeps, input: unknown, cwd: string): Pr
     if (!same) d.store.put(rec);
   } else {
     const dir = worktreeDir(d.settings.worktrees.root, repo, branch);
-    const added = await d.git.worktreeAdd(repo, dir, branch, main.sha);
+    const added = await d.git.worktreeAdd(repo, dir, branch, base);
     if (!added.ok) {
       // `git worktree add -b` creates the branch before it finds the directory in the way: take back what it made.
       if (!existed) await d.git.branchDelete(repo, branch, true);
       return fail(added.err);
     }
-    rec = { repo, branch, worktree: dir, base: main.sha, ...(u.value.plan && { plan: u.value.plan }), state: "active", rejections: 0, fixerRuns: 0,
+    rec = { repo, branch, worktree: dir, base, ...(u.value.plan && { plan: u.value.plan }), state: "active", rejections: 0, fixerRuns: 0,
       goal, check, ...(files && { files }) };
     d.store.put(rec);
   }

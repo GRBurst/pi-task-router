@@ -242,7 +242,7 @@ factors with `enabled` by settings.
 | `lf-prompt` | the section omits the tier budget | PRO-8/SIZE-9 | [x] |
 | `lf-tree` | `maxDepth` compared with `<` instead of `≤` | TREE-2 | [x] |
 | `lf-split` / `lf-split-git` | the commit takes every staged file (`commit -a`) | TREE-4 commit (a staged unrelated file stays uncommitted) | [x] |
-| `lf-tree-git` | the base stays the main tip | TREE-1 | [ ] |
+| `lf-tree-git` | the base stays the main tip | TREE-1 | [x] |
 | `lf-start-child` | a slug may start twice | TREE-5 | [ ] |
 | `lf-placement` | `cwd` = the main's cwd | TREE-6 | [ ] |
 | `lf-merge-target` | target = the main branch | TREE-7 | [ ] |
@@ -749,7 +749,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: `nodeEvent`/`splitEvent` missing (import fails); then each field set ≠ spec §2.4 and `text-free` over both.
 - GREEN: `nodeEvent`, `splitEvent` per spec §2.4; `EVENTS_V2` += both; `ENUMS_V2` += `node.kind`, `node.outcome`, `split.reason`.
 
-#### LF4.T7 `start_branch` with a parent (TREE-1) `[ ] todo`
+#### LF4.T7 `start_branch` with a parent (TREE-1) `[x] done`
 - Files: `core/local/worktree.ts`, `core/local/branchtool.ts`; test `lf-tree-git` (new).
 - RED: real git: `start_branch({goal, estimate: {kind: "plan", lines: 0}})` → a level-0 node off the main tip; `start_branch({parent: root, …})` → its branch's base = the root's tip (not the main tip); `add` op and a `node` line written.
 - GREEN: `startBranch(d, input, cwd, base?)`; the schema gains `parent`, `child`, `estimate` (spec §2.3), validated in local-first only (legacy schema unchanged: `local-schema` green).
