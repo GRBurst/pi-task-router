@@ -633,7 +633,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: written first against a plant (§11: `id` dropped from the hash) and seen failing; then the plant is removed.
 - GREEN: none beyond T2 (the test guards the hash input); CLEAN: the plant gone.
 
-#### LF2.T4 Factor settings (spec §2.1) `[ ] todo`
+#### LF2.T4 Factor settings (spec §2.1) `[x] done`
 - Files: `core/settings.ts`, `core/types.ts`; test `lf-settings` "factor keys".
 - RED: `experiments.factors.E2 = {enabled: true, weights: [1, 1, 1]}` parsed; an unknown id, a wrong weight count, a negative weight → one problem each; with an injected router version `0.3.0`, `E2.enabled` → the problem `experiments.factors.E2 is available from 0.4.0` and E2 stays disabled (spec §2.8; the version is a parameter, so the case survives releases).
 - GREEN: validate against `FACTORS` (count = levels; `from` ≤ the router's version by a numeric triple compare).

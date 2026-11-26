@@ -3,9 +3,16 @@
 import { readFileSync } from "node:fs";
 import { EFFORTS, effortRank, enabled } from "./members.ts";
 import { validateLocal } from "./local/settings.ts";
-import type { Cell, Member, Profile, Rows, RouterSettings } from "./types.ts";
+import { FACTORS } from "./strategy/arms.ts";
+import type { Factor } from "./strategy/arms.ts";
+import type { Cell, ExperimentsSettings, Member, Profile, Rows, RouterSettings } from "./types.ts";
 
 export type Settings = RouterSettings;
+
+/** The package manifest's version (a factor is available from its `from` release, spec §2.8); "" if unreadable. */
+export const ROUTER_VERSION: string = (() => {
+  try { return String(JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version ?? ""); } catch { return ""; }
+})();
 
 /** Built-in profiles (spec §4.3): the requirement each kind carries. */
 export const BUILTIN_PROFILES: Record<string, Profile> = {
@@ -374,7 +381,7 @@ function validatePlanning(s: Settings, base: Settings, problems: string[], raw: 
 
 /** Spec §5.4, in order: members (an invalid default member gets its default back, an invalid new one is dropped), then the cap,
  *  the tables and the profiles (`validatePlanning`). */
-function validate(s: Settings, base: Settings, problems: string[], raw: Record<string, unknown>): void {
+function validate(s: Settings, base: Settings, problems: string[], raw: Record<string, unknown>, version: string): void {
   for (const [name, m] of Object.entries(s.models)) {
     const why = memberProblem(m as unknown as Record<string, unknown>);
     if (why === undefined) continue;
@@ -407,9 +414,41 @@ function validate(s: Settings, base: Settings, problems: string[], raw: Record<s
   if ("factors" in ex && !isObj(ex.factors)) {
     s.experiments.factors = structuredClone(base.experiments.factors);
     problems.push("experiments.factors: must be an object; default kept");
-  }
+  } else if (isObj(ex.factors)) s.experiments.factors = validateFactors(ex.factors, problems, version);
   validatePlanning(s, base, problems, raw);
   validateLocal(s, base, problems);
+}
+
+/** "a.b.c" at least "x.y.z", numerically; an unreadable version proves nothing (false). */
+const atLeast = (version: string, from: string): boolean => {
+  const [a, b] = [version, from].map((v) => /^(\d+)\.(\d+)\.(\d+)/.exec(v)?.slice(1).map(Number));
+  if (!a || !b) return false;
+  const i = a.findIndex((x, j) => x !== b[j]);
+  return i < 0 || a[i]! > b[i]!;
+};
+
+/** `experiments.factors` (spec §2.1, §2.8): known ids only (E0 runs by its share), `{enabled?, weights?}` with one
+ *  non-negative weight per level, not all 0; enabling a factor before its release is a problem and keeps it disabled. */
+function validateFactors(raw: Record<string, unknown>, problems: string[], version: string): ExperimentsSettings["factors"] {
+  const out: ExperimentsSettings["factors"] = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const p = (why: string, key = k): void => void problems.push(`experiments.factors.${key}: ${why}`);
+    const f = k === "E0" ? undefined : (FACTORS as Record<string, Factor | undefined>)[k];
+    if (!f) { p(k === "E0" ? "E0 runs while experiments.cloudOnlyShare is above 0; ignored" : "unknown factor; ignored"); continue; }
+    if (!isObj(v)) { p("not an object; ignored"); continue; }
+    const e: ExperimentsSettings["factors"][string] = {};
+    for (const [key, x] of Object.entries(v)) {
+      if (key === "enabled" && typeof x === "boolean") e.enabled = x;
+      else if (key === "enabled") p("not a boolean; default kept", `${k}.enabled`);
+      else if (key === "weights" && Array.isArray(x) && x.length === f.levels.length && x.every((w) => typeof w === "number" && w >= 0 && w < Infinity)
+        && x.some((w) => w > 0)) e.weights = [...x];
+      else if (key === "weights") p(`one non-negative number per level (${f.levels.join(", ")}), not all 0; default kept`, `${k}.weights`);
+      else p("unknown key; ignored", `${k}.${key}`);
+    }
+    if (e.enabled && !atLeast(version, f.from)) { problems.push(`experiments.factors.${k} is available from ${f.from}`); e.enabled = false; }
+    out[k] = e;
+  }
+  return out;
 }
 
 export type Loaded = { settings: Settings; problems: string[] };
@@ -433,7 +472,7 @@ export function loadSettingsReport(file: string): Loaded {
 export const loadSettings = (file: string): Settings => loadSettingsReport(file).settings;
 
 /** Parsed settings file → settings and the problems found (spec §5.4). `undefined` is "no file": defaults, no problem. */
-export function parseSettings(raw: unknown): Loaded {
+export function parseSettings(raw: unknown, version = ROUTER_VERSION): Loaded {
   const base = defaults();
   if (!isObj(raw)) return { settings: base, problems: raw === undefined ? [] : ["settings: not a JSON object; defaults used"] };
   const problems: string[] = [];
@@ -443,6 +482,6 @@ export function parseSettings(raw: unknown): Loaded {
   out.models = mergeModels(base.models, r.models, problems);
   out.importanceTable = mergeTables(base.importanceTable, r.importanceTable, problems);
   out.profiles = mapLegacyProfiles(out, isObj(r.profiles) ? r.profiles : {}, problems);
-  validate(out, base, problems, r);
+  validate(out, base, problems, r, version);
   return { settings: out, problems };
 }

@@ -116,7 +116,7 @@ export type RouterSettings = {
 };
 
 /** The router's own experiments (local-first spec §2.1, §6): the draw's seed, E0's share of cloud-only sessions, the
- *  factors' switches and weights (`factors` parsed from LF2 on). */
+ *  factors' switches and weights (`factors`: known ids only, validated against the registry, `core/strategy/arms.ts`). */
 export type ExperimentsSettings = {
   seed: string;
   cloudOnlyShare: number;
