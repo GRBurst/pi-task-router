@@ -268,7 +268,7 @@ factors with `enabled` by settings.
 | `lf-api3` | API 2 → a throw instead of the notice | XR-2 | [ ] |
 | module-eval `task-router-local-first-needs-api-3` | the assertion removed | the negative case | [ ] |
 | `pi-hooks` (LF1.T0) | the probe's hook returns at once and sets `x_probe` after a `setTimeout` | (i) awaited and (ii) rewritten fail on both transports | [x] |
-| `lf-default` NR-2 v1 capture (LF1.T1a) | the fixture empty | the capture case | [ ] |
+| `lf-default` NR-2 v1 capture (LF1.T1a) | the fixture empty | the capture case | [x] |
 | `lf-merge-target` TREE-7 base (LF4.T11b) | `behind` keeps `main.sha` | a child cut after main moved is refused `behind` | [ ] |
 | `lf-merge-target` TREE-7 no push (LF4.T11d) | the node→parent merge calls `pushPort` | the fake remote records a push | [ ] |
 | `lf-merge-target` TREE-14 (LF4.T12a) | the scope check only for `plan`-bound branches | a path outside the package's `files` merges | [ ] |
@@ -530,7 +530,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: none in the router (a verification check). A failed (i)–(iii) on a transport → stop and report (R16); X33 records the result for both transports.
 - Keep green: KG-P.
 
-#### LF1.T1a The v1 line fixture (NR-2 a) `[ ] todo`
+#### LF1.T1a The v1 line fixture (NR-2 a) `[x] done`
 - Files: `test/fixtures/v1-lines.jsonl` (new); test `lf-default` (new) "NR-2 v1 capture".
 - RED: the case compares a default-settings harness session (fake clock; spawn, verdict, spotcheck, hint, review, merge) with the fixture → fails while the fixture is empty.
 - GREEN: test only: the fixture is recorded at this commit, before any v2 change, and committed; the case passes. LF1.T2 compares against it.

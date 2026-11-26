@@ -1,0 +1,16 @@
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"spawn","taskId":"q1","cardHash":"988975daea7ef376","kind":"implement","workerTier":"qwen","workerEffort":"xhigh","base":"qwen","importance":"normal","reasons":["all t0 criteria hold","importance=normal","selection: qwen-local"],"arm":"+-+--","sessionId":"s-q1","parentSessionId":"s-main","assigned":"router","routeBase":"qwen","ability":"write","level":0,"workerLevel":0,"workerMember":"qwen-local","workerModel":"llama/qwen3.8","startEffort":"xhigh","waitMs":0}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"verdict","taskId":"q1","verdict":"accepted","note":"fine"}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"spotcheck","taskId":"q1","requested":true}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"spawn","taskId":"q2","cardHash":"74e46dd9f1e7dcc2","kind":"lookup","workerTier":"T1","workerEffort":"high","base":"T1","importance":"normal","reasons":["all t0 criteria hold","minLevel=2 raises read 0","importance=normal","selection: sonnet"],"arm":"+-+--","sessionId":"s-q2","parentSessionId":"s-main","assigned":"router","routeBase":"T1","ability":"read","level":2,"workerLevel":2,"workerMember":"sonnet","workerModel":"anthropic/claude-sonnet-5-5","startEffort":"high","waitMs":0}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"verdict","taskId":"q2","verdict":"unjudged"}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"reroute","taskId":"q1","from":"local","to":"cloud","reason":"health","fromModel":"local/qwen","toModel":"anthropic/sonnet"}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"check","taskId":"q1","exit":1,"durationMs":1200}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"corrective","taskId":"q1"}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"escalate","taskId":"q1","attemptOf":"q0","from":"local","to":"cloud","ability":"code","fromModel":"local/qwen","toModel":"anthropic/sonnet","fromLevel":1,"toLevel":2}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"force","taskId":"","action":"set","source":"command","model":"anthropic/opus","effort":"high"}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"hint","taskId":"main","sessionId":"s-main","trip":"identical-call","stage":"hint","count":2}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"review","taskId":"r1","durationMs":900,"model":"anthropic/sonnet","role":"merge","member":"sonnet","outcome":"approve","blocking":0,"findings":1,"attempt":1,"commit":"abc123","branch":"b1"}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"spawn","taskId":"r1-c","kind":"overseer","workerTier":"sonnet","workerEffort":"high","arm":"+-+--","sessionId":"s-r1","parentSessionId":"s-main","workerMember":"sonnet","workerModel":"anthropic/sonnet","ticket":"merge"}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"merge","taskId":"b1","outcome":"merged","commit":"abc123","nLines":40,"nFiles":2,"reviewId":"r1","pushed":true}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"gatebypass","taskId":"main","from":"abc123","to":"def456","repo":"repo"}
+{"v":1,"ts":"2026-10-02T12:00:00.000Z","event":"plan","taskId":"p1","action":"approve","reviewId":"r2","nTasks":3,"full":true}
