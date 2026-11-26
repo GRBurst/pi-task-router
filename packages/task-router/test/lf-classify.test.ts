@@ -152,3 +152,23 @@ test("CLS-3 agent-instruction and plan files are prose, but never inert", () => 
   // an empty change (nothing but split files) has no files to be inert
   assert.equal(run(["docs/plans/split/n1.json"]).cls, "standard");
 });
+
+test("CLS-4 inert-like: tests and docs only, no code", () => {
+  const like = (paths: (string | FileFact)[], ctx: ClassifyContext = CTX) => run(paths, POLICY, ctx).inertLike;
+  assert.equal(like(["test/a.test.ts", "docs/a.md"]), true);
+  assert.equal(like(["test/a.test.ts"]), true);
+  assert.equal(like(["docs/a.md", "NOTICE"]), true);
+  assert.equal(like(["test/a.test.ts", "docs/a.md", "src/a.ts"]), false, "one code file");
+  assert.equal(like(["docs/a.md", "svc/a.json"]), false, "config is not docs");
+  // every file inert-class: inert-like with or without the passing check; the class itself still needs the check (CLS-3)
+  assert.deepEqual([like(["docs/a.md"], { ...CTX, inertChecked: false }), run(["docs/a.md"], POLICY, { ...CTX, inertChecked: false }).cls], [true, "standard"]);
+  assert.deepEqual([like(["docs/a.md"]), run(["docs/a.md"]).cls], [true, "inert"]);
+  // prose the classifier never lets be inert is not inert-like either
+  for (const p of ["AGENTS.md", "docs/plans/m1.md", "skills/x/SKILL.md"]) assert.equal(like([p]), false, p);
+  // an elevated change is not inert-like, even when it only touches tests (weakened) or docs under a risk path
+  assert.equal(like([f("test/a.test.ts", 0, 9)]), false);
+  assert.equal(like(["src/auth/README.md"]), false);
+  // only router-owned split files left: nothing but the router's own file
+  assert.equal(like(["docs/plans/split/n1.json"]), true);
+  assert.equal(like([]), true);
+});

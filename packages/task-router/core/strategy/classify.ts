@@ -42,7 +42,7 @@ function classifyFiles(all: readonly FileFact[], p: Policy, ctx: ClassifyContext
   const why = new Set<string>();
   const proxy = (name: string, fired: boolean): boolean => { if (fired) why.add(name); return fired; };
   const configFiles: string[] = [], codeFiles: string[] = [];
-  let elevated = false, inertFiles = 0;
+  let elevated = false, inertFiles = 0, likeFiles = 0;
   for (const { path, added, deleted } of files) {
     if (typeof path !== "string" || !Number.isFinite(added) || !Number.isFinite(deleted)) throw new Error("malformed file fact");
     const fired = [
@@ -54,7 +54,10 @@ function classifyFiles(all: readonly FileFact[], p: Policy, ctx: ClassifyContext
       proxy("weakened-tests", any(p.testGlobs, path) && deleted > added),
     ];
     if (fired.includes(true)) elevated = true;
-    if (any(p.inertGlobs, path) && !any(INSTRUCTION_GLOBS, path) && !ctx.glob(`${ctx.plansDir}/**`, path)) inertFiles++;
+    const owned = any(INSTRUCTION_GLOBS, path) || ctx.glob(`${ctx.plansDir}/**`, path);
+    const inertFile = !owned && any(p.inertGlobs, path);
+    if (inertFile) inertFiles++;
+    if (inertFile || (!owned && any(p.testGlobs, path))) likeFiles++;
     if (any(p.configGlobs, path)) configFiles.push(path);
     else if (!any(p.inertGlobs, path) && !any(p.testGlobs, path)) codeFiles.push(path);
   }
@@ -63,5 +66,7 @@ function classifyFiles(all: readonly FileFact[], p: Policy, ctx: ClassifyContext
   if (proxy("multi-component-config", configFiles.length >= 2 && components(configFiles) >= 2)) elevated = true;
   // CLS-3: inert only when every file is inert and a configured check passes; a riskGlobs match is elevated, never inert
   const inert = files.length > 0 && inertFiles === files.length && ctx.inertChecked;
-  return { cls: elevated ? "elevated" : inert ? "inert" : "standard", inertLike: false, why: [...why].sort() };
+  // CLS-4: every file inert-class, or tests and docs only; an elevated change is in no E17 stratum
+  const inertLike = !elevated && likeFiles === files.length;
+  return { cls: elevated ? "elevated" : inert ? "inert" : "standard", inertLike, why: [...why].sort() };
 }
