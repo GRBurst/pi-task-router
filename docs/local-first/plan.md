@@ -223,7 +223,7 @@ factors with `enabled` by settings.
 | `lf-outcome` | a builder copies `goal` text into a field | LOG-3 text-free | [x] |
 | `lf-session-log` | write `session` in cloud-first with share 0 | MEAS-1 | [x] |
 | `lf-merge-log` | `repoId` from `HEAD` instead of the root commit | LOG-1 | [x] |
-| `lf-arms` RND-2 | `unit` dropped from the hash input | determinism-by-unit frequencies | [ ] |
+| `lf-arms` RND-2 | `unit` dropped from the hash input | determinism-by-unit frequencies | [x] |
 | `lf-arms` RND-3 | `id` dropped from the hash input | the joint-frequency property | [ ] |
 | `lf-arms-shell` RND-5 | draw from live settings instead of the snapshot | the resume property | [ ] |
 | `lf-e0` | cloud-only arm keeps `route: "local"` members | MEAS-2 | [ ] |
@@ -586,7 +586,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: a real-git merge (`git-repo.ts`, `merge-rig.ts`) → the line's `repoId` = first 12 hex of `git rev-list --max-parents=0 HEAD` (sorted, first), `base` = the target tip before, `target` = the branch merged into.
 - GREEN: compute at step 9 (`advanceMain`); `repoId` cached per repository.
 
-#### LF1.T8 The deterministic draw (RND-2) `[ ] todo`
+#### LF1.T8 The deterministic draw (RND-2) `[x] done`
 - Files: `core/strategy/draw.ts` (new); test `lf-arms` (new) "RND-2".
 - RED: import fails; then: equal draws for equal inputs (property, 1 000 random triples), `pick` frequencies over 20 000 units within ±2 % of weights (1:1, 1:1:1, 9:1).
 - GREEN: S32 `draw`, `pick`.
