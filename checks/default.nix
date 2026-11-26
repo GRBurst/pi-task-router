@@ -93,6 +93,8 @@ in {
   nix-route-smoke = import ./pi-package/nix-route.nix {inherit lib pkgs hm;};
   # The rendered home files: the registry path and the settings file the router reads.
   home-files = import ./home-files {inherit lib pkgs hm;};
+  # (LF1.T0) pi 1.4 awaits the provider hooks and sends their payload, on both transports.
+  pi-hooks = import ./pi-hooks {inherit pkgs;};
   # (M5.1) The task-router tests run when it builds (spec §8.1, "Package tests").
   task-router = self.packages.${pkgs.stdenv.hostPlatform.system}.task-router;
   # (M5.4) The decisions of R', recorded once (spec §6.3).

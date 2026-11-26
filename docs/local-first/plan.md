@@ -90,7 +90,7 @@ Shape of the diff:
 
 | # | Point | Resolution |
 |---|---|---|
-| X33 | Design §5.7 assumes the main's request can be held; pi 1.4 must await `before_provider_request` handlers, and `extensions.md` says provider hooks run "only when that transport exposes the corresponding stage" | LF1.T0's `pi-hooks` check proves awaiting, payload rewrite and response headers on `openai-completions` and `anthropic-messages` before any task relies on them; a failure → stop and report (R16) |
+| X33 | Design §5.7 assumes the main's request can be held; pi 1.4 must await `before_provider_request` handlers, and `extensions.md` says provider hooks run "only when that transport exposes the corresponding stage" | LF1.T0's `pi-hooks` check proves awaiting, payload rewrite and response headers on `openai-completions` and `anthropic-messages` before any task relies on them; a failure → stop and report (R16). Verified by LF1.T0 (pi 1.4.0, the locked nixpkgs): on both transports the hook is awaited (a 300 ms hold delays the request), its returned payload is sent, `after_provider_response` gets the status and the headers |
 | X34 | "Uncached input" for llama.cpp: pi's openai-completions usage mapping (`input` = prompt − cached?) | read pi's provider before LF12.T8; D72 adjusts the sum |
 | X35 | Quota header names (D73) are from knowledge, not from a captured response | fixtures use them; G13 (owner) captures one response; a mismatch is one constant |
 | X36 | The budget field: `compat.thinkingTokenBudgetField` per model (K6.11), default `thinking_budget_tokens` (K6.12) | LF12.T4 reads it from the registry |
@@ -102,7 +102,7 @@ Shape of the diff:
 | X42 | `sizeOf` (`merge.ts:38`) measures commits only | the gate keeps it; hints add worktree and untracked lines (SIZE-2, LF5.T3) |
 | X43 | Design §5.1 "`/model` before the start hook" is unobservable: the router's body runs at `session_start` (`index.ts:11`, `guardSingleCopy`) | PRO-4 tests the model flag and the resumed session's model only; LF3.T6 reads how pi 1.4 exposes the flag (`pi.getFlag` or the startup model) first |
 | X44 | CON-8 (ii)'s artifact: the router (main only, D80) must read a child's final report | LF8.T16 starts by reading how the actor delivers it into the main's session (entry type and fields); absent → the sample covers the brief and the actor's `AgentInfo` only, and R25 records it |
-| X45 | Holding the main's request needs an abort path: `ctx.signal` inside `before_provider_request` | LF1.T0 (iv) checks it; absent → the main's hold is bounded by `localFirst.localQueue.mainHoldSec` (600) and then proceeds with one `lqueue` line `outcome: timeout` |
+| X45 | Holding the main's request needs an abort path: `ctx.signal` inside `before_provider_request` | LF1.T0 (iv) checks it; absent → the main's hold is bounded by `localFirst.localQueue.mainHoldSec` (600) and then proceeds with one `lqueue` line `outcome: timeout`. LF1.T0 (iv): `ctx.signal` is an `AbortSignal` inside the hook on both transports (its abort on Esc is not exercised offline; G17) |
 | X46 | QW-1 cites a quota-wait design that exists only as a draft in pi-economics' work area | the contract is router-proposed (D91); LF9.T4 tests against a fake; a published change is one task |
 
 ## 5. Gate (AGENTS.md rules)
@@ -267,7 +267,7 @@ factors with `enabled` by settings.
 | `lf-lean` | the lean brief drops the forbidden list | LOC-7 property | [ ] |
 | `lf-api3` | API 2 → a throw instead of the notice | XR-2 | [ ] |
 | module-eval `task-router-local-first-needs-api-3` | the assertion removed | the negative case | [ ] |
-| `pi-hooks` (LF1.T0) | the probe's hook returns at once and sets `x_probe` after a `setTimeout` | (i) awaited and (ii) rewritten fail on both transports | [ ] |
+| `pi-hooks` (LF1.T0) | the probe's hook returns at once and sets `x_probe` after a `setTimeout` | (i) awaited and (ii) rewritten fail on both transports | [x] |
 | `lf-default` NR-2 v1 capture (LF1.T1a) | the fixture empty | the capture case | [ ] |
 | `lf-merge-target` TREE-7 base (LF4.T11b) | `behind` keeps `main.sha` | a child cut after main moved is refused `behind` | [ ] |
 | `lf-merge-target` TREE-7 no push (LF4.T11d) | the node→parent merge calls `pushPort` | the fake remote records a push | [ ] |
@@ -523,7 +523,7 @@ task whose GREEN is a test only (a characterization or a guard) says so and name
 E1 needs no router lever: pi-economics splits the meter's `timings` by date and router version (PA-1); the
 router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. Keep green: KG-P from LF1.T0.
 
-#### LF1.T0 Provider hooks on both transports (X33, X45) `[ ] todo`
+#### LF1.T0 Provider hooks on both transports (X33, X45) `[x] done`
 - Files: `checks/pi-hooks/default.nix` (new), `checks/pi-hooks/probe.mjs` (new: a probe extension and a fake HTTP server on `localhost`); third file `checks/default.nix` (one registration line).
 - Why first: LF9.T3 (headers), LF10.T5 (the main held in the local queue) and PS-1's `beforeRequest` (the actor's mirror of pi's hook) rely on it.
 - RED: the check runs pi 1.4 offline (`pi -p`, as `checks/pi-package/`) against the fake server twice, `openai-completions` (the llama transport) and `anthropic-messages` (base URL overridden); the probe's `before_provider_request` holds 300 ms and sets `x_probe: 1` in the payload; `after_provider_response` records `status` and the fixture header `anthropic-ratelimit-unified-5h-utilization`; assertions: (i) the server receives the request ≥ 300 ms after the hook started (awaited), (ii) the body has `x_probe: 1` (rewritten), (iii) the probe saw the status and the header, (iv) `ctx.signal` is an `AbortSignal` inside the hook. Seen red with the plant (§11).
