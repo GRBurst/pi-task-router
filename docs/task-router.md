@@ -1056,9 +1056,11 @@ Stage 1, in a local-first session:
 
 E2 is drawn once per session from the seed and the session id, so its arm is
 on the `session` line and on every line of the session. E3 is drawn once per
-review, from the seed, the session id and the reviewed commit: a REVISE and
-a new commit is a new review with a new draw, while the same commit asked
-again (a retry after an unavailable reviewer) keeps its draw. The arm is on
+review, from the seed, the session id, the reviewing node and the reviewed
+commit: a REVISE and a new commit is a new review with a new draw, while the
+same commit asked again (a retry after an unavailable reviewer) keeps its
+draw. A parent's review of the commit its last child merged into it (a
+fast-forward) is a review of its own, with its own draw. The arm is on
 each `review` line of that review, beside the session's, and on no other
 line; it is on every gate review whatever its class and size, but the level
 changes the reviewer only for a standard-class change of `actualTier:

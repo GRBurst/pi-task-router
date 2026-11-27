@@ -138,7 +138,7 @@ on `review` lines; the node id on `node` and `split` lines; the branch on `merge
 `FACTORS`). In a cloud-first session only its `session` line has it, `["E0=as-used"]` or `["E0=cloud-only"]`, and only
 while E0 is drawn (it agrees with `localMembers`: `cloud-only` = `off`); a `session` line without `localMembers` has no
 `arms`. A local-first session (later releases) will carry it on every line, `[]` included. Legacy local mode never does. A gate `review` line
-(each attempt) also carries its review's own factors, the review-unit ones (E3, from 0.4.0), drawn once per reviewed commit: its `arms` are the
+(each attempt) also carries its review's own factors, the review-unit ones (E3, from 0.4.0), drawn once per reviewed commit of a node: its `arms` are the
 session's and the review's, sorted.
 The levels of `arms` are the session's own, from its snapshot (`task-router/arms`, `docs/task-router.md`, "The snapshot"), not
 the `FACTORS` of a later release.

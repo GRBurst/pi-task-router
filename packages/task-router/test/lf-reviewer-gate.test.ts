@@ -336,7 +336,7 @@ test("REV-2 E3 per review", async () => {
   x.put({ "src/b.ts": 1 });
   assert.equal((await x.mergeIt()).status, "merged");
   assert.deepEqual(x.reviews.map((r) => [r.choice!.reviewer, r.arms]), [["sonnet", ["E3=sonnet"]], ["opus", ["E3=opus"]]]);
-  assert.deepEqual(asked, x.reviews.map((r) => r.commit), "one draw per review, keyed by its commit");
+  assert.deepEqual(asked, x.reviews.map((r) => `feat:${r.commit}`), "one draw per review, keyed by its node and its commit");
   assert.equal(new Set(asked).size, 2);
   // the draw is made once for a review: its second attempt (the same commit) never asks again
   const y = await gate();
@@ -353,4 +353,22 @@ test("REV-2 E3 per review", async () => {
   z.put({ "src/a.ts": 100 });
   assert.equal((await z.mergeIt()).status, "merged");
   assert.deepEqual([z.reviews[0]!.choice!.reviewer, z.reviews[0]!.arms], ["opus", undefined]);
+});
+
+// LF14 review H1: a node merges into its parent by fast-forward, so the parent's tip is its last child's reviewed commit; the
+// parent's own review (another diff, another approval key) must not share the child's draw: the unit is the node and the commit.
+test("REV-2 E3 unit: a child's review and its parent's, at the same commit, are two draws", async () => {
+  const x = nodeRig();
+  const units: string[] = [];
+  x.nodes.reviewArms = (unit) => { units.push(unit); return [`E3=${units.length === 1 ? "opus" : "sonnet"}`]; };
+  const root = await x.node({ slug: "auth", estimate: { kind: "plan", lines: 0 } });
+  x.r.commit("docs/auth.md", "one\ntwo\nthree\n", "plan", root.worktree);
+  const child = await x.node({ parent: "auth", slug: "form", estimate: { kind: "code", lines: 2 } });
+  x.r.commit("form.ts", "a\nb\n", "form", child.worktree);
+  assert.equal((await x.merge({ branch: child.branch })).status, "merged");
+  assert.equal((await x.merge({ branch: root.branch })).status, "merged");
+  const [a, b] = x.reviews;
+  assert.equal(a!.commit, b!.commit, "the fast-forward made the parent's tip the child's reviewed commit");
+  assert.deepEqual(units, [`auth.form:${a!.commit}`, `auth:${a!.commit}`]);
+  assert.deepEqual(x.reviews.map((r) => r.arms), [["E3=opus"], ["E3=sonnet"]], "each review has its own draw");
 });

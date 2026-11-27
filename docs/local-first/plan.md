@@ -1537,10 +1537,13 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
 - decision (lf14): the E2 half needed no code. `armMap` (the snapshot's session arms, `core/shell.ts`) already feeds `sessionTier` at every
   reader (start refusal, node and merge lines, crossings, brief budgets) since LF5/LF6; `install.ts` did not change. The test pins it.
 - decision (lf14): E3's draw is made by the gate once per review: `NodeDeps.reviewArms?(unit)` (the shell: `armsFor("review", "<sessionId>:<unit>")`),
-  unit = the reviewed commit. A re-review after a REVISE is a new commit, so a new review and a new draw; the same commit asked again (a
-  review-unavailable retry, an approval reuse) keeps its draw, so a retry never re-rolls its reviewer. The review id is not the unit: it is
-  minted per attempt inside the overseer, after the reviewer is chosen. `reviewer(...)` reads the review's arms only (a session `E3` is ignored).
-  Local and reversible: the key is one expression in `core/shell.ts` and one argument in `core/local/merge.ts`.
+  unit = `<node id>:<reviewed commit>` (a review without a node: the branch name for the node id). A re-review after a REVISE is a new
+  commit, so a new review and a new draw; the same node's same commit asked again (a review-unavailable retry, an approval reuse) keeps its
+  draw, so a retry never re-rolls its reviewer. The commit alone is not the unit (review lf14 H1): a node merges into its parent by
+  fast-forward, so the parent's tip is its last child's reviewed commit, and the parent's own review (another diff, another approval key)
+  would share the child's draw. The review id is not the unit: it is minted per attempt inside the overseer, after the reviewer is chosen.
+  `reviewer(...)` reads the review's arms only (a session `E3` is ignored). Local and reversible: the key is one expression in
+  `core/shell.ts` and one argument in `core/local/merge.ts`.
 - decision (lf14): E3's arm is on every gate `review` line (each attempt of the review) whatever the review is, as RND-6 says (every line carries
   its unit's enabled factors); it decides the reviewer only for a standard-class review of an `actualTier: standard` change, so an analysis of E3
   filters on the line's `class` and `actualTier`. The review's `merge` line carries the session's arms only (its unit is the merge). A review

@@ -9,6 +9,7 @@ import { parseSettings } from "../core/settings.ts";
 import { FACTORS, assign } from "../core/strategy/arms.ts";
 import type { FactorId, FactorUnit } from "../core/strategy/arms.ts";
 import { LF, treeRig } from "./tree-rig.ts";
+import { createArmStore } from "../core/armstore.ts";
 import { APPROVE, REVISE, finding } from "./merge-rig.ts";
 import type { Verdict } from "../core/local/verdict.ts";
 
@@ -156,7 +157,7 @@ test("stage 1", async () => {
   for (const l of a.h.lines()) assert.deepEqual(l.arms, l.event === "review" ? ["E2=small", "E3=sonnet"] : ["E2=small"], JSON.stringify(l));
   assert.deepEqual(a.lines("node").map((l) => l.tier), a.lines("node").map(() => "small"));
   assert.equal((a.lines("merge")[0] as Record<string, any>).tier, "small");
-  // E3 per review: each review's draw is its own (a REVISE, a new commit, a new review); the unit is the review's commit
+  // E3 per review: each review's draw is its own (a REVISE, a new commit, a new review); the unit is the review's node and commit
   const b = stage1(both([0, 0, 1], [1, 1]));
   const g = await b.node("feat", 100);
   b.verdicts.push({ ...REVISE, findings: [finding("F1", true, "src/feat.ts:1")] });
@@ -168,7 +169,7 @@ test("stage 1", async () => {
   assert.equal(rs.length, 2);
   assert.notEqual(rs[0]!.commit, rs[1]!.commit);
   for (const r of rs) {
-    const level = assign(snap, "E3", `s-main:${r.commit}`);
+    const level = assign(snap, "E3", `s-main:feat:${r.commit}`);
     assert.deepEqual([r.arms, r.reviewer, r.tier], [["E2=large", `E3=${level}`], level, "large"], JSON.stringify(r));
   }
   // the draw is the review's, whatever the review is: a large change asks for Opus whatever E3 says; its line still names its draw
@@ -193,4 +194,36 @@ test("stage 1: E3 is a draw of the review, never of the session", () => {
   for (let i = 0; i < 40; i++) for (const a of s.h.router.arms.armsFor("review", `s-main:c${i}`)) seen.add(a);
   assert.deepEqual([...seen].sort(), ["E3=opus", "E3=sonnet"], "both levels over 40 reviews");
   assert.deepEqual(s.h.router.arms.armsFor("session", "s-main"), [], "no session arm: E3's unit is the review");
+});
+
+// LF14 review H1: a node merges into its parent by fast-forward, so the parent's tip is the child's reviewed commit: the two
+// reviews are two units (the node id and the commit), each with its own draw, whatever the seed.
+test("stage 1: a child's review and its parent's are two draws", async () => {
+  const raw = { ...LF, experiments: { cloudOnlyShare: 0, seed: "tree", factors: { E3: { enabled: true } } } };
+  const s = treeRig(raw, undefined, { apiExt: true, extra: { settings: parseSettings(raw, LATER).settings } });
+  let answered = 0;
+  s.h.hooks.onSleep = () => {
+    if (s.h.a.apiSpawns.length <= answered) return;
+    const sp = s.h.a.apiSpawns[answered++]!;
+    const submit = (sp.policy as { childTools?: { execute(v: unknown): unknown }[] } | undefined)?.childTools?.[0];
+    if (sp.result.ok && submit) void submit.execute(APPROVE);
+  };
+  const root = await s.start({ slug: "auth", goal: "plan", check: "true", estimate: { kind: "plan", lines: 0 } });
+  s.r.commit("docs/auth.md", "one\ntwo\n", "plan", root.details.worktree);
+  const child = await s.start({ parent: "auth", slug: "form", goal: "form", check: "true", estimate: { kind: "code", lines: 5 } });
+  assert.equal(child.isError, undefined, child.content[0]!.text);
+  s.r.commit("src/form.ts", code(5), "form", child.details.worktree);
+  for (const b of [child, root]) assert.equal((await s.call("request_merge", { branch: b.details.branch })).details.status, "merged");
+  const snap = s.h.router.arms.snapshot()!;
+  const [rc, rp] = s.h.lines().filter((l) => l.event === "review") as Record<string, any>[];
+  assert.equal(rc!.commit, rp!.commit, "the parent's tip is the child's reviewed commit");
+  assert.deepEqual([rc!.arms, rp!.arms], [[`E3=${assign(snap, "E3", `s-main:auth.form:${rc!.commit}`)}`], [`E3=${assign(snap, "E3", `s-main:auth:${rp!.commit}`)}`]]);
+  // independent draws: over seeds the pair (child, parent) takes all four combinations (one shared unit would give two)
+  const pairs = new Set<string>();
+  for (let i = 0; i < 64; i++) {
+    const st = createArmStore(() => undefined);
+    st.start("s-main", [], parseSettings({ experiments: { seed: `seed-${i}`, factors: { E3: { enabled: true } } } }, LATER).settings.experiments, LATER);
+    pairs.add([st.armsFor("review", `s-main:auth.form:${rc!.commit}`), st.armsFor("review", `s-main:auth:${rp!.commit}`)].join("|"));
+  }
+  assert.equal(pairs.size, 4);
 });

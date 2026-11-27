@@ -44,7 +44,8 @@ export const errorReply = (reason: string): ToolReply => ({ content: [{ type: "t
  *  the strategy (D60, the composition the shell built) and the session's arms (S33). */
 export type NodeDeps = { tree: TreeStore; localFirst(): boolean; caps(): Caps; strategy: Strategy; arms(): Arms;
   /** The arms of one review (LF14.T1, S33): `id=level` of the enabled factors whose unit is a review (E3), drawn for `unit`, the
-   *  reviewed commit; none when absent. The session's `arms` hold no review factor. */
+   *  reviewing node's id and the reviewed commit (`<node>:<commit>`: a parent's review of its last child's commit is another
+   *  review); none when absent. The session's `arms` hold no review factor. */
   reviewArms?(unit: string): string[];
   log: { node(i: Omit<NodeLogInput, "now">): void; split(i: Omit<SplitLogInput, "now">): void } };
 const fail = (e: string): Result<never> => ({ ok: false, errors: [e] });
