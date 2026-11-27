@@ -6,6 +6,9 @@ import { createTiers, sessionTier } from "./tiers.ts";
 import { classify } from "./classify.ts";
 import { reviewer } from "./reviewer.ts";
 
+/** SIZE-9: the budgets line (`brief.ts`), re-exported here: the mechanism reaches strategy files only through this one (NR-6). */
+export { budgetLine } from "./brief.ts";
+
 const notYet = (part: keyof Strategy) => (): never => { throw new Error(`task-router: strategy part ${part}: not yet`); };
 
 export const localFirst = (settings: RouterSettings): Strategy => {

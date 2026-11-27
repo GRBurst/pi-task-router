@@ -5,6 +5,7 @@
 // Pure: the policy (core/policy.ts) applies the placement.
 import type { ChildTool } from "../api.ts";
 import type { Arms, Strategy } from "../strategy/types.ts";
+import { budgetLine } from "../strategy/local-first.ts";
 import type { SyncGuard } from "../toolguard.ts";
 import type { Card, Profile, Result } from "../types.ts";
 import { basename } from "node:path";
@@ -70,7 +71,8 @@ export const packageGuard: SyncGuard = (tool, input) => {
 
 /** The package contract (TREE-6, S47: goal, files, budget, check, forbidden), the lines a package child's brief carries; with
  *  `maxChildren` (the node may split, TREE-13) the do-or-split rule too. */
-export function packageBrief(n: Node, c: SplitChild, maxChildren?: number): string {
+/** `budgets`: SIZE-9's line (`budgetLine`: the session tier's budget and the plan budgets). */
+export function packageBrief(n: Node, c: SplitChild, maxChildren?: number, budgets?: string): string {
   return [
     `Package ${n.id}: your contract.`,
     `- goal: ${c.goal}`,
@@ -78,6 +80,7 @@ export function packageBrief(n: Node, c: SplitChild, maxChildren?: number): stri
     `- budget: ${c.estimate.lines} changed lines (${c.estimate.kind})`,
     `- check: ${c.check}`,
     `- forbidden: ${c.forbidden?.length ? c.forbidden.join(", ") : "none"}`,
+    ...(budgets === undefined ? [] : [budgets]),
     "Work only in this worktree and commit there; the main merges the node with request_merge.",
     ...(maxChildren === undefined ? [] : [`Do or split: do this package within its budget, or, if it does not fit, call submit_split with `
       + `at most ${maxChildren} smaller packages and end; the main starts them.`]),
@@ -94,7 +97,8 @@ export function placePackage(card: Card & { package: string }, v: LocalFirstView
   if (!c) return no("the node is no package of a split (start it with start_branch({parent, child}))");
   // TREE-13: submit_split and its rule while the node's depth is below the cap
   const caps = v.strategy.treeCaps(v.arms), tool = n.depth < caps.maxDepth ? v.submitSplit?.(id) : undefined;
-  const at = { cwd: n.worktree, brief: packageBrief(n, c, tool && caps.maxChildren), guard: packageGuard, ...(tool && { childTools: [tool] }) };
+  const budgets = budgetLine(v.strategy.sessionTier(v.arms), v.strategy, v.arms);
+  const at = { cwd: n.worktree, brief: packageBrief(n, c, tool && caps.maxChildren, budgets), guard: packageGuard, ...(tool && { childTools: [tool] }) };
   return { ok: true, value: card.t2.length ? { ...at, meta: { node: id, contact: "open" } } : { ...at, ...(v.startMember !== undefined && { member: v.startMember }), meta: { node: id } } };
 }
 

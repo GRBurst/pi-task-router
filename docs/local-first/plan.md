@@ -929,11 +929,16 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   paths, invariants, then numstat, checks, hunks) is cut to `overCapBytes` in all. `RunArgs.overCap` → the review line's `overCap`
   (KEYS += `overCap`; LF6.T7 adds the other review fields).
 
-#### LF5.T11 Budgets at the start (SIZE-9) `[ ] todo`
+#### LF5.T11 Budgets at the start (SIZE-9) `[x] done`
 - Files: `core/prompt.ts`, `core/local/package.ts`; test `lf-prompt` "SIZE-9".
 - RED: the section and a package brief contain the session tier's budget and the plan budgets (prefix/line assertions on the rendered lines).
 - GREEN: one line `Budgets: package ≤ <b> changed lines; split ≤ <planLines> lines, ≤ <maxChildren> children.`
   rendered by `budgetLine(tier, s)` (`core/strategy/brief.ts`), used by both.
+- decision (lf56): `budgetLine(tier, strategy, arms)` (the package budget `tierBudget(tier, "standard")`, the caps `treeCaps(arms)`),
+  re-exported by `local-first.ts` (NR-6: the mechanism imports no other strategy file; `Strategy` keeps its parts). S41 stays as
+  pinned; the section is S41, then the line on its own line (`coordinatorSection(b, budgets)`); the shell now takes the tier, budget
+  and caps of S41 from the composition (`sessionTier(arms)`, as SIZE-3) instead of `standard` and the settings. The package brief
+  has the line after `forbidden`.
 
 #### LF5.T12 Docs `[ ] todo`
 - Files: `docs/task-router.md` (tiers, hints, crossings, the start refusal, over-cap reviews).

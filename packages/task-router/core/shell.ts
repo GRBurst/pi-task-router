@@ -34,7 +34,7 @@ import type { Trip } from "./local/tripwires.ts";
 import { enabled } from "./members.ts";
 import { createPolicy } from "./policy.ts";
 import { assign } from "./strategy/arms.ts";
-import { localFirst } from "./strategy/local-first.ts";
+import { budgetLine, localFirst } from "./strategy/local-first.ts";
 import { spotCheckDue, spotCheckText } from "./spotcheck.ts";
 import type { Child, PolicyDeps } from "./policy.ts";
 import { createRoutingProfile, profileCommand, startModel, userChoseModel } from "./profile.ts";
@@ -387,10 +387,14 @@ export function install(pi: PiLike, deps: Deps) {
     // Local mode (design §2.3, LD3): the main gets the local section and never the rule, whatever the settings say; a child that
     // loads the router anyway keeps today's section without the rule (plan D5).
     // PRO-7: the section follows the session's profile (cloud-first: the card section). PRO-8 (S41): a local-first main
-    // coordinates; its session tier is `standard` while E2 is disabled (SIZE-3).
-    const p = profile.current(), cloud = p === "cloud-first", child = isChild(ctx), lf = settings.localFirst;
+    // coordinates; its session tier is `standard` while E2 is disabled (SIZE-3); SIZE-9: then the budgets line.
+    const p = profile.current(), cloud = p === "cloud-first", child = isChild(ctx);
+    const coordinate = (): string => {
+      const a = armMap(), tier = strategy.sessionTier(a);
+      return coordinatorSection({ tier, budget: strategy.tierBudget(tier, "standard"), ...strategy.treeCaps(a) }, budgetLine(tier, strategy, a));
+    };
     if (settings.routing) sections.task_cards = cloud || child ? cardSection(settings, cloud && settings.delegation.rule === "on" && !child)
-      : p === "local-first" ? coordinatorSection({ tier: "standard", budget: lf.tiers.standard, ...lf.tree }) : localSection(settings, activeSet(settings, true));
+      : p === "local-first" ? coordinate() : localSection(settings, activeSet(settings, true));
     else delete sections.task_cards;
   });
 

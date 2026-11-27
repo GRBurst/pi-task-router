@@ -80,8 +80,9 @@ ${JSON.stringify(LOCAL_EXAMPLE)}`;
 /** S41's values: the session's tier and its budget in changed lines (SIZE-3), the tree caps and the plan budget (spec §2.1). */
 export type Budgets = { tier: string; budget: number; maxChildren: number; maxDepth: number; planLines: number };
 /** The local-first main's section (S41, PRO-8; text pinned by test/lf-prompt.test.ts): the coordinator's rules with the session's
- *  budgets. */
-export const coordinatorSection = (b: Budgets): string =>
+ *  budgets; `budgets`: SIZE-9's line (`budgetLine`), on a line of its own after S41. */
+export const coordinatorSection = (b: Budgets, budgets?: string): string => `${coordinator(b)}${budgets === undefined ? "" : `\n${budgets}`}`;
+const coordinator = (b: Budgets): string =>
   "You coordinate; local children do the work. " +
   `Tier budget this session: ${b.tier} = ${b.budget} changed lines per package (inert unlimited). ` +
   `Start every package with start_branch and an estimate; above the budget, split it: at most ${b.maxChildren} children per node, ` +

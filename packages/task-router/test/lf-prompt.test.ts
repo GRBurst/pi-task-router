@@ -2,7 +2,9 @@
 // session's tier budget, the tree caps and the plan budget filled in.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { harness } from "./harness.ts";
+import { card, harness, provideSkills } from "./harness.ts";
+import { treeRig } from "./tree-rig.ts";
+import { budgetLine, localFirst } from "../core/strategy/local-first.ts";
 import { coordinatorSection } from "../core/prompt.ts";
 import { parseSettings } from "../core/settings.ts";
 
@@ -27,5 +29,33 @@ test("PRO-8 shell: the local-first main's section carries the session's budgets 
   h.f.fire("session_start", { reason: "startup" }, c);
   const sections: Record<string, string> = { task_cards: "-" };
   h.f.fire("before_agent_start", { systemPromptOptions: { sections, skills: [] } }, c);
-  assert.equal(sections.task_cards, S41("standard", 90, 4, 2, 80));
+  assert.equal(sections.task_cards!.split("\n")[0], S41("standard", 90, 4, 2, 80)); // then the SIZE-9 line
+});
+
+const BUDGETS = (b: number, planLines: number, maxChildren: number): string =>
+  `Budgets: package ≤ ${b} changed lines; split ≤ ${planLines} lines, ≤ ${maxChildren} children.`;
+
+test("SIZE-9", async () => {
+  // the line
+  const s = parseSettings({ localFirst: { tiers: { small: 40, standard: 90, large: 200 }, tree: { maxDepth: 2, maxChildren: 4, planLines: 80 } } }, "0.4.0").settings;
+  assert.equal(budgetLine("standard", localFirst(s), {}), BUDGETS(90, 80, 4));
+  assert.equal(budgetLine("large", localFirst(s), { E2: "large" }), BUDGETS(200, 80, 4));
+  // the main's section: S41, then the line
+  const raw = { experiments: { cloudOnlyShare: 0 }, profile: "local-first",
+    localFirst: { experimental: true, tiers: { small: 40, standard: 90, large: 200 }, tree: { maxDepth: 2, maxChildren: 4, planLines: 80 } } };
+  const h = harness({ extra: { settings: parseSettings(raw, "0.4.0").settings } as never });
+  const c = { sessionManager: { getSessionId: () => "s-p9", getBranch: () => [] } };
+  h.f.fire("session_start", { reason: "startup" }, c);
+  const sections: Record<string, string> = { task_cards: "-" };
+  h.f.fire("before_agent_start", { systemPromptOptions: { sections, skills: [] } }, c);
+  assert.deepEqual(sections.task_cards!.split("\n"), [S41("standard", 90, 4, 2, 80), BUDGETS(90, 80, 4)]);
+  // a package brief
+  const t = treeRig();
+  provideSkills(t.h, ["tdd-implementation-planner", "code-reviewer"]);
+  await t.start({ slug: "auth", goal: "add a login", check: "true", estimate: { kind: "plan", lines: 0 } });
+  assert.equal((await t.call("split", { summary: "one", children: [
+    { slug: "form", goal: "build the form", files: ["src/form/**"], estimate: { lines: 60, kind: "code" }, check: "true" }] } as never)).isError, undefined);
+  assert.equal((await t.start({ parent: "auth", child: "form" })).isError, undefined);
+  const r = await t.h.a.spawn({ name: "p1", task: card({ kind: "implement", files: ["src/form/a.ts"], package: "auth.form" } as never) } as never) as { briefAppend?: string };
+  assert.ok(r.briefAppend?.split("\n").includes(BUDGETS(150, 150, 5)), r.briefAppend);
 });
