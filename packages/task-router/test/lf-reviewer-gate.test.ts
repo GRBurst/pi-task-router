@@ -139,12 +139,20 @@ test("REV-3", async () => {
   red.put({ "src/auth/a.ts": 5 }, n1.worktree);
   const r1 = await red.merge({ branch: n1.branch });
   assert.deepEqual([r1.status, r1.reason, red.reviews.length], ["refused", "check", 0], r1.detail);
-  // a vacuous branch check (it passes at the target too) is no orthogonal check: refused `check`, no ticket
+  // decision (lf56-fix, review m1): orthogonal = (≥ 1 configured extra check, all passed) OR (the red run failed). A vacuous branch
+  // check (it passes at the target too) beside a passing extra check merges after the Opus review, which reads the red run's note
   const vac = await gate({ mergeGate: { extraChecks: ["true"] } });
   const n2 = await vac.node({ slug: "a2", check: "true", estimate: { kind: "code", lines: 10 } });
   vac.put({ "src/auth/a.ts": 5 }, n2.worktree);
   const r2 = await vac.merge({ branch: n2.branch });
-  assert.deepEqual([r2.status, r2.reason, vac.reviews.length], ["refused", "check", 0], r2.detail);
+  assert.deepEqual([r2.status, vac.reviews.length, vac.reviews[0]?.choice?.reviewer], ["merged", 1, "opus"], r2.detail);
+  assert.ok((vac.reviews[0]!.input as string).split("\n").includes("Red run at base: passed — the check may be vacuous"));
+  // a vacuous branch check and no extra check: no orthogonal check → refused `check`, no ticket
+  const bare = await gate();
+  const n5 = await bare.node({ slug: "a5", check: "true", estimate: { kind: "code", lines: 10 } });
+  bare.put({ "src/auth/a.ts": 5 }, n5.worktree);
+  const r5 = await bare.merge({ branch: n5.branch });
+  assert.deepEqual([r5.status, r5.reason, bare.reviews.length], ["refused", "check", 0], r5.detail);
   // no red run (redRun off) and no extra check: no orthogonal check at all → refused
   const none = await gate({ mergeGate: { redRun: false } });
   const n3 = await none.node({ slug: "a3", check: real, estimate: { kind: "code", lines: 10 } });

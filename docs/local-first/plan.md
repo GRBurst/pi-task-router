@@ -1054,6 +1054,11 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   refused `check` before any ticket when the red run shows the branch check vacuous (`passed` at the target) or when neither a red
   run nor a configured extra check ran. The detail names the class's proxies. Tests whose elevated changes had a vacuous `true`
   check (`lf-overcap` SIZE-8, `lf-reviewer-gate` REV-1) now give a real one. Reversible; reported to the owner.
+- decision (lf56-fix): replaces the rule above (review lf56 m1, owner: design §5.4 lists the checks as alternatives): the
+  orthogonal check is (≥ 1 configured `mergeGate.extraChecks` entry, all passed) OR (the red run `failed` at the target); without
+  either an elevated change is refused `check` before any ticket. A red run that `passed` is no orthogonal check by itself; the
+  review input keeps its "passed — the check may be vacuous" note. `lf-reviewer-gate` "REV-3": the `vac` case (vacuous branch
+  check + a passing extra check) merges after one Opus review; a vacuous check without an extra check is refused.
 
 #### LF6.T11 Inert merges (REV-10) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-reviewer-gate` "REV-10".

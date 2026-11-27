@@ -481,11 +481,13 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     choice = lfs.reviewer({ cls: c.cls, actual: actualTier, inertLike: c.inertLike, review: arms });
     Object.assign(seen, { class: c.cls, classBy: c.why, tier, actualTier, node: self!.id });
     line = { class: c.cls, classBy: c.why, tier, actualTier, ...(choice.reviewer !== "none" && { reviewer: choice.reviewer }), binding: choice.binding };
-    // REV-3 (LF6.T10): elevated = Opus plus the orthogonal check passing, before any ticket: the red run, when it ran, shows the
-    // branch check is not vacuous, and a deterministic check ran besides the review (the red run or a configured extra check)
-    const vacuous = red === "passed" ? `the check passes at ${target.name} too (the red run): it may be vacuous`
-      : red === "skipped" && g.extraChecks.length === 0 ? "no red run and no mergeGate.extraChecks entry" : undefined;
-    if (choice.orthogonal && vacuous) return done("refused", "check", `an elevated change (${c.why.join(", ")}) needs an orthogonal check: ${vacuous}`, commit);
+    // REV-3 (LF6.T10; decision lf56-fix, review m1): elevated = Opus plus an orthogonal check, before any ticket: a configured
+    // extra check (they all passed: a failing one refused at step 5) or a red run that failed at the target (design §5.4 lists
+    // them as alternatives); a red run that passed is no orthogonal check by itself, and its "may be vacuous" note reaches the review
+    const orthogonal = g.extraChecks.length > 0 || red === "failed";
+    const why = red === "passed" ? `the check passes at ${target.name} too (the red run: it may be vacuous) and no mergeGate.extraChecks entry ran`
+      : `no red run failed at ${target.name} and no mergeGate.extraChecks entry ran`;
+    if (choice.orthogonal && !orthogonal) return done("refused", "check", `an elevated change (${c.why.join(", ")}) needs an orthogonal check: ${why}`, commit);
   }
   // ── 7 approval reuse: (repo, branch, commit, tree) ──
   const tree = await git.tree(repo, commit);

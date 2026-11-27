@@ -270,9 +270,11 @@ and fallback member.
   so the change is `elevated`.
 - *Reviewers.* The stronger of what the class and the actual tier ask for:
   `inert` merges without a review once its checks passed; `elevated` gets
-  Opus plus an orthogonal check: the gate refuses (`check`) before any
-  review when the red run passed at the target too (the check may be
-  vacuous), or when no red run ran and `mergeGate.extraChecks` is empty; a `small` diff gets Sonnet (Haiku, advisory, when
+  Opus plus an orthogonal check, a configured `mergeGate.extraChecks` entry
+  (all of them passed) or a red run that failed at the target: without
+  either the gate refuses (`check`) before any review. A red run that passed
+  there too is no orthogonal check by itself; the reviewer reads its "the
+  check may be vacuous" note. A `small` diff gets Sonnet (Haiku, advisory, when
   it holds only tests and inert files); `standard` gets Opus or Sonnet as
   the E3 factor draws it (Opus while E3 is off); `large` and above get Opus.
   `localFirst.reviewers` names the member for each (`haiku`, `sonnet`,
