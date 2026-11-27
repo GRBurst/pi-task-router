@@ -105,9 +105,12 @@ export const isOpen = (n: Node): boolean => n.state === "active" || n.state === 
 export const nodeOfBranch = (t: Tree, branch: string): Node | undefined => Object.values(t.nodes).find((n) => n.branch === branch);
 /** PRO-6: an open node started in `profile` exists (its merge keeps that profile's gate after a switch). */
 export const openIn = (t: Tree, profile: RoutingProfile): boolean => Object.values(t.nodes).some((n) => isOpen(n) && n.profile === profile);
+/** The ids of `n`'s started children not merged yet (D65: while there is one, `n` does not merge). */
+export const openChildren = (n: Pick<Node, "id" | "started" | "merged">): string[] =>
+  n.started.filter((s) => !n.merged.includes(s)).map((s) => `${n.id}.${s}`);
 /** TREE-7 f: the branches of the open parents, nodes with a started child not merged yet; the git guard protects them as main. */
 export const openParents = (t: Tree): string[] =>
-  Object.values(t.nodes).filter((n) => n.started.some((s) => !n.merged.includes(s))).map((n) => n.branch);
+  Object.values(t.nodes).filter((n) => openChildren(n).length > 0).map((n) => n.branch);
 /** TREE-6, TREE-14: a package node's contract, the child of its parent's split it was started from; undefined for a root and a
  *  node started without `child`. */
 export function contractOf(t: Tree, n: Pick<Node, "id" | "parent">): SplitChild | undefined {

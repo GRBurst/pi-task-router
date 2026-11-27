@@ -176,6 +176,42 @@ test("TREE-7 guard", async () => {
   assert.deepEqual(await blocks(s.r.dir), [MERGE_REASON("main")]);
 });
 
+/** The root `auth` with a plan commit, split into `form` and `docs`, both started; `kid(slug)` starts one by start_branch. */
+async function twoKids(x: ReturnType<typeof nodeRig>) {
+  const root = await x.node({ slug: "auth", estimate: { kind: "plan", lines: 0 } });
+  x.r.commit("docs/auth.md", "one\n", "plan", root.worktree);
+  const kid = (slug: string) => ({ slug, goal: `do ${slug}`, files: [`${slug}.ts`], estimate: { lines: 1, kind: "code" as const }, check: "true" });
+  assert.equal(x.tree.apply({ op: "split", node: "auth", plan: { summary: "two", children: [kid("form"), kid("docs")] } }), undefined);
+  const start = async (child: string) => {
+    const r = await startNode({ git: x.git, store: x.store, settings: x.settings }, x.nodes, { parent: "auth", child }, x.r.dir);
+    if (!r.ok) throw new Error(r.errors.join("; "));
+    x.r.commit(`${child}.ts`, "a\n", child, r.value.worktree);
+    return r.value;
+  };
+  return { root, form: await start("form"), docs: await start("docs") };
+}
+
+test("TREE-7 open children", async () => {
+  // review M1 (D65): a node with a started child not merged yet never merges; partial work never reaches main
+  const x = nodeRig();
+  const { root, form, docs } = await twoKids(x);
+  const main = x.mainSha();
+  assert.equal((await x.merge({ branch: form.branch })).status, "merged");
+  const r = await x.merge({ branch: root.branch });
+  assert.deepEqual([r.status, r.reason], ["refused", "blocked"], r.detail);
+  assert.equal(r.detail, `${root.branch} has started children that are not merged: ${docs.branch}; merge them first (request_merge)`);
+  assert.equal(x.mainSha(), main);
+  assert.equal(x.tree.tree().nodes["auth"]?.state, "split");
+  assert.equal(x.store.get(x.r.dir, root.branch)?.state, "active");
+  // the last child merges (rebased onto its parent first), then the node does
+  x.r.git(["rebase", "-q", root.branch], docs.worktree);
+  assert.equal((await x.merge({ branch: docs.branch })).status, "merged");
+  const tip = x.r.git(["rev-parse", root.branch]);
+  const m = await x.merge({ branch: root.branch });
+  assert.equal(m.status, "merged", m.detail);
+  assert.equal(x.mainSha(), tip);
+});
+
 test("TREE-14", async () => {
   const x = nodeRig();
   await x.node({ slug: "auth", estimate: { kind: "plan", lines: 0 } });

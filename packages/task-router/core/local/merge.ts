@@ -20,7 +20,7 @@ import { errorReply } from "./branchtool.ts";
 import { type Milestone, parsePlan, planBudget, type PlanRecord, type Skeleton, skeletonHash, type Task, tickOnly } from "./plan.ts";
 import { mergedUnits, type PlanStore } from "./plans.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
-import { contractOf, nodeLine, nodeOf, nodeOfBranch, parentOf, type Node, type Tree } from "./tree.ts";
+import { contractOf, nodeLine, nodeOf, nodeOfBranch, openChildren, parentOf, type Node, type Tree } from "./tree.ts";
 import { isSplitFile } from "./split.ts";
 
 export const REASONS = ["main-branch", "dirty", "behind", "fixer-running", "abandoned", "blocked", "size", "scope",
@@ -361,6 +361,12 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   // ── 2 refuse ──
   const why = refusal({ isMain, state: rec?.state, dirty: await git.dirty(wt.dir), behind: !(await git.isAncestor(repo, target.sha, commit)) });
   if (why) return blockedOf(refuse(why, { ...x, worktree: wt.dir, fixer: rec?.fixer ?? "" }, commit));
+  // review M1 (D65): a node with a started child not merged yet is blocked by it (no reason of its own: the closed lists, R14)
+  const self = p.nodes && nodeOfBranch(p.nodes.tree.tree(), branch), open = self ? openChildren(self) : [];
+  if (open.length) {
+    const names = open.map((id) => nodeOf(p.nodes!.tree.tree(), id)?.branch ?? id).join(", ");
+    return { ...refuse("blocked", x, commit), detail: `${branch} has started children that are not merged: ${names}; merge them first (request_merge)` };
+  }
   // ── plan-bound (L7): the plan at the commit has the approved skeleton ──
   let bound: Bound | undefined;
   if (rec?.plan && p.plans) {
