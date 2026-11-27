@@ -294,7 +294,7 @@ factors with `enabled` by settings.
 | `lf-arms-shell` stage n (LF14–LF18) | a factor drawn without its `enabled` setting | the "without the settings → no arm" case | [ ] |
 | module-eval `localMode.enable` (LF19.T7a) | the option still sets `mode = "local"` | the expected HM-1 b list | [ ] |
 | `lf-session-log` MEAS-3 (R3A.T1) | the shell writes the settings' share instead of the snapshot's | the resume case | [x] |
-| `lf-split` TREE-15 (R3A.T2) | `splitNow` passes no contract | the `src/other.ts` refusal | [ ] |
+| `lf-split` TREE-15 (R3A.T2) | `splitNow` passes no contract | the `src/other.ts` refusal | [x] |
 | `lf-e0` MEAS-4 (R3A.T3) | the cloud-only arm's logging plan shares the real plan's `attempts` | the attempt-state case | [ ] |
 
 ## 12. Coverage gap and manual runbooks (owner-run, before any live arm; G1–G10 first)
@@ -1159,7 +1159,7 @@ Keep green: KG-R; KG-S for the docs.
 - RED: a cloud-first session that draws E0 (share 0.1, 0.5 or 1) writes `cloudOnlyShare` equal to the snapshot's share, a number; after a resume with another share the line carries the snapshot's (the draw's), not the settings'; no key on a session outside E0 (legacy local mode, routing off, no enabled cloud member; share 0 writes no line at all); fails first: the builder writes no such key.
 - GREEN: `sessionEvent` takes `cloudOnlyShare?: number` (a `KEYS` entry; a number passes `finish`); the shell passes the snapshot's share when E0 was drawn. A number, so no `ENUMS_V2` entry.
 
-#### R3A.T2 A split stays inside the node's contract (B10, review LF4 m7; spec TREE-15) `[ ] todo`
+#### R3A.T2 A split stays inside the node's contract (B10, review LF4 m7; spec TREE-15) `[x] done`
 - Files: `core/local/split.ts` (`validateSplit` gains the node's contract; `insideGlobs`), `core/local/splittool.ts` (the contract in, `forbidden` inherited); test `lf-split` "TREE-15"; `docs/task-router.md` (the split tool).
 - RED: the split of `auth.form` (contract files `src/form/**`, forbidden `src/db/**`) with a child whose `files` is `src/other.ts` → refused naming the path (`children[0].files: src/other.ts is outside the contract of auth.form (src/form/**)`), through `submit_split` and `split` alike, nothing committed or logged; a child inside (`src/form/a.ts`, `src/form/ui/**`) → accepted and its committed `forbidden` holds `src/db/**` (its own entries after it, no duplicate); a child file inside the node's `forbidden` is refused too; a node without a contract (a root, a node started without `child`) is not checked; fails first: the split is accepted.
 - GREEN: `validateSplit(plan, node, caps, budget?, contract?)`: each `files` entry of a child must lie inside `contract.files` and outside `contract.forbidden`; a plain path is matched by the contract's globs, a glob entry by two probe paths with its wildcards filled (a conservative containment test: a doubtful glob is refused, TREE-14 at the merge stays the backstop); `splitNow` passes `contractOf(tree, node)` and prepends the contract's `forbidden` to each child's before the commit.

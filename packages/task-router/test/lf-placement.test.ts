@@ -180,3 +180,20 @@ test("TREE-7 guard: a child's", async () => {
   const plain = accepted(await spawn(s.h, "p2", card({ kind: "implement", files: ["src/a.ts"] }))) as Placed;
   assert.equal(await plain.toolGuard!("bash", { command: `git -C ${parent.worktree} merge lm/auth.form` }), MERGE_REASON(parent.branch));
 });
+
+// R3A.T2 (owner B10): a package child's own `submit_split` is held to its contract as the main's `split` is.
+test("TREE-15 submit_split", async () => {
+  const { s } = await packaged();
+  const r = accepted(await spawn(s.h, "p1", card({ package: "auth.form" } as never))) as Placed;
+  const tool = r.childTools![0]!;
+  const kid = (slug: string, files: string[]) => ({ slug, goal: `the ${slug}`, files, estimate: { lines: 20, kind: "code" }, check: "true" });
+  const before = s.ops().length;
+  const bad = await tool.execute({ summary: "x", children: [kid("fields", ["src/form/fields.ts"]), kid("other", ["src/other.ts"])] });
+  assert.deepEqual([bad.isError, bad.terminate], [true, undefined]);
+  assert.equal(bad.text, "children[1].files: src/other.ts is outside the contract of auth.form (src/form/**, test/form.test.ts)");
+  assert.equal(s.ops().length, before, "nothing recorded");
+  assert.equal(s.h.router.tree.tree().nodes["auth.form"]!.state, "active", "the child may answer with another split");
+  const ok = await tool.execute({ summary: "x", children: [kid("fields", ["src/form/fields.ts"])] });
+  assert.deepEqual([ok.isError, ok.terminate], [undefined, true], ok.text);
+  assert.deepEqual(s.h.router.tree.tree().nodes["auth.form"]!.split!.children.map((c) => c.forbidden), [["src/db/**"]]);
+});

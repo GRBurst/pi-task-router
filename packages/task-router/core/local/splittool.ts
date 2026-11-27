@@ -8,8 +8,8 @@ import type { Result, RouterSettings } from "../types.ts";
 import type { BranchStore } from "./branches.ts";
 import { errorReply, type NodeDeps, type RouterTool } from "./branchtool.ts";
 import type { Git } from "./git.ts";
-import { commitSplit, normalizeSplit, renderSplit, validateSplit } from "./split.ts";
-import { nodeLine, nodeOf, rootOf, type Node, type SplitPlan, type Tree } from "./tree.ts";
+import { commitSplit, inheritForbidden, normalizeSplit, renderSplit, validateSplit } from "./split.ts";
+import { contractOf, nodeLine, nodeOf, rootOf, type Node, type SplitPlan, type Tree } from "./tree.ts";
 
 /** `crossing`: SIZE-10, an accepted split whose rendering has more than `planLines` lines (its `crossing` line, kind `plan`). */
 export type SplitDeps = { git: Pick<Git, "commitPath">; branches: Pick<BranchStore, "active">; settings: RouterSettings; nodes: NodeDeps;
@@ -56,9 +56,10 @@ async function splitNow(d: SplitDeps, n: Node | undefined, p: Record<string, unk
   const plan = { summary: p.summary, children: p.children };
   // SIZE-4 (review lf56 M2): a code child above the session tier's package budget is refused here, not at its start
   const tier = d.nodes.strategy.sessionTier(d.nodes.arms()), budget = { lines: d.nodes.strategy.tierBudget(tier, "standard"), tier };
-  const caps = d.nodes.caps(), why = validateSplit(plan, n, caps, budget);
+  // R3A.T2 (owner B10): a package node's children stay inside its contract and inherit its `forbidden`
+  const caps = d.nodes.caps(), contract = n && contractOf(d.nodes.tree.tree(), n), why = validateSplit(plan, n, caps, budget, contract);
   if (why.length > 0) return { ok: false, errors: [why.join("; ")] };
-  const norm = normalizeSplit(plan as SplitPlan);
+  const norm = inheritForbidden(normalizeSplit(plan as SplitPlan), contract?.forbidden);
   const c = await commitSplit(d.git, n!.worktree, d.settings.plans.dir, n!.id, norm);
   if (!c.ok) return c;
   const problem = d.nodes.tree.apply({ op: "split", node: n!.id, plan: norm });

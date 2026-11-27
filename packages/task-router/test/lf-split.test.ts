@@ -145,3 +145,70 @@ test("SIZE-10", async () => {
   assert.match(six.content[0]!.text, /children: 6; a split has 1 to maxChildren 5/);
   assert.deepEqual(at.h.lines().filter((l) => l.event === "crossing"), []);
 });
+
+// ---- R3A.T2 (owner B10, review LF4 m7; spec TREE-15): a split stays inside the node's contract ----
+const FORM: SplitChild = { slug: "form", goal: "the login form", files: ["src/form/**", "test/form.test.ts"], estimate: { lines: 60, kind: "code" },
+  check: "true", forbidden: ["src/db/**"] };
+const formNode = (): Node => root({ id: "auth.form", depth: 1, branch: "lm/auth.form" });
+const within = (files: string[], contract: SplitChild | null = FORM) =>
+  validateSplit(plan({ children: [kid("a", { files })] }), formNode(), CAPS, undefined, contract ?? undefined);
+
+test("TREE-15 contract: a file outside the contract's files is refused, naming the path", () => {
+  assert.deepEqual(within(["src/other.ts"]), ["children[0].files: src/other.ts is outside the contract of auth.form (src/form/**, test/form.test.ts)"]);
+  // one reason per path, in order, each child by its index
+  assert.deepEqual(validateSplit(plan({ children: [kid("a", { files: ["src/form/a.ts", "docs/x.md"] }), kid("b", { files: ["lib/y.ts", "src/form/b.ts", "src/z.ts"] })] }),
+    formNode(), CAPS, undefined, FORM).map((r) => r.split(" is ")[0]), ["children[0].files: docs/x.md", "children[1].files: lib/y.ts", "children[1].files: src/z.ts"]);
+  // inside: the contract's own paths and globs, narrower globs, the test file
+  assert.deepEqual(within(["src/form/a.ts", "src/form/ui/b.ts", "src/form/**", "src/form/ui/**", "src/form/*.ts", "test/form.test.ts"]), []);
+  // a glob that reaches beyond the contract is outside, however it is written
+  for (const wide of ["src/**", "**", "src/*", "**/*.ts", "src/form*", "test/*.ts"]) {
+    const r = within([wide]);
+    assert.equal(r.length, 1, `${wide}: ${JSON.stringify(r)}`);
+    assert.ok(r[0]!.startsWith(`children[0].files: ${wide} is outside the contract of auth.form`), r[0]);
+  }
+});
+
+test("TREE-15 contract: a file inside the contract's forbidden is refused; a root and a contractless node are not checked", () => {
+  const wide: SplitChild = { ...FORM, files: ["src/**"] };
+  assert.deepEqual(within(["src/db/x.ts"], wide), ["children[0].files: src/db/x.ts is in the forbidden of auth.form (src/db/**)"]);
+  assert.deepEqual(within(["src/db/**"], wide), ["children[0].files: src/db/** is in the forbidden of auth.form (src/db/**)"]);
+  assert.deepEqual(within(["src/form/x.ts", "src/db"], wide).length, 0, "a path next to the forbidden glob is fine");
+  assert.deepEqual(within(["src/other.ts"], null), [], "no contract: the node is a root, or started without child");
+  // a path the plan's own rule refuses (..) gets that one reason only
+  assert.deepEqual(within(["src/form/../x"]).map((r) => r.split(":")[0]), ["children[0].files"]);
+  assert.match(within(["src/form/../x"])[0]!, /must be relative, without \.\./);
+});
+
+const ROOT = { slug: "auth", goal: "add a login", check: "true", estimate: { kind: "plan", lines: 0 } };
+const PLAN: SplitPlan = { summary: "form and docs", children: [FORM,
+  { slug: "docs", goal: "document it", files: ["docs/login.md"], estimate: { lines: 0, kind: "inert" }, check: "true" }] };
+
+test("TREE-15", async () => {
+  const s = treeRig();
+  await s.start(ROOT);
+  assert.equal((await s.call("split", PLAN as never)).isError, undefined);
+  assert.equal((await s.start({ parent: "auth", child: "form" })).isError, undefined);
+  const before = [s.ops().length, s.h.lines().filter((l) => l.event === "split").length];
+  // the proposed RED: a child outside the contract is refused naming the path; nothing committed, recorded or logged
+  const no = await s.call("split", { node: "auth.form", summary: "x", children: [{ ...kid("other"), files: ["src/other.ts"] }] } as never);
+  assert.equal(no.isError, true);
+  assert.equal(no.content[0]!.text, "children[0].files: src/other.ts is outside the contract of auth.form (src/form/**, test/form.test.ts)");
+  assert.deepEqual([s.ops().length, s.h.lines().filter((l) => l.event === "split").length], before);
+  assert.equal(s.h.router.tree.tree().nodes["auth.form"]!.split, undefined);
+  assert.throws(() => s.r.git(["show", `lm/auth.form:${s.h.router.settings.plans.dir}/split/auth.form.json`]));
+  // inside: accepted; the children inherit the node's forbidden (theirs follow, no duplicate), in the tree and in the committed file
+  const ok = await s.call("split", { node: "auth.form", summary: "two", children: [
+    { ...kid("fields"), files: ["src/form/fields.ts"] },
+    { ...kid("ui"), files: ["src/form/ui/**"], forbidden: ["src/db/**", "src/form/ui/old/**"] }] } as never);
+  assert.equal(ok.isError, undefined, ok.content[0]!.text);
+  const split = s.h.router.tree.tree().nodes["auth.form"]!.split!;
+  assert.deepEqual(split.children.map((c) => c.forbidden), [["src/db/**"], ["src/db/**", "src/form/ui/old/**"]]);
+  const file = JSON.parse(s.r.git(["show", `lm/auth.form:${s.h.router.settings.plans.dir}/split/auth.form.json`]));
+  assert.deepEqual(file.children.map((c: SplitChild) => c.forbidden), [["src/db/**"], ["src/db/**", "src/form/ui/old/**"]]);
+  // the root has no contract: its split is free, and a node's own forbidden is not invented for it
+  const free = treeRig();
+  await free.start(ROOT);
+  const top = await free.call("split", { node: "auth", summary: "anything", children: [{ ...kid("any"), files: ["whatever/x.ts"] }] } as never);
+  assert.equal(top.isError, undefined, top.content[0]!.text);
+  assert.equal(free.h.router.tree.tree().nodes.auth!.split!.children[0]!.forbidden, undefined);
+});

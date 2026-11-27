@@ -2,6 +2,7 @@
 // in S37's order) and renders it as canonical JSON, the file `<plans.dir>/split/<node>.json` it commits on the node's branch.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { globMatch } from "../glob.ts";
 import type { Result } from "../types.ts";
 import type { Git } from "./git.ts";
 import { type Caps, type Node, refFormatOk, type SplitChild, type SplitPlan } from "./tree.ts";
@@ -16,12 +17,21 @@ const text = (x: unknown): x is string => typeof x === "string" && x.length > 0 
 /** A relative path without a `..` segment. */
 const relativePath = (f: unknown): boolean => typeof f === "string" && f !== "" && !f.startsWith("/") && !/^[A-Za-z]:/.test(f) && !f.split(/[\\/]/).includes("..");
 
+/** R3A.T2: `f`, a child's path or glob, lies inside `globs` (a contract's): two probe paths (its wildcards filled narrow and wide:
+ *  `**` one or two segments, `*` one or two characters, `?` one) each match one of them. Conservative: a glob that may reach
+ *  beyond is outside, and TREE-14 at the merge stays the backstop. A plain path is its own probe. */
+export function insideGlobs(f: string, globs: readonly string[]): boolean {
+  const fill = (wide: boolean) => f.replace(/\*\*\/|\*\*|\*|\?/g, (w) => (w === "**/" ? (wide ? "x/y/" : "") : w === "**" ? (wide ? "x/y" : "x") : w === "*" ? (wide ? "xy" : "x") : "x"));
+  return [false, true].every((wide) => { const p = fill(wide); return globs.some((g) => g === f || globMatch(g, p)); });
+}
+
 /** SIZE-4 at the split (review lf56 M2): the session tier's package budget; a `code` child above it is refused here, where the
  *  split can still change, since its start would be refused (`start_branch`) and a split node cannot split again. */
 export type SplitBudget = { lines: number; tier: string };
 /** S37: every violation's reason, in order; [] = valid. `node`: the node the plan splits (undefined: unknown); `budget`: the
- *  package budget a code child's estimate must not exceed (absent: no size rule). */
-export function validateSplit(plan: unknown, node: Node | undefined, caps: Caps, budget?: SplitBudget): string[] {
+ *  package budget a code child's estimate must not exceed (absent: no size rule); `contract`: the node's own contract (R3A.T2,
+ *  owner B10): a child's `files` stay inside its files and outside its `forbidden` (absent: a root, or a node started without `child`). */
+export function validateSplit(plan: unknown, node: Node | undefined, caps: Caps, budget?: SplitBudget, contract?: SplitChild): string[] {
   const out: string[] = [];
   const p = isObj(plan) ? plan : {};
   if (!text(p.summary)) out.push(`summary: must be 1 to ${MAX_TEXT} characters`);
@@ -43,7 +53,14 @@ export function validateSplit(plan: unknown, node: Node | undefined, caps: Caps,
     }
     if (!text(c.goal)) out.push(`${at}.goal: must be 1 to ${MAX_TEXT} characters`);
     if (!Array.isArray(c.files) || c.files.length < 1 || c.files.length > MAX_FILES) out.push(`${at}.files: 1 to ${MAX_FILES} paths`);
-    else for (const f of c.files) if (!relativePath(f)) out.push(`${at}.files: ${String(f)} must be relative, without ..`);
+    else for (const f of c.files) {
+      if (!relativePath(f)) out.push(`${at}.files: ${String(f)} must be relative, without ..`);
+      else if (contract && node) {
+        const forbidden = contract.forbidden ?? [];
+        if (!insideGlobs(f as string, contract.files)) out.push(`${at}.files: ${f as string} is outside the contract of ${node.id} (${contract.files.join(", ")})`);
+        else if (forbidden.length > 0 && insideGlobs(f as string, forbidden)) out.push(`${at}.files: ${f as string} is in the forbidden of ${node.id} (${forbidden.join(", ")})`);
+      }
+    }
     if (c.forbidden !== undefined && !(Array.isArray(c.forbidden) && c.forbidden.every(relativePath))) out.push(`${at}.forbidden: relative globs, without ..`);
     const e = isObj(c.estimate) ? c.estimate : {};
     if (!(Number.isInteger(e.lines) && (e.lines as number) >= 0 && KINDS.includes(e.kind as string))) {
@@ -69,6 +86,10 @@ export const normalizeSplit = (p: SplitPlan): SplitPlan => ({
   children: p.children.map((c): SplitChild => ({ slug: c.slug, goal: c.goal, files: [...c.files],
     estimate: { lines: c.estimate.lines, kind: c.estimate.kind }, check: c.check, ...(c.forbidden !== undefined && { forbidden: [...c.forbidden] }) })),
 });
+/** R3A.T2: the children inherit the node's `forbidden` (its entries first, then the child's own, no duplicate). */
+export const inheritForbidden = (p: SplitPlan, forbidden: readonly string[] | undefined): SplitPlan =>
+  forbidden === undefined || forbidden.length === 0 ? p
+    : { ...p, children: p.children.map((c) => ({ ...c, forbidden: [...new Set([...forbidden, ...(c.forbidden ?? [])])] })) };
 const sorted = (x: unknown): unknown => Array.isArray(x) ? x.map(sorted)
   : isObj(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, sorted(x[k])])) : x;
 /** Canonical JSON of `{v: 1, node, summary, children}`: sorted keys, two-space indent, a trailing newline (byte-stable). */

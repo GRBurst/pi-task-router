@@ -145,7 +145,13 @@ child's session is done there, anything larger is split first.
   `<plans.dir>/split/<node>.json` on the node's branch (never on the main
   branch) and marks the node `split`. Only an active node splits, once; splits
   run one at a time, so of a concurrent `split` and `submit_split` of a node
-  one is refused. These split files are the router's
+  one is refused. The split of a package node (one started from its parent's
+  split) stays inside that package's contract, the same rule its merge applies
+  (scope): a child whose `files` leave the node's files, or lie in its
+  `forbidden`, is refused with the path named, and every child inherits the
+  node's `forbidden`. A child's glob counts as inside only when it cannot
+  reach beyond the contract (`src/**` is not inside `src/form/**`); a root
+  node has no contract and its plan is free. These split files are the router's
   own: they never count as a scope violation. `start_branch({parent, child:
   slug})` starts one package of the recorded split, its goal, files, estimate
   and check taken from the plan; each slug starts once. `start_branch({parent,
