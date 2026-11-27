@@ -19,6 +19,7 @@ import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { createGit, gitRunner } from "./git.ts";
 import type { Git } from "./git.ts";
 import { block, createHintEngine } from "./hints.ts";
+import { createSizeHints, sizeBlock } from "./sizehints.ts";
 import type { Delivery } from "./hints.ts";
 import { activeSet, componentOn, isLocal } from "./mode.ts";
 import type { Active, LocalComponent } from "./mode.ts";
@@ -47,7 +48,7 @@ type Pi = {
   registerTool?(tool: RouterTool): void;
 };
 export type LocalDeps = {
-  settings: RouterSettings; log: Pick<ReturnType<typeof createOutcomeLog>, "hint" | "review" | "merge" | "gatebypass" | "plan">; isChild(ctx: any): boolean; sessionId(): string | undefined;
+  settings: RouterSettings; log: Pick<ReturnType<typeof createOutcomeLog>, "hint" | "review" | "merge" | "gatebypass" | "plan" | "crossing">; isChild(ctx: any): boolean; sessionId(): string | undefined;
   /** The overseer's ports (plan S20): the actor API, the shell's tickets, random hex, the clock and its poll sleep. */
   api(): SubagentsApiV1 | undefined; tickets: Tickets; hex(bytes: number): string; now(): number; sleep(ms: number): Promise<void>;
   /** The router's spawn policy is registered (review F1). */
@@ -390,7 +391,9 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   /** The command that proves the active branch (D41; a plan-bound branch carries its task's check the same way). */
   const activeChecks = (): string[] => { const c = branches.active()?.check; return c ? [c] : []; };
   const pending = new Map<string, Omit<CallRecord, "turn">>(); // toolCallId → the call's record so far
-  let ring: CallRecord[] = [], queue: Delivery[] = [];
+  let ring: CallRecord[] = [], queue: Delivery[] = [], sized: string[] = [];
+  // SIZE-5 (local-first): the main's active node gets the size stages 80 %/100 % instead of the legacy one-stage monitor
+  const stages = d.nodes && createSizeHints({ settings: s, strategy: d.nodes.strategy, arms: d.nodes.arms, now: d.now, log: d.log });
   let turn = 0, call = 0, armed = true, stall = 0, progressed = false, shown = false, warned = false;
   const safe = <T>(f: () => T): T | undefined => {
     try { return f(); } catch (err) {
@@ -409,6 +412,12 @@ export function installLocal(pi: Pi, d: LocalDeps) {
         again = false;
         const a = branches.active();
         if (!a) return;
+        const n = stages && d.nodes && nodeOfBranch(d.nodes.tree.tree(), a.branch);
+        if (stages && n?.profile === "local-first") {
+          const st = await git.diffStat(n.worktree, n.base);
+          sized.push(...stages.observe(n, st, { turn, call }).map((x) => sizeBlock(x.stage, x.text)));
+          continue;
+        }
         const size = sizeBudget(s, a); // review spot-check F6: the budget its merge enforces
         if (overSize(await git.diffStat(a.worktree, a.base), size)) queue.push(...engine.detected(["over-size"], call, size));
       } while (again);
@@ -433,8 +442,9 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     if (d.isChild(ctx) || nested(e)) return undefined;
     const rec = pending.get(e?.toolCallId);
     pending.delete(e?.toolCallId);
-    const out = queue;
+    const out = queue, sizes = sized;
     queue = [];
+    sized = [];
     const trips: Trip[] = [];
     if (rec) {
       call += 1;
@@ -457,8 +467,8 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     }
     trips.push(...soft(ctx));
     out.push(...engine.detected(trips, call));
-    if (!out.length) return undefined;
-    const cwd = ctx?.cwd ?? process.cwd(), blocks: string[] = [];
+    if (!out.length && !sizes.length) return undefined;
+    const cwd = ctx?.cwd ?? process.cwd(), blocks: string[] = [...sizes];
     for (const x of out) {
       d.log.hint("main", x.trip, x.stage, x.n, d.sessionId());
       // A path as the steer input shows it: relative to the active worktree when inside it, else to the session's cwd.
@@ -466,8 +476,10 @@ export function installLocal(pi: Pi, d: LocalDeps) {
       if (x.stage === "steer" && steer.available()) steer.start(x.trip, x.n, ring.slice(-STEER_RECORDS), cwd, (p) => relative(wt !== undefined && inside(p, wt) ? wt : cwd, p));
       else blocks.push(block(x.trip, x.n, x.text));
     }
-    shown = true;
-    d.onTrip?.(out[out.length - 1].trip);
+    if (out.length) {
+      shown = true;
+      d.onTrip?.(out[out.length - 1].trip);
+    }
     if (!blocks.length) return undefined;
     return { content: [...(Array.isArray(e.content) ? e.content : []), ...blocks.map((text) => ({ type: "text", text }))] };
   });

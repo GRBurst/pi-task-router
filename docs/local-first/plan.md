@@ -251,7 +251,7 @@ factors with `enabled` by settings.
 | `lf-tiers` | elevated not capped | SIZE-1 | [x] |
 | `lf-tiers-git` | untracked files not counted | SIZE-2 | [x] |
 | `lf-start-refusal` | inert estimates refused | SIZE-4 | [x] |
-| `lf-size-hints` | the guard returns `{block: true}` at 100 % | SIZE-5 | [ ] |
+| `lf-size-hints` | the guard returns `{block: true}` at 100 % | SIZE-5 | [x] |
 | `lf-overcap` | the riskiest hunk exceeds `overCapBytes` | SIZE-8 | [ ] |
 | `lf-classify` / `lf-classify-git` | the policy read from the branch tip | CLS-2 | [x] |
 | `lf-reviewer` | `min` instead of `max` strength | REV-1 property | [x] |
@@ -878,10 +878,15 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   `kind plan`), not the node kind; `estimate` its lines; `tier` ∈ S31 `Tier`; `class` ∈ `RiskClass`. Consumer-visible (PE-2):
   `crossing.stage` [80, 100], `crossing.kind`, `crossing.tier`, `crossing.class`.
 
-#### LF5.T6 Main hints 80 %/100 % (SIZE-5 main, SIZE-6) `[ ] todo`
+#### LF5.T6 Main hints 80 %/100 % (SIZE-5 main, SIZE-6) `[x] done`
 - Files: `core/local/sizehints.ts` (new), `core/local/install.ts`; test `lf-size-hints` "SIZE-5 main", "SIZE-6".
 - RED: the main's active node grows 0 → 130 → 160 lines (budget 150) → one 80 % hint, one 100 % hint (S48 texts), two `crossing` lines with every field; the guard never blocks; legacy local mode keeps its one-stage monitor (`local-over-size` green).
 - GREEN: `createSizeStages(budget)` → `observe(lines) → (80|100)[]`, once per stage per node.
+- decision (lf56): a stage is reached at `lines ≥ stage % × budget`; `observe(lines, budget)` takes the budget per observation
+  (`tierBudget(sessionTier, class)`: a class that turns elevated caps it); the class is the settings policy's of the worktree's files
+  with `inertChecked: false` (never inert during the work; the gate classifies again at merge); an `inert` estimate has no stages;
+  `sinceStartMs` counts from the node's first measurement. The main's hint is a `<router-hint size="80|100">` block on the next
+  tool result (`sizeBlock`), not a trip: no `hint` line. Both stages fire at once when a write jumps over both.
 
 #### LF5.T7 Package children's hints (SIZE-5 child) `[ ] todo`
 - Files: `core/local/sizehints.ts`, `core/local/childtrips.ts`; test `lf-size-hints` "SIZE-5 child".

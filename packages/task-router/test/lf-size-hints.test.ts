@@ -5,6 +5,10 @@ import assert from "node:assert/strict";
 import { crossingEvent, ENUMS_V2, EVENTS_V2, SCHEMA_VERSION } from "../core/outcome.ts";
 import { seeded } from "./rand.ts";
 import { textFree } from "./text-free.ts";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { createSizeStages, sizeBlock } from "../core/local/sizehints.ts";
+import { LF, treeRig } from "./tree-rig.ts";
 
 const NOW = new Date(Date.UTC(2026, 10, 2, 12, 0, 0));
 const FIELDS = ["node", "stage", "lines", "budget", "estimate", "tier", "class", "depth", "kind", "turn", "call", "sinceStartMs"];
@@ -27,4 +31,70 @@ test("builder", () => {
     for (const f of ["stage", "kind", "tier", "class"]) assert.ok(ENUMS_V2[`crossing.${f}`]!.includes(l[f] as string | number), `${f}: ${String(l[f])}`);
     assert.deepEqual(textFree(l, enums), [], JSON.stringify(l));
   }
+});
+
+/** The main session's active node `grow` (estimate 100 code lines, budget 150) in a real repository; `write(lines)` sets
+ *  `lib/grow.ts` to that many lines and reports a write in the worktree, `next()` is the following result. */
+async function mainRig(settings: Record<string, unknown> = LF, estimate = { lines: 100, kind: "code" }) {
+  const s = treeRig(settings);
+  const r = await s.start({ slug: "grow", goal: "grow it", check: "true", estimate });
+  const wt = (r.details as { worktree: string }).worktree;
+  const calls: unknown[] = []; // every tool_call result: the guards never block on size
+  let n = 0;
+  const pair = (tool: string, input: Record<string, unknown>, act = () => {}) => {
+    const id = `t${++n}`;
+    calls.push(...s.h.f.fire("tool_call", { toolName: tool, toolCallId: id, input }, s.ctx));
+    act(); // the tool runs between its call and its result
+    const rs = s.h.f.fire("tool_result", { toolName: tool, toolCallId: id, input, content: [{ type: "text", text: `r${n}` }], isError: false }, s.ctx);
+    return (rs.filter((x) => x !== undefined) as { content: { text: string }[] }[])[0];
+  };
+  const write = async (lines: number) => {
+    pair("write", { path: join(wt, "lib", "grow.ts"), content: "x" }, () => {
+      mkdirSync(join(wt, "lib"), { recursive: true });
+      writeFileSync(join(wt, "lib", "grow.ts"), Array.from({ length: lines }, (_, i) => `export const x${i} = ${i};\n`).join(""));
+    });
+    await s.h.router.settled();
+    return pair("ls", { path: wt })?.content.slice(1).map((c) => c.text) ?? [];
+  };
+  const crossings = () => s.h.lines().filter((l) => l.event === "crossing");
+  return { s, wt, write, calls, crossings };
+}
+
+test("SIZE-5 main", async () => {
+  const m = await mainRig();
+  assert.deepEqual(await m.write(0), []);
+  assert.deepEqual(await m.write(100), [], "below 80 % of 150");
+  assert.deepEqual(await m.write(130), [sizeBlock(80, "Size: 130/150 changed lines (80 %). Finish or plan a split.")]);
+  assert.deepEqual(await m.write(140), [], "once per stage");
+  assert.deepEqual(await m.write(160), [sizeBlock(100, "Size: 160/150 changed lines (100 %). The reviewer is now opus; consider a split.")]);
+  assert.deepEqual(await m.write(400), [], "once per stage");
+  assert.deepEqual(m.calls.filter((x) => x !== undefined), [], "the guard never blocks");
+  assert.deepEqual(m.s.h.lines().filter((l) => l.event === "hint" && l.trip === "over-size"), [], "the stages are crossing lines, not the legacy trip");
+  // a jump over both stages at once: both hints, in stage order
+  const j = await mainRig();
+  assert.deepEqual(await j.write(200), [sizeBlock(80, "Size: 200/150 changed lines (80 %). Finish or plan a split."),
+    sizeBlock(100, "Size: 200/150 changed lines (100 %). The reviewer is now opus; consider a split.")]);
+});
+
+test("SIZE-6", async () => {
+  const m = await mainRig();
+  for (const n of [0, 130, 160, 170]) await m.write(n);
+  const c = m.crossings();
+  assert.equal(c.length, 2);
+  for (const l of c) assert.deepEqual(FIELDS.filter((f) => !(f in l)), [], JSON.stringify(l));
+  assert.deepEqual(c.map((l) => [l.node, l.stage, l.lines, l.budget, l.estimate, l.tier, l.class, l.depth, l.kind]),
+    [["grow", 80, 130, 150, 100, "standard", "standard", 0, "code"], ["grow", 100, 160, 150, 100, "standard", "standard", 0, "code"]]);
+  assert.ok(c[0]!.call < c[1]!.call && c[0]!.sinceStartMs <= c[1]!.sinceStartMs, JSON.stringify(c));
+  const enums = new Set(Object.values(ENUMS_V2).flat().map(String));
+  for (const l of c) assert.deepEqual(textFree(l, enums), []);
+  // an inert estimate has no budget: no stage
+  const i = await mainRig(LF, { lines: 10, kind: "inert" });
+  assert.deepEqual(await i.write(900), []);
+  assert.deepEqual(i.crossings(), []);
+});
+
+test("SIZE-5 stages", () => {
+  const st = createSizeStages();
+  assert.deepEqual([119, 120, 149, 150, 151, 900].map((n) => st.observe(n, 150)), [[], [80], [], [100], [], []]);
+  assert.deepEqual(createSizeStages().observe(5000, Infinity), [], "inert: no budget");
 });
