@@ -16,6 +16,8 @@ type State = { ring: CallRecord[]; call: number; engine: ReturnType<typeof creat
 export function createChildTrips(d: { settings: RouterSettings; api: () => SubagentsApiV1 | undefined; log: Pick<ReturnType<typeof createOutcomeLog>, "hint"> }): {
   guard(child: string, parent: string): SyncGuard;
   forget(child: string): void;
+  /** The calls of `child` its guard saw (0 without a guard): the `call` of its size crossings (SIZE-6). */
+  calls(child: string): number;
 } {
   const h = d.settings.hints, states = new Map<string, State>();
   const send = (to: string, text: string): void => {
@@ -46,5 +48,6 @@ export function createChildTrips(d: { settings: RouterSettings; api: () => Subag
       };
     },
     forget(child) { states.delete(child); },
+    calls(child) { return states.get(child)?.call ?? 0; },
   };
 }

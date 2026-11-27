@@ -7,7 +7,7 @@ import { globMatch } from "../glob.ts";
 import type { CrossingInput } from "../outcome.ts";
 import type { Arms, Strategy } from "../strategy/types.ts";
 import type { RouterSettings } from "../types.ts";
-import type { Stat } from "./git.ts";
+import type { Git, Stat } from "./git.ts";
 import { settingsPolicy } from "./policyfile.ts";
 import { linesOf, withoutSplits } from "./size.ts";
 import { isSplitFile } from "./split.ts";
@@ -65,5 +65,35 @@ export function createSizeHints(d: SizeHintDeps): { observe(n: Node, st: Stat, a
         return { stage, text: sizeText(stage, lines, budget, who) };
       });
     },
+  };
+}
+
+/** D68: a package child's size, measured on its actor `turn` events (API v1): one read at a time per child (a turn that comes
+ *  meanwhile makes one more read); its hints go to the child as messages (`send`), never a kill or a pause. Total. */
+export function createChildSizes(d: {
+  hints: ReturnType<typeof createSizeHints>; git: Pick<Git, "diffStat">; node(id: string): Node | undefined;
+  send(to: string, text: string): void; calls(child: string): number;
+}): { turn(child: string, node: string): void; forget(child: string): void; settled(): Promise<void> } {
+  const turns = new Map<string, number>(), busy = new Map<string, Promise<void>>(), again = new Set<string>();
+  const read = async (child: string, id: string): Promise<void> => {
+    do {
+      again.delete(child);
+      const n = d.node(id);
+      if (!n || n.profile !== "local-first" || n.state !== "active") return;
+      const st = await d.git.diffStat(n.worktree, n.base);
+      if (!turns.has(child)) return; // forgotten (killed) meanwhile
+      for (const x of d.hints.observe(n, st, { turn: turns.get(child) ?? 0, call: d.calls(child) })) d.send(child, sizeBlock(x.stage, x.text));
+    } while (again.has(child));
+  };
+  return {
+    turn(child, node) {
+      try {
+        turns.set(child, (turns.get(child) ?? 0) + 1);
+        if (busy.has(child)) { again.add(child); return; }
+        busy.set(child, read(child, node).catch(() => undefined).finally(() => busy.delete(child)));
+      } catch { /* an event handler never throws */ }
+    },
+    forget(child) { turns.delete(child); again.delete(child); },
+    async settled() { while (busy.size) await Promise.all([...busy.values()]); },
   };
 }

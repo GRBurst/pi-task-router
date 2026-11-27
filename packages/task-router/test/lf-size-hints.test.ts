@@ -9,6 +9,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createSizeStages, sizeBlock } from "../core/local/sizehints.ts";
 import { LF, treeRig } from "./tree-rig.ts";
+import { card, provideSkills } from "./harness.ts";
 
 const NOW = new Date(Date.UTC(2026, 10, 2, 12, 0, 0));
 const FIELDS = ["node", "stage", "lines", "budget", "estimate", "tier", "class", "depth", "kind", "turn", "call", "sinceStartMs"];
@@ -97,4 +98,43 @@ test("SIZE-5 stages", () => {
   const st = createSizeStages();
   assert.deepEqual([119, 120, 149, 150, 151, 900].map((n) => st.observe(n, 150)), [[], [80], [], [100], [], []]);
   assert.deepEqual(createSizeStages().observe(5000, Infinity), [], "inert: no budget");
+});
+
+test("SIZE-5 child", async () => {
+  const s = treeRig();
+  provideSkills(s.h, ["tdd-implementation-planner", "code-reviewer"]);
+  await s.start({ slug: "auth", goal: "add a login", check: "true", estimate: { kind: "plan", lines: 0 } });
+  assert.equal((await s.call("split", { summary: "one package", children: [
+    { slug: "form", goal: "build the login form", files: ["lib/form/**"], estimate: { lines: 60, kind: "code" }, check: "true" }] } as never)).isError, undefined);
+  const wt = (await s.start({ parent: "auth", child: "form" })).details.worktree as string;
+  const spawn = async (name: string, task: unknown) => { // the policy places it, the actor lists it and announces its spawn
+    const p = await s.h.a.spawn({ name, task } as never);
+    assert.ok(!("reject" in p), JSON.stringify(p));
+    s.h.a.agents.push({ name, parent: "main", sessionId: `s-${name}`, model: p.model, thinkingLevel: p.thinkingLevel, state: "idle" } as never);
+    s.h.a.emit({ type: "spawn", name, by: "main", parent: "main", childSessionId: `s-${name}`, ts: 0 });
+  };
+  await spawn("p1", card({ kind: "implement", files: ["lib/form/a.ts"], package: "auth.form" } as never));
+  await spawn("other", card({ kind: "implement", files: ["x.ts"] } as never)); // no package: not measured
+  const sent0 = s.h.a.sent.length;
+  const turn = async (lines: number, name = "p1") => {
+    mkdirSync(join(wt, "lib", "form"), { recursive: true });
+    writeFileSync(join(wt, "lib", "form", "a.ts"), Array.from({ length: lines }, (_, i) => `export const y${i} = ${i};\n`).join(""));
+    s.h.a.emit({ type: "turn", name, ts: 0 });
+    await s.h.router.settled();
+    return s.h.a.sent.slice(sent0).filter((m) => m.to === name).map((m) => [m.text, m.from]);
+  };
+  assert.deepEqual(await turn(0), []);
+  assert.deepEqual(await turn(130, "other"), [], "a child without a package is not measured");
+  const h80 = sizeBlock(80, "Size: 130/150 changed lines (80 %). Finish or plan a split.");
+  assert.deepEqual(await turn(130), [[h80, "router"]]);
+  assert.deepEqual(await turn(140), [[h80, "router"]], "once per stage");
+  const h100 = sizeBlock(100, "Size: 160/150 changed lines (100 %). The reviewer is now opus; consider a split.");
+  assert.deepEqual(await turn(160), [[h80, "router"], [h100, "router"]]);
+  assert.deepEqual(await turn(500), [[h80, "router"], [h100, "router"]], "once per stage");
+  assert.deepEqual(s.h.a.killed, [], "no kill");
+  assert.deepEqual(s.h.a.sent.slice(sent0).filter((m) => m.to !== "p1"), [], "nothing else: no parent notice, no pause");
+  const c = s.h.lines().filter((l) => l.event === "crossing");
+  assert.deepEqual(c.map((l) => [l.node, l.stage, l.lines, l.budget, l.estimate, l.tier, l.class, l.depth, l.kind, l.turn]),
+    [["auth.form", 80, 130, 150, 60, "standard", "standard", 1, "code", 2], ["auth.form", 100, 160, 150, 60, "standard", "standard", 1, "code", 4]]);
+  for (const l of c) assert.deepEqual(FIELDS.filter((f) => !(f in l)), [], JSON.stringify(l));
 });

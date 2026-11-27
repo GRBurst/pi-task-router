@@ -195,6 +195,7 @@ export function install(pi: PiLike, deps: Deps) {
     gate(e);
     guards(e);
     lm.onEvent(e);
+    if (e.type === "turn" && c?.card.package !== undefined) lm.packageTurn(e.name, c.card.package); // SIZE-5 child (D68)
     if (e.type === "kill") { log.killed(e.name); children.delete(e.name); childTrips.forget(e.name); }
   };
   // The API may appear after this extension loads (load order), so connect at install and again at session_start.
@@ -359,7 +360,7 @@ export function install(pi: PiLike, deps: Deps) {
   // The overseer (design §3.2) lives here too: its spawn line comes from `onEvent` (D26), its events from its own subscription.
   const lm = installLocal(pi, { settings, log, isChild, sessionId: () => sessionId, hash: deps.hash, detect: deps.detect, git: deps.git, onTrip: (t) => { hint = t; render(); },
     api, tickets, hex, now: nowMs, sleep: pd.sleep, onBudget: render, force: force.port, run: deps.run, policyOn: () => off.length > 0,
-    placed: (n) => placed.has(n), local: () => profile.current() !== "cloud-first",
+    placed: (n) => placed.has(n), local: () => profile.current() !== "cloud-first", childCalls: (n) => childTrips.calls(n),
     ...(settings.localFirst.experimental && { nodes: { tree, localFirst: () => profile.current() === "local-first", caps: () => strategy.treeCaps({}),
       strategy, arms: armMap, log } }) });
   // PRO-7 (S34a): a local session registers the local tools and hooks it lacks (a cloud-first default: at its first switch to

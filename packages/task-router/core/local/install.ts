@@ -14,12 +14,12 @@ import { BRANCH_TYPE, createBranchStore } from "./branches.ts";
 import type { BranchRecord } from "./branches.ts";
 import { startBranchTool } from "./branchtool.ts";
 import { SPLIT_MESSAGE_TYPE, splitTool, submitSplitTool } from "./splittool.ts";
-import { nodeOfBranch, openIn, openParents } from "./tree.ts";
+import { nodeOf, nodeOfBranch, openIn, openParents } from "./tree.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { createGit, gitRunner } from "./git.ts";
 import type { Git } from "./git.ts";
 import { block, createHintEngine } from "./hints.ts";
-import { createSizeHints, sizeBlock } from "./sizehints.ts";
+import { createChildSizes, createSizeHints, sizeBlock } from "./sizehints.ts";
 import type { Delivery } from "./hints.ts";
 import { activeSet, componentOn, isLocal } from "./mode.ts";
 import type { Active, LocalComponent } from "./mode.ts";
@@ -73,6 +73,8 @@ export type LocalDeps = {
   local?(): boolean;
   /** The work tree's ports (local-first, TREE-1): given when `localFirst.experimental` is on. */
   nodes?: NodeDeps;
+  /** The calls of a routed child its guard saw (the shell's child tripwires); default 0. */
+  childCalls?(child: string): number;
 };
 
 const WRITERS = new Set(["edit", "write"]);
@@ -212,7 +214,9 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     /** Resolves when the work `start` began has finished (a test seam, and what `start_branch` awaits). */
     ready: (): Promise<void> => ready,
     /** Resolves when no diff read is running or waiting (a test seam). */
-    settled: async (): Promise<void> => { while (sizing) await sizing; await ready; await bypassing; },
+    settled: async (): Promise<void> => { while (sizing) await sizing; await childSizes?.settled(); await ready; await bypassing; },
+    /** SIZE-5 child (D68): a turn of the package child `child` of `node` measures the node while the hints are on. Total. */
+    packageTurn(child: string, node: string): void { if (on("hints")) childSizes?.turn(child, node); },
     /** The git guard for a session in `cwd` (design §3.4.5) while the merge gate is on, else undefined: a routed child's. */
     /** Spawns the fixer (design §3.4.4). */
     fixer: ((x) => overseer.fixer({ ...x, toolGuard: handle.childGuard(x.worktree) })) as FixerPort,
@@ -223,6 +227,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
         if (e.type === "pause" || e.type === "resume") killStale(e.names);
         if (e.type === "spawn" || e.type === "turn") killStale([e.name]);
         if (e.type === "spawn" && reaping()) killRestored([e.name]);
+        if (e.type === "kill") childSizes?.forget(e.name);
         if (e.type === "turn" && act().mergeGate) { void checkRefs(); return; }
         const name = e.type === "route" ? (e.to === "main" ? e.from : undefined) : e.type === "kill" || e.type === "error" ? e.name : undefined;
         if (name === undefined) return;
@@ -394,6 +399,9 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   let ring: CallRecord[] = [], queue: Delivery[] = [], sized: string[] = [];
   // SIZE-5 (local-first): the main's active node gets the size stages 80 %/100 % instead of the legacy one-stage monitor
   const stages = d.nodes && createSizeHints({ settings: s, strategy: d.nodes.strategy, arms: d.nodes.arms, now: d.now, log: d.log });
+  const tree = d.nodes?.tree;
+  const childSizes = stages && tree && createChildSizes({ hints: stages, git, node: (id) => nodeOf(tree.tree(), id), calls: d.childCalls ?? (() => 0),
+    send: (to, text) => { try { void d.api()?.send(to, text, "router")?.catch?.(() => undefined); } catch { /* a hint is advisory */ } } });
   let turn = 0, call = 0, armed = true, stall = 0, progressed = false, shown = false, warned = false;
   const safe = <T>(f: () => T): T | undefined => {
     try { return f(); } catch (err) {

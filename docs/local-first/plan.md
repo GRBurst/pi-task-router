@@ -888,10 +888,14 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   `sinceStartMs` counts from the node's first measurement. The main's hint is a `<router-hint size="80|100">` block on the next
   tool result (`sizeBlock`), not a trip: no `hint` line. Both stages fire at once when a write jumps over both.
 
-#### LF5.T7 Package children's hints (SIZE-5 child) `[ ] todo`
+#### LF5.T7 Package children's hints (SIZE-5 child) `[x] done`
 - Files: `core/local/sizehints.ts`, `core/local/childtrips.ts`; test `lf-size-hints` "SIZE-5 child".
 - RED: `fake-api` `turn` events of a package child + a `workSize` fake rising past 80 % and 100 % → two `api.send` hints, two `crossing` lines, no kill/pause.
 - GREEN: D68.
+- decision (lf56): the shell routes a `turn` of a child whose card has `package` to `installLocal`'s `packageTurn(child, node)`
+  (`createChildSizes`, `core/local/sizehints.ts`: one read at a time per child, the same per-node stages as the main's, so a
+  respawned package child gets no stage twice); the hint is `sizeBlock` sent with `api.send(child, text, "router")`; `turn` is the
+  child's turns, `call` the calls its tripwire guard saw (`childTrips.calls`, 0 without the guard). Only while `hints` is on.
 
 #### LF5.T8 Plan budgets (SIZE-10) `[ ] todo`
 - Files: `core/local/split.ts`; test `lf-split` "SIZE-10".
