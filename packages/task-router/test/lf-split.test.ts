@@ -168,6 +168,15 @@ test("TREE-15 contract: a file outside the contract's files is refused, naming t
   }
 });
 
+// R3A review L3: the probes fill a wildcard with a character no path literal holds, not with letters a contract may spell
+test("TREE-15 contract: a glob is not inside contract globs that merely spell the probe letters", () => {
+  const spelled: SplitChild = { ...FORM, files: ["src/x/**", "src/xy/**"] };
+  const r = within(["src/*/**"], spelled);
+  assert.equal(r.length, 1, JSON.stringify(r));
+  assert.ok(r[0]!.startsWith("children[0].files: src/*/** is outside the contract of auth.form"), r[0]);
+  assert.deepEqual(within(["src/x/**", "src/x/a.ts", "src/xy/b/**"], spelled), [], "what the contract spells stays inside");
+});
+
 test("TREE-15 contract: a file inside the contract's forbidden is refused; a root and a contractless node are not checked", () => {
   const wide: SplitChild = { ...FORM, files: ["src/**"] };
   assert.deepEqual(within(["src/db/x.ts"], wide), ["children[0].files: src/db/x.ts is in the forbidden of auth.form (src/db/**)"]);

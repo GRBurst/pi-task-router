@@ -18,10 +18,13 @@ const text = (x: unknown): x is string => typeof x === "string" && x.length > 0 
 const relativePath = (f: unknown): boolean => typeof f === "string" && f !== "" && !f.startsWith("/") && !/^[A-Za-z]:/.test(f) && !f.split(/[\\/]/).includes("..");
 
 /** R3A.T2: `f`, a child's path or glob, lies inside `globs` (a contract's): two probe paths (its wildcards filled narrow and wide:
- *  `**` one or two segments, `*` one or two characters, `?` one) each match one of them. Conservative: a glob that may reach
- *  beyond is outside, and TREE-14 at the merge stays the backstop. A plain path is its own probe. */
+ *  `**` one or two segments, `*` one or two characters, `?` one; the filler is U+0001, which no path literal of a contract holds,
+ *  so only a wildcard of the contract matches it) each match one of them. Conservative where it matters: a glob that may reach beyond
+ *  is outside. A heuristic, not a proof: two probes cannot show containment in a union of globs (a contract of one-segment and
+ *  two-segment globs under `src` passes `src/**`, which reaches deeper), and TREE-14 at the merge stays the backstop. A plain
+ *  path is its own probe. */
 export function insideGlobs(f: string, globs: readonly string[]): boolean {
-  const fill = (wide: boolean) => f.replace(/\*\*\/|\*\*|\*|\?/g, (w) => (w === "**/" ? (wide ? "x/y/" : "") : w === "**" ? (wide ? "x/y" : "x") : w === "*" ? (wide ? "xy" : "x") : "x"));
+  const z = "\u0001", fill = (wide: boolean) => f.replace(/\*\*\/|\*\*|\*|\?/g, (w) => (w === "**/" ? (wide ? `${z}/${z}/` : "") : w === "**" ? (wide ? `${z}/${z}` : z) : w === "*" ? (wide ? z + z : z) : z));
   return [false, true].every((wide) => { const p = fill(wide); return globs.some((g) => g === f || globMatch(g, p)); });
 }
 
