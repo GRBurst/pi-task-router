@@ -91,7 +91,7 @@ export async function startNode(d: StartDeps, n: NodeDeps, input: unknown, cwd: 
   }
   const estimate = pkg?.estimate ?? estimateOf(i.estimate);
   if (!estimate) return fail("estimate must be {lines: an integer ≥ 0, kind: code, plan or inert}");
-  // SIZE-4: a new code node above the session tier's budget is refused (the only place size blocks); inert and plan never are
+  // SIZE-4: a new code node above the session tier's budget is refused (with the split tool, the only place size blocks); inert and plan never are
   const tier = n.strategy.sessionTier(n.arms()), budget = n.strategy.tierBudget(tier, "standard");
   if (estimate.kind === "code" && estimate.lines > budget) return fail(sizeRefusal(estimate.lines, budget, tier, caps.maxChildren));
   const parent = i.parent === undefined ? undefined : nodeOf(tree, i.parent as string);

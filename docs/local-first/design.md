@@ -276,7 +276,7 @@ Anti-goals (must not happen):
   kind, the tier, the class and the node's depth, to find root causes [Dec].
 - **Start refusal** (§5.2): `start_branch` takes the package's stated size
   estimate and refuses when it exceeds the session's tier; the refusal says
-  how to split. It is the only place size blocks [Dec].
+  how to split. With the split tool, which refuses a `code` child above that budget, it is the only place size blocks [Dec].
 - **The reviewer follows the actual size, not the drawn tier**: the stronger
   of the class's reviewer and the reviewer of the tier the *actual* changed
   lines fall into (§5.4). The drawn tier only sets the budget and the hints;
