@@ -12,7 +12,7 @@ const TIP = "fedcba9876543210fedcba9876543210fedcba98";
 
 test("LOG-1 builder", () => {
   const head = { v: 2, ts: NOW.toISOString(), event: "merge", taskId: "lm/x", outcome: "merged", commit: SHA };
-  const full = { base: TIP, target: "main", repoId: "0123456789ab", class: "S", tier: "sonnet", actualTier: "opus", node: "n1" };
+  const full = { base: TIP, target: "main", repoId: "0123456789ab", class: "standard", tier: "small", actualTier: "standard", node: "n1" } as const;
   assert.deepEqual(mergeEvent({ now: NOW, branch: "lm/x", outcome: "merged", commit: SHA, repo: "/work/repo", ...full }),
     { ...head, repo: "repo", ...full });
   // optional: a line without them has none

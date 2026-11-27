@@ -11,8 +11,11 @@ import type { Schema } from "./schema.ts";
 import { approve, inconsistent, VERDICT_SCHEMA, validateVerdict, type Verdict } from "./verdict.ts";
 
 /** The overseer roles; token-meter's contract keeps a copy (`ROLES`), compared by the log-contract check. */
-export const ROLES = ["merge", "plan-author", "delta", "plan-review", "steer"] as const;
+export const ROLES = ["merge", "plan-author", "delta", "plan-review", "steer", "spot", "fit", "corrective", "integration"] as const;
 export type Role = (typeof ROLES)[number];
+/** The roles a ticket runs with a prompt here; `spot`, `fit`, `corrective` and `integration` (LF6.T7) are logged roles of
+ *  later local-first stages, which add their prompts. */
+export type RunRole = Exclude<Role, "spot" | "fit" | "corrective" | "integration">;
 export type TicketRole = Role | "fixer";
 export type Ticket = { role: TicketRole; reviewId: string; member: string; model: string; effort: ThinkingLevel; cwd: string;
   tools?: string[]; childTools: ChildTool[]; toolGuard?: Guard; briefAppend?: string;
@@ -78,7 +81,7 @@ export type RunResult<T> = { ok: true; value: T; reviewId: string; member: strin
  *  review, which the brief names by its absolute path: pi loads AGENTS.md and project settings from the cwd, and a branch must
  *  not write its reviewer's instructions. */
 /** `overCap`: the local-first gate's over-cap review (SIZE-8), on its review lines. */
-export type RunArgs<T> = { role: Role; input: string; cwd?: string; worktree?: string; submit: SubmitSpec<T>; commit?: string; branch?: string;
+export type RunArgs<T> = { role: RunRole; input: string; cwd?: string; worktree?: string; submit: SubmitSpec<T>; commit?: string; branch?: string;
   signal?: AbortSignal; overCap?: boolean };
 export type OverseerDeps = {
   api(): SubagentsApiV1 | undefined; settings: RouterSettings; tickets: Tickets;
@@ -109,7 +112,7 @@ Write no code and no replacement plan. You cannot edit files or run commands.`;
 /** Review F3: the actor gives a quiet child no agent preamble (no handshake); the prompt still says so, so a model that expects
  *  one starts anyway, and that the run ends with the submit tool (else the reminder, then an error). */
 const start = (tool: string): string => `No one answers you and no go-ahead comes: start at once, and end by calling ${tool}.`;
-export const PROMPT: Record<Role, string> = {
+export const PROMPT: Record<RunRole, string> = {
   merge: `${AUDITOR}\nReview the branch below for merging into the main branch. A finding is blocking when the branch must not merge without its fix.\n${start("submit_verdict")}`,
   delta: `${AUDITOR}\nReview the plan amendment below against its trigger and evidence. A finding is blocking when the amendment must not be applied as proposed.\n${start("submit_verdict")}`,
   "plan-review": `${AUDITOR}\nReview the whole plan below with the amendment applied. A finding is blocking when work must not continue on this plan.\n${start("submit_verdict")}`,

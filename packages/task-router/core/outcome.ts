@@ -44,6 +44,9 @@ const KEYS = [
   "lines", "budget", "estimate", "turn", "call", "sinceStartMs",
   // the review line (LF5.T10, SIZE-8): an over-cap review
   "overCap",
+  // the review and merge lines (LF6.T7, spec §2.4): the reviewer chosen, binding or advisory, a re-review, what it reviews, a
+  // sample stratum, a batch, the classifier proxies that fired; `sessionId` (the main session) also on plan and gatebypass lines
+  "reviewer", "binding", "rereview", "of", "sample", "batch", "classBy",
   // NOT listed: `arms` (RND-6, S33) is added by log.ts after the builders, and is not clipped to MAX_ITEMS: the registry has 21
   // factors, so a line can carry 21 `id=level` items, one more than the cap.
 ];
@@ -114,13 +117,19 @@ export type ReviewOutcome = "approve" | "revise" | "invalid" | "timeout" | "erro
 export type ReviewInput = { reviewId: string; role: Role; member: string; model: string; outcome: ReviewOutcome; attempt: number; durationMs: number;
   fallback?: Fallback; findings?: number; blocking?: number; inconsistent?: boolean; commit?: string; branch?: string;
   /** SIZE-8: an over-cap review (local-first). */
-  overCap?: boolean };
+  overCap?: boolean } & ReviewFields & { sessionId?: string };
+/** A local-first review's fields (LF6.T7, spec §2.4): the change's class and the proxies that fired, the drawn and the actual tier,
+ *  the reviewer chosen and whether its verdict binds, a re-review, what it reviews (`of`: a branch, a child or a shadowed review
+ *  id), a sample stratum and a batch (later stages). */
+export type ReviewFields = { class?: Cls; classBy?: string[]; tier?: Tier; actualTier?: ActualTier; reviewer?: (typeof REVIEWERS)[number];
+  binding?: boolean; rereview?: boolean; of?: string; sample?: (typeof SAMPLES)[number]; batch?: string[] };
 /** One overseer attempt (design §3.0.3): `taskId` is the review id; the verdict's counts and flags, never its text. */
 export const reviewEvent = (i: ReviewInput & { now: Date }) =>
   finish({
     ...base("review", i.now, i.reviewId), role: i.role, member: i.member, model: i.model, outcome: i.outcome, attempt: i.attempt,
     durationMs: i.durationMs, fallback: i.fallback, findings: i.findings, blocking: i.blocking, inconsistent: i.inconsistent,
-    commit: i.commit, branch: i.branch, overCap: i.overCap,
+    commit: i.commit, branch: i.branch, overCap: i.overCap, class: i.class, tier: i.tier, actualTier: i.actualTier, reviewer: i.reviewer,
+    binding: i.binding, rereview: i.rereview, of: i.of, sample: i.sample, batch: i.batch, classBy: i.classBy, sessionId: i.sessionId,
   });
 /** A ticket child's spawn line (D26): no card, so no `cardHash`; kind `overseer` (a fixer: `implement`), `ticket` its role. */
 export const ticketSpawnEvent = (i: { now: Date; taskId: string; role: TicketRole; member: string; tier: string; model: string; effort: ThinkingLevel; sessionId?: string; parentSessionId?: string; forced?: Forced }) =>
@@ -134,27 +143,32 @@ export type MergeInput = { branch: string; outcome: MergeOutcome; reason?: Merge
   reviewId?: string; pushed?: boolean;
   /** v2 (LOG-1): the target's tip before the merge, the branch merged into, the repository (a path: logged as its basename)
    *  and its root commit (12 hex); the node's size class and tiers. */
-  base?: string; target?: string; repo?: string; repoId?: string; class?: string; tier?: string; actualTier?: string; node?: string };
+  base?: string; target?: string; repo?: string; repoId?: string; class?: Cls; tier?: Tier; actualTier?: ActualTier; node?: string;
+  /** LF6.T7: the classifier proxies that fired; the main session's id (absent when unknown). */
+  classBy?: string[]; sessionId?: string };
 /** One `request_merge` call (design §3.0.3): `taskId` is the branch; the fixed reason code, never the detail text. */
 export const mergeEvent = (i: MergeInput & { now: Date }) =>
   finish({ ...base("merge", i.now, i.branch), outcome: i.outcome, reason: i.reason, commit: i.commit, nLines: i.nLines, nFiles: i.nFiles,
     reviewId: i.reviewId, pushed: i.pushed, base: i.base, target: i.target, repo: i.repo === undefined ? undefined : basename(i.repo),
-    repoId: i.repoId, class: i.class, tier: i.tier, actualTier: i.actualTier, node: i.node });
+    repoId: i.repoId, class: i.class, classBy: i.classBy, tier: i.tier, actualTier: i.actualTier, node: i.node, sessionId: i.sessionId });
 /** Main moved outside the gate (design §3.4.6): `taskId` is the main branch, `from`/`to` its shas, `repo` the repository's
  *  basename, never a path (D35). */
-export const gatebypassEvent = (i: { now: Date; branch: string; from: string; to: string; repo?: string }) =>
-  finish({ ...base("gatebypass", i.now, i.branch), from: i.from, to: i.to, repo: i.repo === undefined ? undefined : basename(i.repo) });
+export const gatebypassEvent = (i: { now: Date; branch: string; from: string; to: string; repo?: string; sessionId?: string }) =>
+  finish({ ...base("gatebypass", i.now, i.branch), from: i.from, to: i.to, repo: i.repo === undefined ? undefined : basename(i.repo),
+    sessionId: i.sessionId });
 export type PlanAction = "skeleton" | "approve" | "trigger" | "amend" | "reject";
-export type PlanLogInput = { slug: string; action: PlanAction; trigger?: TriggerKind; nTasks?: number; reviewId?: string; full?: boolean };
+export type PlanLogInput = { slug: string; action: PlanAction; trigger?: TriggerKind; nTasks?: number; reviewId?: string; full?: boolean; sessionId?: string };
 /** A plan event (design §3.0.3): `taskId` is the plan's slug; the plan author's skeleton accepted, the plan committed, a replan
  *  trigger opened (its code), an amendment applied or rejected (`full`: by a plan-review); never the plan's text. */
 export const planEvent = (i: PlanLogInput & { now: Date }) =>
-  finish({ ...base("plan", i.now, i.slug), action: i.action, trigger: i.trigger, nTasks: i.nTasks, reviewId: i.reviewId, full: i.full });
+  finish({ ...base("plan", i.now, i.slug), action: i.action, trigger: i.trigger, nTasks: i.nTasks, reviewId: i.reviewId, full: i.full,
+    sessionId: i.sessionId });
 
 /** The events v2 added (local-first spec §2.4, LOG-2); a consumer reads the event list from here. */
 export const EVENTS_V2 = ["session", "profile", "node", "split", "crossing"] as const;
-/** The review line's `fallback` values. */
-export const FALLBACKS = ["budget", "error"] as const;
+/** The review line's `fallback` values (D86): `local-unavailable` = a local reviewer could not run, `transient` = the retries of a
+ *  transient provider error ran out (REV-9). */
+export const FALLBACKS = ["budget", "error", "local-unavailable", "transient"] as const;
 export type Fallback = (typeof FALLBACKS)[number];
 const PROFILES = ["cloud-first", "local-first", "local-mode"] as const;
 const LOCAL_MEMBERS = ["on", "off"] as const;
@@ -169,6 +183,15 @@ const WORK_KINDS = ["code", "plan", "inert"] as const;
 /** A tier (S31 `Tier`): a session's drawn tier is one of the first three. */
 const TIERS = ["small", "standard", "large", "inert"] as const;
 const CLASSES = ["inert", "standard", "elevated"] as const;
+type Cls = (typeof CLASSES)[number];
+type Tier = (typeof TIERS)[number];
+/** A diff's actual tier (`tierOfLines`): `over` = above the large budget. */
+const ACTUAL_TIERS = ["small", "standard", "large", "over"] as const;
+type ActualTier = (typeof ACTUAL_TIERS)[number];
+const REVIEWERS = ["haiku", "sonnet", "opus", "qwen"] as const;
+const SAMPLES = ["inert", "ungated", "shadow"] as const;
+/** The classifier's proxies (`core/strategy/classify.ts`) and the gate's fail-closed `error` (S38, CLS-2). */
+const CLASS_BY = ["risk", "ci", "policy-edit", "gate-config", "public-api", "weakened-tests", "coupled", "multi-component-config", "error"] as const;
 /** Every v2 enumerated field's values, by `"<event>.<field>"` (LOG-4); the lists only grow. */
 export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = {
   "session.profile": PROFILES,
@@ -183,6 +206,16 @@ export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = 
   "crossing.kind": WORK_KINDS,
   "crossing.tier": TIERS,
   "crossing.class": CLASSES,
+  "review.class": CLASSES,
+  "review.tier": TIERS,
+  "review.actualTier": ACTUAL_TIERS,
+  "review.reviewer": REVIEWERS,
+  "review.sample": SAMPLES,
+  "review.classBy": CLASS_BY,
+  "merge.class": CLASSES,
+  "merge.tier": TIERS,
+  "merge.actualTier": ACTUAL_TIERS,
+  "merge.classBy": CLASS_BY,
 };
 export type SessionInput = { now: Date; sessionId: string; profile: (typeof PROFILES)[number]; mainModel: string; startSet: boolean;
   localMembers?: (typeof LOCAL_MEMBERS)[number]; routerVersion: string };

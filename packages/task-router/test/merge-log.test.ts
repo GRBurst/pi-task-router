@@ -35,7 +35,8 @@ async function rig(o: Parameters<typeof reviewRig>[0] = {}, slug = "x", goal = "
   m.r.commit("x.ts", "x\ny\n", "x", rec.worktree);
   const call = async (params: Record<string, unknown> = {}): Promise<MergeResult> =>
     (await m.h.f.tools.get("request_merge")!.execute("t1", params, undefined, undefined, m.ctx)).details as MergeResult;
-  const merges = () => m.h.lines().filter((l) => l.event === "merge").map(({ v, ts, event, ...rest }) => rest);
+  // LF6.T7: every merge line carries the main session's id
+  const merges = () => m.h.lines().filter((l) => l.event === "merge").map(({ v, ts, event, sessionId, ...rest }) => (assert.equal(sessionId, "s-main"), rest));
   return { ...m, rec, call, merges };
 }
 

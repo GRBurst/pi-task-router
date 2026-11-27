@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { reviewEvent, serializeEvent, ticketSpawnEvent } from "../core/outcome.ts";
-import type { Role } from "../core/local/overseer.ts";
+import type { RunRole } from "../core/local/overseer.ts";
 import type { Finding, Verdict } from "../core/local/verdict.ts";
 import { CATEGORIES } from "../core/local/verdict.ts";
 import { card, harness } from "./harness.ts";
@@ -89,7 +89,7 @@ const rng = (seed: number) => () => {
 };
 
 test("AC-L2: review and ticket spawn lines from generated verdicts hold no free text (spaces and fences in every text)", async () => {
-  const roles: Role[] = ["merge", "delta", "plan-review", "steer"];
+  const roles: RunRole[] = ["merge", "delta", "plan-review", "steer"];
   for (let seed = 1; seed <= 40; seed++) {
     const g = rng(seed), pick = <T>(xs: readonly T[]): T => xs[Math.floor(g() * xs.length)]!;
     const free = (k: string) => `${k} ${seed} with spaces${g() < 0.15 ? " ```js\nx()\n```" : ""}`;

@@ -59,7 +59,7 @@ test("LOG-3", () => {
 const SNAPSHOT = {
   TRIPS: ["identical-call", "no-change-writes", "alternation", "repeated-error", "churn", "check-failing", "over-size", "risky-path",
     "context-soft", "context-stall", "outside-worktree"],
-  ROLES: ["merge", "plan-author", "delta", "plan-review", "steer"],
+  ROLES: ["merge", "plan-author", "delta", "plan-review", "steer", "spot", "fit", "corrective", "integration"],
   REASONS: ["main-branch", "dirty", "behind", "fixer-running", "abandoned", "blocked", "size", "scope", "check", "main-dirty",
     "plan-changed", "no-worktree", "review-unavailable", "aborted", "git"],
   TRIGGERS: ["non-whitelisted", "interface-break", "regression", "over-budget", "remediation-failed"],
@@ -67,7 +67,7 @@ const SNAPSHOT = {
 
 /** What each list must hold at least (they only grow: a later stage adds values, never takes one away). */
 const REQUIRED: Record<string, readonly string[]> = {
-  FALLBACKS: ["budget", "error"],
+  FALLBACKS: ["budget", "error", "local-unavailable", "transient"],
   "session.profile": ["cloud-first", "local-first", "local-mode"],
   "session.localMembers": ["on", "off"],
   "profile.from": ["cloud-first", "local-first", "local-mode"],
@@ -124,4 +124,77 @@ test("profile", () => {
   assert.ok((EVENTS_V2 as readonly string[]).includes("profile"));
   assert.deepEqual([ENUMS_V2["profile.from"], ENUMS_V2["profile.to"], ENUMS_V2["profile.by"]],
     [["cloud-first", "local-first", "local-mode"], ["cloud-first", "local-first"], ["settings", "command"]]);
+});
+
+// LF6.T7 (spec §2.4): the review and merge lines' local-first fields; `sessionId` (the main session's id, owner's decision PA Q1)
+// on the review, merge, plan and gatebypass lines. Every enumerated field is read from the exports, the role from `ROLES`.
+test("review fields", async () => {
+  const { reviewEvent, mergeEvent, planEvent, gatebypassEvent } = await import("../core/outcome.ts");
+  assert.deepEqual(FALLBACKS, ["budget", "error", "local-unavailable", "transient"]);
+  assert.deepEqual(lacking(ROLES, ["spot", "fit", "corrective", "integration"]), []);
+  assert.deepEqual(
+    reviewEvent({ now: NOW, reviewId: "rv-1", role: "spot", member: "opus", model: "anthropic/claude-opus-5-5", outcome: "approve", attempt: 1,
+      durationMs: 5, fallback: "transient", class: "standard", tier: "small", actualTier: "over", reviewer: "opus", binding: true,
+      overCap: true, rereview: false, of: "feat/a", sample: "shadow", batch: ["a", "b"], classBy: ["risk"], sessionId: "s-main", ...stray(seeded(1)) } as never),
+    { v: SCHEMA_VERSION, ts: NOW.toISOString(), event: "review", taskId: "rv-1", role: "spot", member: "opus", model: "anthropic/claude-opus-5-5",
+      outcome: "approve", attempt: 1, durationMs: 5, fallback: "transient", class: "standard", tier: "small", actualTier: "over", reviewer: "opus",
+      binding: true, overCap: true, rereview: false, of: "feat/a", sample: "shadow", batch: ["a", "b"], classBy: ["risk"], sessionId: "s-main" },
+  );
+  assert.deepEqual(
+    mergeEvent({ now: NOW, branch: "feat/a", outcome: "merged", commit: "abc1234", base: "def5678", target: "main", repo: "/work/repo", repoId: "0123456789ab",
+      class: "elevated", classBy: ["error"], tier: "standard", actualTier: "small", node: "auth", sessionId: "s-main" } as never),
+    { v: SCHEMA_VERSION, ts: NOW.toISOString(), event: "merge", taskId: "feat/a", outcome: "merged", commit: "abc1234", base: "def5678", target: "main",
+      repo: "repo", repoId: "0123456789ab", class: "elevated", classBy: ["error"], tier: "standard", actualTier: "small", node: "auth", sessionId: "s-main" },
+  );
+  assert.equal(planEvent({ now: NOW, slug: "auth", action: "approve", sessionId: "s-main" } as never).sessionId, "s-main");
+  assert.equal(gatebypassEvent({ now: NOW, branch: "main", from: "a", to: "b", sessionId: "s-main" } as never).sessionId, "s-main");
+  assert.ok(!("sessionId" in planEvent({ now: NOW, slug: "auth", action: "approve" })), "absent when unknown");
+  // every enumerated field of a generated line holds a value of its list; the lines are text-free
+  const want = ["review.class", "review.tier", "review.actualTier", "review.reviewer", "review.sample", "review.classBy",
+    "merge.class", "merge.tier", "merge.actualTier", "merge.classBy"];
+  assert.deepEqual(want.filter((k) => !ENUMS_V2[k]), []);
+  const enums = new Set(Object.values(ENUMS_V2).flat().map(String));
+  const rnd = seeded(707);
+  const pick = (k: string) => one(rnd, ENUMS_V2[k]!) as string;
+  for (let i = 0; i < 200; i++) {
+    const cls = { class: pick("review.class"), tier: pick("review.tier"), actualTier: pick("review.actualTier"), classBy: [pick("review.classBy")] };
+    const r = reviewEvent({ ...stray(rnd), now: NOW, reviewId: `rv-${i}`, role: one(rnd, ROLES), member: "sonnet", model: "anthropic/claude-sonnet-5",
+      outcome: "revise", attempt: 1 + rnd(2), durationMs: rnd(1000), fallback: one(rnd, FALLBACKS), ...cls, reviewer: pick("review.reviewer"),
+      binding: rnd(2) === 1, overCap: rnd(2) === 1, rereview: rnd(2) === 1, sample: pick("review.sample") } as never);
+    const m = mergeEvent({ ...stray(rnd), now: NOW, branch: "feat/a", outcome: "merged", ...cls, node: "auth", sessionId: "s-main" } as never);
+    for (const l of [r, m]) {
+      assert.deepEqual(textFree(l, enums), [], JSON.stringify(l));
+      for (const [key, values] of Object.entries(ENUMS_V2)) {
+        const [event, field] = key.split(".") as [string, string];
+        if (l.event !== event || !(field in l)) continue;
+        for (const v of [l[field]].flat()) assert.ok(values.includes(v as string), `${key}: ${String(v)}`);
+      }
+    }
+    assert.ok((ROLES as readonly string[]).includes(r.role as string) && (FALLBACKS as readonly string[]).includes(r.fallback as string));
+  }
+  // the classifier's proxies (`why`) are all in the classBy lists, and so is the gate's fail-closed `error`
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../core/strategy/classify.ts", import.meta.url), "utf8");
+  const proxies = [...src.matchAll(/proxy\("([a-z-]+)"/g)].map((x) => x[1]!).concat("error");
+  assert.ok(proxies.length >= 9);
+  assert.deepEqual(lacking(ENUMS_V2["review.classBy"]!, proxies), []);
+  assert.deepEqual(ENUMS_V2["merge.classBy"], ENUMS_V2["review.classBy"]);
+});
+
+// LF6.T7 (owner's decision PA Q1): the gate's review and merge lines and a gatebypass line carry the main session's id.
+test("review fields: sessionId on the gate's lines", async () => {
+  const { reviewRig } = await import("./merge-rig.ts");
+  const m = reviewRig();
+  const rec = await m.start("x", "true", "add x");
+  m.r.commit("x.ts", "x\ny\n", "x", rec.worktree);
+  await m.h.f.tools.get("request_merge")!.execute("t1", {}, undefined, undefined, m.ctx);
+  const to = m.r.git(["commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "by hand"]);
+  m.r.git(["update-ref", "refs/heads/main", to]);
+  const input = { command: "true" };
+  await Promise.all(m.h.f.fire("tool_call", { toolName: "bash", toolCallId: "c1", input }, m.ctx));
+  m.h.f.fire("tool_result", { toolName: "bash", toolCallId: "c1", input, content: [{ type: "text", text: "ok" }], isError: false }, m.ctx);
+  await m.h.router.settled();
+  const lines = m.h.lines().filter((l) => ["review", "merge", "gatebypass"].includes(l.event as string));
+  assert.deepEqual([...new Set(lines.map((l) => l.event))].sort(), ["gatebypass", "merge", "review"]);
+  for (const l of lines) assert.equal(l.sessionId, "s-main", JSON.stringify(l));
 });

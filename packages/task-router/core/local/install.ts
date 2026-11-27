@@ -101,8 +101,17 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   const budget: Budget = { opusUsed: 0, steerUsed: 0 };
   /** The main session's cwd, the main checkout (LD14; L6 may take L5's repository root instead). */
   let base: string | undefined;
+  /** LF6.T7 (owner's decision PA Q1): the review, merge, plan and gatebypass lines carry the main session's id (absent when
+   *  unknown). */
+  const sid = <T extends { sessionId?: string }>(i: T): T => ({ ...i, sessionId: i.sessionId ?? d.sessionId() });
+  const gateLog = {
+    review: (i: Parameters<LocalDeps["log"]["review"]>[0]) => d.log.review(sid(i)),
+    merge: (i: Parameters<LocalDeps["log"]["merge"]>[0]) => d.log.merge(sid(i)),
+    plan: (i: Parameters<LocalDeps["log"]["plan"]>[0]) => d.log.plan(sid(i)),
+    gatebypass: (i: Parameters<LocalDeps["log"]["gatebypass"]>[0]) => d.log.gatebypass(sid(i)),
+  };
   const overseer = createOverseer({
-    api: d.api, settings: d.settings, tickets: d.tickets, hex: d.hex, now: d.now, sleep: d.sleep, budget, log: d.log,
+    api: d.api, settings: d.settings, tickets: d.tickets, hex: d.hex, now: d.now, sleep: d.sleep, budget, log: gateLog,
     policyOn: d.policyOn, force: d.force, warn: (text) => console.warn(text), base: () => base ?? process.cwd(),
     append: (type, data) => { pi.appendEntry?.(type, data); if (type === BUDGET_TYPE) d.onBudget?.(); },
   });
@@ -113,7 +122,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   /** The last known main tips (design §3.4.6), rebuilt at `start`; a merge's record reaches them through the merge's append. */
   const refs = createMainRefs((type, data) => pi.appendEntry?.(type, data));
   /** The approved plans (design §3.5), rebuilt at `start`. */
-  const plans = createPlanStore((type, data) => pi.appendEntry?.(type, data), (i) => d.log.plan(i));
+  const plans = createPlanStore((type, data) => pi.appendEntry?.(type, data), gateLog.plan);
   /** Every plan file in every checkout of its repository (the main checkout and the worktrees git lists, plan D39). */
   const planFiles = (): string[] => plans.all().flatMap((r) =>
     [...new Set([r.repo, ...(branches.facts.worktrees.get(r.repo) ?? [])])].map((dir) => join(dir, r.file)));
@@ -127,7 +136,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     if (root !== undefined) repos.add(root);
     for (const r of branches.all()) repos.add(r.repo);
     for (const b of await checkBypass({ git, settings: d.settings, refs }, repos)) {
-      d.log.gatebypass({ branch: b.branch, from: b.from, to: b.to, repo: b.repo });
+      gateLog.gatebypass({ branch: b.branch, from: b.from, to: b.to, repo: b.repo });
       try { if (mainCtx?.hasUI && mainCtx.ui?.notify) mainCtx.ui.notify(`task-router: ${bypassText(b)}`, "warning"); } catch { /* the warning is best effort */ }
       found.push(b);
     }
@@ -297,13 +306,13 @@ export function installLocal(pi: Pi, d: LocalDeps) {
         (typeof i.branch === "string" && i.branch !== "" ? i.branch.replace(/^refs\/heads\//, "") : branches.active()?.branch) ?? "")?.profile === "local-first";
       const gated = (i: { branch?: string }): { plans?: PlanStore } => (lfNode(i) ? activeSet(s, true) : act()).plans ? { plans } : {};
       register(requestMergeTool((signal, input) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,
-        append: appendRef, tmp: redTmp, fixer: handle.fixer, log: (i) => d.log.merge(i), ...gated(input),
+        append: appendRef, tmp: redTmp, fixer: handle.fixer, log: gateLog.merge, ...gated(input),
         exclusive, fixerGone, ...(d.nodes && { nodes: d.nodes }), ...(signal && { signal }) }), () => ready), gateOn);
     }
     // plan_request and amend_plan (design §3.5.2, §3.5.4) while plans are active (D40); submit_plan is the plan author's child tool.
     if (x.plans) {
       const planPorts = (signal: AbortSignal | undefined): PlanPorts => ({ git, run: d.run ?? runCheck, overseer, branches, plans, settings: s,
-        append: appendRef, tmp: redTmp, log: (i) => d.log.plan(i), exclusive, ...(signal && { signal }) });
+        append: appendRef, tmp: redTmp, log: gateLog.plan, exclusive, ...(signal && { signal }) });
       register(planRequestTool(planPorts, () => ready), () => act().plans);
       register(amendPlanTool(planPorts, () => ready), () => act().plans);
     }

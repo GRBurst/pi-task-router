@@ -980,7 +980,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - Files: `core/strategy/reviewer.ts`; test `lf-reviewer` "REV-2".
 - RED: review arms `{E3: "sonnet"}` → sonnet; absent → opus.
 
-#### LF6.T7 `review` and `merge` line fields `[ ] todo`
+#### LF6.T7 `review` and `merge` line fields `[x] done`
 - Files: `core/outcome.ts`; test `lf-outcome` "review fields".
 - RED: `reviewEvent` with the new fields → every spec §2.4 `review`/`merge` field; `role ∈ ROLES`,
   `fallback ∈ FALLBACKS`, `class`, `tier`, `actualTier`, `classBy` ∈ `ENUMS_V2`; fails first: no fields, no
@@ -988,6 +988,14 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: spec §2.4's `review` and `merge` fields; `ROLES` gains `spot`, `fit`, `corrective`, `integration`
   (X37d snapshot grows); exported `FALLBACKS = ["budget", "error", "local-unavailable", "transient"]` (D86;
   consumer-visible: PE-2).
+- Owner's decision (PA Q1 = yes): an optional `sessionId` (the main session's id; absent when unknown) on the `review`, `merge`,
+  `plan` and `gatebypass` lines, additive within v2 (`docs/outcome-log.md`, versioning rule); `installLocal` stamps it on the
+  four lines it writes.
+- decision (lf56): `ENUMS_V2` gains `review.class|tier|actualTier|reviewer|sample|classBy` and `merge.class|tier|actualTier|classBy`;
+  `actualTier` = `small | standard | large | over` (`tierOfLines`), `tier` = the crossing tiers (`small | standard | large | inert`),
+  `classBy` = the classifier's proxies plus `error` (a test reads them from `classify.ts`). `RunRole` = `Role` without the four new
+  roles: `PROMPT` and `RunArgs.role` take it until a later stage adds their prompts. The `outcome-log.md` rows gain the fields now
+  (◊ footnote), LF6.T14 adds the prose.
 - Gate-wiring obligations (lane (b) review of LF5.T1–T2, LF6.T1–T6; the tasks that wire `classify`, `readPolicy` and
   `reviewer` into the gate, LF6.T8–T12, honour them):
   1. `actual` for `reviewer` is `tierOfLines(n)` of the combined diff, for every class; never `"inert"` derived from the
