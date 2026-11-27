@@ -910,10 +910,13 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   (files `src/form/**`, forbidden `src/db/**`) with a child `src/other.ts` → refused naming the path; the children inherit
   `forbidden`.
 
-#### LF5.T9 No size refusal at the gate (SIZE-8 a) `[ ] todo`
+#### LF5.T9 No size refusal at the gate (SIZE-8 a) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-overcap` (new) "no size refusal".
 - RED: property over sizes 0–5 000 lines and 1–40 files: a local-first `request_merge` never returns `reason: "size"`; legacy local mode still refuses (`local-merge-refuse` green).
 - GREEN: skip `oversize` (`merge.ts:42`, `:341`) when the node's profile is local-first.
+- decision (lf56): "local-first" at the gate = the merged branch is a node whose `profile` is `local-first` (`lf` in `pipeline`); a
+  nodeless branch keeps the legacy gate. The property runs 11 sizes (5 edges, 6 seeded) on a real repository; `test/node-rig.ts`
+  holds the node rig (moved from `lf-merge-target`).
 
 #### LF5.T10 Over-cap review input (SIZE-8 b) `[ ] todo`
 - Files: `core/local/overcap.ts` (new), `core/local/merge.ts`; test `lf-overcap` "SIZE-8".

@@ -360,6 +360,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   if (why) return blockedOf(refuse(why, { ...x, worktree: wt.dir, fixer: rec?.fixer ?? "" }, commit));
   // review M1 (D65): a node with a started child not merged yet is blocked by it (no reason of its own: the closed lists, R14)
   const self = p.nodes && nodeOfBranch(p.nodes.tree.tree(), branch), open = self ? openChildren(self) : [];
+  const lf = self?.profile === "local-first"; // the local-first gate (LF5, LF6): no size refusal, the reviewer by class and size
   if (open.length) {
     const names = open.map((id) => nodeOf(p.nodes!.tree.tree(), id)?.branch ?? id).join(", ");
     return { ...refuse("blocked", x, commit), detail: `${branch} has started children that are not merged: ${names}; merge them first (request_merge)` };
@@ -372,13 +373,14 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   }
   /** Opens a trigger for this branch's unit; its id. */
   const trigger = (b: Bound, kind: "non-whitelisted" | "over-budget" | "regression"): string | undefined => p.plans?.open(b.rec.slug, kind, b.id);
-  // ── 3 size (a tick-only plan change counts toward none; a plan-bound branch by its plan budget) ──
+  // ── 3 size (a tick-only plan change counts toward none; a plan-bound branch by its plan budget); local-first never refuses
+  //    on size (SIZE-8): the reviewer follows the actual size ──
   const st = await git.numstat(repo, target.sha, commit); // TREE-7 b: the size against the target
   if (st === undefined) return gitError(`cannot diff ${target.name}...${commit}`, commit);
   const z = sizeOf(st, bound?.file, bound?.tick !== undefined), lim = budgetOf(s, bound);
   seen.nLines = z.lines;
   seen.nFiles = z.files;
-  if (z.lines > lim.lines || z.files > lim.files) {
+  if (!lf && (z.lines > lim.lines || z.files > lim.files)) {
     const r = refuse("size", { lines: String(z.lines), files: String(z.files), maxLines: String(lim.lines), maxFiles: String(lim.files) }, commit);
     return bound ? { ...r, detail: r.detail + opened(trigger(bound, "over-budget")) } : r;
   }

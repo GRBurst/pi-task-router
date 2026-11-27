@@ -4,45 +4,16 @@
 // or records a main-ref; the guard protects an open parent.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { startNode, type NodeDeps } from "../core/local/branchtool.ts";
-import type { MergeInput } from "../core/outcome.ts";
 import { MAIN_REF_TYPE, reasonText, targetOf } from "../core/local/merge.ts";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { replay, type Node, type TreeOp } from "../core/local/tree.ts";
-import { createTreeStore } from "../core/local/treestore.ts";
+import { startNode } from "../core/local/branchtool.ts";
 import { fakeGit } from "./fake-git.ts";
-import { mergeRig, REVISE } from "./merge-rig.ts";
+import { REVISE } from "./merge-rig.ts";
+import { nodeRig } from "./node-rig.ts";
 import { treeRig } from "./tree-rig.ts";
-import { localFirst } from "../core/strategy/local-first.ts";
 import { MERGE_REASON } from "../core/local/gitcmd.ts";
-
-/** The merge rig with a work tree: `node(input)` starts a node by start_branch's local-first path, `lines` the merge lines. */
-function nodeRig(settings: Record<string, unknown> = {}) {
-  const m = mergeRig({ settings });
-  const tree = createTreeStore((type, data) => { m.entries.push({ type, data: structuredClone(data) }); });
-  const nodeLines: Array<Record<string, unknown>> = [];
-  const nodes: NodeDeps = { tree, localFirst: () => true, caps: () => ({ maxDepth: 3, maxChildren: 5, planLines: 150 }),
-    strategy: localFirst(m.settings), arms: () => ({}), log: { node(i) { nodeLines.push(i); }, split() {} } };
-  const lines: MergeInput[] = [];
-  m.ports.nodes = nodes;
-  m.ports.log = (i) => { lines.push(i); };
-  const node = async (input: Record<string, unknown>) => {
-    const res = await startNode({ git: m.git, store: m.store, settings: m.settings }, nodes, { goal: "do it", check: "true", ...input }, m.r.dir);
-    if (!res.ok) throw new Error(res.errors.join("; "));
-    return res.value;
-  };
-  /** The root `auth` (a plan node) with one commit, main moved on after it, and its child `auth.form` with one commit. */
-  const shape = async () => {
-    const root = await node({ slug: "auth", estimate: { kind: "plan", lines: 0 } });
-    m.r.commit("docs/auth.md", "one\ntwo\nthree\n", "plan", root.worktree);
-    m.r.commit("main.txt", "moved\n", "main moves");
-    const child = await node({ parent: "auth", slug: "form", estimate: { kind: "code", lines: 2 } });
-    m.r.commit("form.ts", "a\nb\n", "form", child.worktree);
-    return { root, child };
-  };
-  return { ...m, tree, nodes, nodeLines, lines, node, shape };
-}
 
 const A = "a".repeat(40), B = "b".repeat(40);
 const nodeAt = (id: string, parent?: string): Node => ({ id, ...(parent !== undefined && { parent }), depth: parent === undefined ? 0 : 1,
