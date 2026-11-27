@@ -85,6 +85,8 @@ export type RunResult<T> = { ok: true; value: T; reviewId: string; member: strin
  *  (REV-1, LF6.T8), which replaces `pickMember` and the Opus budget (CON-11); `line`: its review line's fields (LF6.T7). */
 export type RunArgs<T> = { role: RunRole; input: string; cwd?: string; worktree?: string; submit: SubmitSpec<T>; commit?: string; branch?: string;
   signal?: AbortSignal; overCap?: boolean; choice?: ReviewerChoice; line?: ReviewFields;
+  /** The review's own arms (LF14.T1, E3): on each of its review lines, with the session's. */
+  arms?: readonly string[];
   /** Local-first (REV-9): an attempt ended by a transient provider error is retried on its member after a backoff. */
   retryTransient?: boolean };
 export type OverseerDeps = {
@@ -103,7 +105,7 @@ export type OverseerDeps = {
   /** `pi.appendEntry` (design §3.0.2). */
   append(customType: string, data: unknown): void;
   /** The outcome log's `review` line, one per attempt (design §3.0.3). */
-  log: { review(i: ReviewInput): void };
+  log: { review(i: ReviewInput, arms?: readonly string[]): void };
   /** The force override (design §3.6.3): the fixer runs under an active force (D47); overseers never do (AC-F6). */
   force?: ForcePort;
 };
@@ -346,7 +348,7 @@ export function createOverseer(d: OverseerDeps) {
         d.log.review({ reviewId, role: r.role, member: p.member, model, attempt: no, durationMs: d.now() - t0, fallback,
           outcome: o.kind === "ok" ? (v && !approve(v.findings) ? "revise" : "approve") : o.kind === "aborted" || o.kind === "unrouted" ? "error" : o.kind,
           ...(v && { findings: v.findings.length, blocking: v.findings.filter((f) => f.blocking).length, ...(inconsistent(v) && { inconsistent: true }) }),
-          commit: r.commit, branch: r.branch, ...(r.overCap && { overCap: true }), ...r.line });
+          commit: r.commit, branch: r.branch, ...(r.overCap && { overCap: true }), ...r.line }, r.arms);
         return { ...o, reviewId };
       };
       const backoff = r.retryTransient ? RETRY_MS : [];

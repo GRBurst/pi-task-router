@@ -12,7 +12,8 @@ export type OutcomeLogDeps = {
 export function createOutcomeLog(d: OutcomeLogDeps) {
   const open = new Set<string>(); // spawned, no verdict yet
   const known = new Set<string>();
-  const w = (e: OutcomeEvent) => d.append(d.armed?.() ? { ...e, arms: [...new Set(d.arms?.() ?? [])].sort() } : e);
+  /** S33: the session's arms and the line's unit's (`unit`: a review's E3), sorted, on an armed session's lines. */
+  const w = (e: OutcomeEvent, unit: readonly string[] = []) => d.append(d.armed?.() ? { ...e, arms: [...new Set([...(d.arms?.() ?? []), ...unit])].sort() } : e);
   return {
     spawn(i: Omit<Parameters<typeof spawnEvent>[0], "now">) { known.add(i.taskId); open.add(i.taskId); w(spawnEvent({ ...i, now: d.now() })); },
     reroute(taskId: string, from: string, to: string, reason: string, fromModel?: string, toModel?: string) {
@@ -33,7 +34,7 @@ export function createOutcomeLog(d: OutcomeLogDeps) {
     spotcheck(taskId: string) { w(spotcheckEvent({ now: d.now(), taskId })); },
     force(i: Omit<Parameters<typeof forceEvent>[0], "now">) { w(forceEvent({ ...i, now: d.now() })); },
     hint(taskId: string, trip: Trip, stage: HintStage, count?: number, sessionId?: string) { w(hintEvent({ now: d.now(), taskId, trip, stage, count, sessionId })); },
-    review(i: ReviewInput) { w(reviewEvent({ ...i, now: d.now() })); },
+    review(i: ReviewInput, unitArms?: readonly string[]) { w(reviewEvent({ ...i, now: d.now() }), unitArms); },
     merge(i: MergeInput) { w(mergeEvent({ ...i, now: d.now() })); },
     gatebypass(i: Omit<Parameters<typeof gatebypassEvent>[0], "now">) { w(gatebypassEvent({ ...i, now: d.now() })); },
     plan(i: PlanLogInput) { w(planEvent({ ...i, now: d.now() })); },

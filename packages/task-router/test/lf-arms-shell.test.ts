@@ -8,6 +8,9 @@ import { seeded } from "./rand.ts";
 import { parseSettings } from "../core/settings.ts";
 import { FACTORS, assign } from "../core/strategy/arms.ts";
 import type { FactorId, FactorUnit } from "../core/strategy/arms.ts";
+import { LF, treeRig } from "./tree-rig.ts";
+import { APPROVE, REVISE, finding } from "./merge-rig.ts";
+import type { Verdict } from "../core/local/verdict.ts";
 
 const LATER = "9.9.9"; // every factor available, whatever the release
 const KINDS: FactorUnit[] = ["session", "review", "child", "request", "node", "package", "ladder"];
@@ -102,4 +105,92 @@ test("RND-6", async () => {
   const off = await armedSession(false);
   assert.deepEqual(off.lines.map((l) => l.event).sort(), ["session", "spawn", "spawn", "verdict", "verdict"]);
   assert.deepEqual(off.lines.filter((l) => l.event !== "session" && "arms" in l), [], "unarmed: only the session line may carry arms (E0)");
+});
+
+// LF14.T1 (spec §2.8, SIZE-3, REV-2, RND-6; review lf56 m9): E2 and E3 end to end in a local-first session. E2 is drawn once per
+// session (on the session line and every local-first line) and is the session's tier; E3 is drawn per review, on that review's
+// lines only, and is the reviewer of a standard-class standard-tier change. Without the settings: no arm, the defaults.
+const code = (n: number): string => Array.from({ length: n }, (_, k) => `export const v${k} = ${k};\n`).join("");
+const MODEL = { opus: "anthropic/claude-opus-5-5", sonnet: "anthropic/claude-sonnet-5-5" };
+
+/** A local-first session with an actor that answers each review with the next scripted verdict (default: approve). */
+function stage1(factors: Record<string, unknown>) {
+  const raw = { ...LF, experiments: { cloudOnlyShare: 0, factors } };
+  const s = treeRig(raw, undefined, { apiExt: true, extra: { settings: parseSettings(raw, LATER).settings } });
+  const verdicts: Verdict[] = [];
+  let answered = 0;
+  s.h.hooks.onSleep = () => {
+    if (s.h.a.apiSpawns.length <= answered) return;
+    const sp = s.h.a.apiSpawns[answered++]!;
+    const submit = (sp.policy as { childTools?: { execute(v: unknown): unknown }[] } | undefined)?.childTools?.[0];
+    if (sp.result.ok && submit) void submit.execute(verdicts.shift() ?? APPROVE);
+  };
+  /** A node of `n` code lines (slug `slug`), merged once (a REVISE leaves it open: another commit and `merge` again). */
+  const node = async (slug: string, n: number, estimate = n) => {
+    const started = await s.start({ slug, goal: `do ${slug}`, check: "true", estimate: { kind: "code", lines: estimate } });
+    assert.equal(started.isError, undefined, started.content[0]!.text);
+    s.r.commit(`src/${slug}.ts`, code(n), slug, started.details.worktree);
+    return { worktree: started.details.worktree as string, branch: started.details.branch as string, node: started };
+  };
+  const merge = async (branch: string) => (await s.call("request_merge", { branch })).details;
+  const lines = (event: string) => s.h.lines().filter((l) => l.event === event);
+  return { ...s, verdicts, node, merge, lines, models: () => s.h.a.apiSpawns.map((x) => (x.policy as { model?: string } | undefined)?.model) };
+}
+
+test("stage 1", async () => {
+  const both = (e2: number[], e3: number[]) => ({ E2: { enabled: true, weights: e2 }, E3: { enabled: true, weights: e3 } });
+  // E2 small, E3 sonnet: the drawn tier is small and the drawn reviewer of the standard-tier change is Sonnet
+  const a = stage1(both([0, 1, 0], [0, 1]));
+  const refused = await a.start({ slug: "too-big", goal: "x", check: "true", estimate: { kind: "code", lines: 100 } });
+  assert.match(refused.content[0]!.text, /above the package budget of 60 changed lines \(tier small\)/, "E2 small: the package budget is the small tier's");
+  const f = await a.node("feat", 100, 50);
+  assert.equal((await a.merge(f.branch)).status, "merged");
+  assert.deepEqual(a.models(), [MODEL.sonnet]);
+  const [review] = a.lines("review") as Record<string, any>[];
+  assert.deepEqual([review!.tier, review!.actualTier, review!.reviewer, review!.binding], ["small", "standard", "sonnet", true]);
+  assert.deepEqual(review!.arms, ["E2=small", "E3=sonnet"], "E2 (the session's) and E3 (this review's) on the review line");
+  // E2 once per session: the session line and every other line of the local-first session; E3 only on a review's own lines
+  assert.deepEqual((a.lines("session")[0] as Record<string, any>).arms, ["E2=small"]);
+  const events = new Set(a.h.lines().map((l) => l.event));
+  for (const e of ["session", "node", "review", "merge"]) assert.ok(events.has(e), e);
+  for (const l of a.h.lines()) assert.deepEqual(l.arms, l.event === "review" ? ["E2=small", "E3=sonnet"] : ["E2=small"], JSON.stringify(l));
+  assert.deepEqual(a.lines("node").map((l) => l.tier), a.lines("node").map(() => "small"));
+  assert.equal((a.lines("merge")[0] as Record<string, any>).tier, "small");
+  // E3 per review: each review's draw is its own (a REVISE, a new commit, a new review); the unit is the review's commit
+  const b = stage1(both([0, 0, 1], [1, 1]));
+  const g = await b.node("feat", 100);
+  b.verdicts.push({ ...REVISE, findings: [finding("F1", true, "src/feat.ts:1")] });
+  assert.equal((await b.merge(g.branch)).status, "revise");
+  b.r.commit("src/more.ts", code(3), "more", g.worktree);
+  assert.equal((await b.merge(g.branch)).status, "merged");
+  const snap = b.h.router.arms.snapshot()!;
+  const rs = b.lines("review") as Record<string, any>[];
+  assert.equal(rs.length, 2);
+  assert.notEqual(rs[0]!.commit, rs[1]!.commit);
+  for (const r of rs) {
+    const level = assign(snap, "E3", `s-main:${r.commit}`);
+    assert.deepEqual([r.arms, r.reviewer, r.tier], [["E2=large", `E3=${level}`], level, "large"], JSON.stringify(r));
+  }
+  // the draw is the review's, whatever the review is: a large change asks for Opus whatever E3 says; its line still names its draw
+  const e = stage1(both([1, 0, 0], [0, 1]));
+  const big = await e.node("big", 200, 100);
+  assert.equal((await e.merge(big.branch)).status, "merged");
+  assert.deepEqual([(e.lines("review")[0] as Record<string, any>).reviewer, (e.lines("review")[0] as Record<string, any>).arms], ["opus", ["E2=standard", "E3=sonnet"]]);
+  // without the settings: no E2/E3 arm anywhere, the defaults (tier standard, Opus for the standard tier)
+  const off = stage1({});
+  const h = await off.node("feat", 100);
+  assert.equal((await off.merge(h.branch)).status, "merged");
+  assert.deepEqual(off.models(), [MODEL.opus]);
+  const r0 = off.lines("review")[0] as Record<string, any>;
+  assert.deepEqual([r0.tier, r0.reviewer, r0.arms], ["standard", "opus", []]);
+  for (const l of off.h.lines()) assert.deepEqual(l.arms ?? [], [], JSON.stringify(l));
+});
+
+test("stage 1: E3 is a draw of the review, never of the session", () => {
+  const raw = { ...LF, experiments: { cloudOnlyShare: 0, factors: { E3: { enabled: true } } } };
+  const s = treeRig(raw, undefined, { extra: { settings: parseSettings(raw, LATER).settings } });
+  const seen = new Set<string>();
+  for (let i = 0; i < 40; i++) for (const a of s.h.router.arms.armsFor("review", `s-main:c${i}`)) seen.add(a);
+  assert.deepEqual([...seen].sort(), ["E3=opus", "E3=sonnet"], "both levels over 40 reviews");
+  assert.deepEqual(s.h.router.arms.armsFor("session", "s-main"), [], "no session arm: E3's unit is the review");
 });

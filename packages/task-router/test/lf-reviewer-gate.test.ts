@@ -321,3 +321,36 @@ test("REV-9 an Esc during a backoff ends the run at once; network errors are tra
   assert.deepEqual(out, { ok: false, outcome: "aborted" });
   for (const reason of ["read ECONNRESET", "TypeError: fetch failed", "socket hang up"]) assert.equal(isTransient(reason), true, reason);
 });
+
+// LF14.T1 (REV-2; review lf56 m9): the gate draws E3 per review, through the node deps' `reviewArms(unit)` (the unit is the reviewed
+// commit: a REVISE and a new commit is a new review), never from the session's arms. The review's arms go to its lines (`arms`).
+test("REV-2 E3 per review", async () => {
+  const x = await gate();
+  const asked: string[] = [];
+  const levels = ["sonnet", "opus"];
+  x.nodes.reviewArms = (unit) => [`E3=${levels[asked.push(unit) - 1]}`];
+  x.nodes.arms = () => ({ E3: "sonnet" }); // a stray session arm: E3 has none, the gate never reads it
+  x.put({ "src/a.ts": 100 });
+  x.verdicts.push(REVISE);
+  assert.equal((await x.mergeIt()).status, "revise");
+  x.put({ "src/b.ts": 1 });
+  assert.equal((await x.mergeIt()).status, "merged");
+  assert.deepEqual(x.reviews.map((r) => [r.choice!.reviewer, r.arms]), [["sonnet", ["E3=sonnet"]], ["opus", ["E3=opus"]]]);
+  assert.deepEqual(asked, x.reviews.map((r) => r.commit), "one draw per review, keyed by its commit");
+  assert.equal(new Set(asked).size, 2);
+  // the draw is made once for a review: its second attempt (the same commit) never asks again
+  const y = await gate();
+  const units: string[] = [];
+  y.nodes.reviewArms = (unit) => { units.push(unit); return ["E3=sonnet"]; };
+  y.put({ "src/a.ts": 100 });
+  y.verdicts.push("fail", "fail");
+  assert.equal((await y.mergeIt()).status, "error");
+  assert.equal((await y.mergeIt()).status, "error");
+  assert.equal(units.length, 2);
+  assert.equal(units[0], units[1], "the same commit is the same review: the same unit, so the same draw");
+  // no port (the rigs' default, a session without E3): the default level, no arms
+  const z = await gate();
+  z.put({ "src/a.ts": 100 });
+  assert.equal((await z.mergeIt()).status, "merged");
+  assert.deepEqual([z.reviews[0]!.choice!.reviewer, z.reviews[0]!.arms], ["opus", undefined]);
+});

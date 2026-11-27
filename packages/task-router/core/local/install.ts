@@ -108,7 +108,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
    *  unknown); the crossing lines too (review lf56 m5). */
   const sid = <T extends { sessionId?: string }>(i: T): T => ({ ...i, sessionId: i.sessionId ?? d.sessionId() });
   const gateLog = {
-    review: (i: Parameters<LocalDeps["log"]["review"]>[0]) => d.log.review(sid(i)),
+    review: (i: Parameters<LocalDeps["log"]["review"]>[0], arms?: readonly string[]) => d.log.review(sid(i), arms),
     merge: (i: Parameters<LocalDeps["log"]["merge"]>[0]) => d.log.merge(sid(i)),
     plan: (i: Parameters<LocalDeps["log"]["plan"]>[0]) => d.log.plan(sid(i)),
     gatebypass: (i: Parameters<LocalDeps["log"]["gatebypass"]>[0]) => d.log.gatebypass(sid(i)),

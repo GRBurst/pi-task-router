@@ -365,7 +365,7 @@ export const assign = (snap: ExperimentsSnapshot, id: FactorId, unit: string): s
 `ev.arms = [...new Set([...sessionArms(), ...unitArms])].sort()` iff `armed()` (the session is local-first);
 the `session` line always carries the session's arms (E0 in cloud-first); unit arms come from the builder's
 caller (`assign` for E3, E12, E13, E17, …).
-Until LF14 (unit arms, LF14.T1) the lines carry only session arms: the `session` line and, on a local-first session, every line (S33 with `unitArms` empty). A review-unit factor (E3, E17) has no arm on any line before LF14.
+Until LF14 (unit arms, LF14.T1) the lines carry only session arms: the `session` line and, on a local-first session, every line (S33 with `unitArms` empty). A review-unit factor (E3, E17) has no arm on any line before LF14. Since LF14.T1 the gate's `review` lines carry the review's own arms (`log.review(i, unitArms)`, `RunArgs.arms`, `NodeDeps.reviewArms`); no other line has a unit arm yet.
 
 **S34 — `core/profile.ts` (extended, D82)**: `createRoutingProfile(settings, append)` → `{ current(): RoutingProfile | "local-mode";
 restore(branch: Entry[]): void; set(p, by): void }`; `restore` = last `task-router/profile` entry's
@@ -1521,7 +1521,7 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
 `∀ f ∈ FACTORS: f.enabled === false` (LF2.T1) stays green. The owner enables them after E0/E1 have data
 (§15.3).
 
-#### LF14.T1 E2 and E3 end to end `[ ] todo`
+#### LF14.T1 E2 and E3 end to end `[x] done`
 - Files: `core/local/install.ts` (the session's tier from the snapshot); test `lf-arms-shell` (new) "stage 1".
 - Note (LF2 review): until this task, lines carry only session arms (S33, `unitArms` empty); E3's per-review arm and any unit arm reach the lines here.
 - RED: a harness session with E2, E3 enabled by settings → E2 drawn once per session (on the `session` line and
@@ -1531,6 +1531,24 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
 - Review lf56 m9 (tracked here, not fixed in LF6): E3's per-review draw belongs to this task. Until it lands the gate passes
   `review: armsFor("session")` (`core/local/merge.ts`, the `reviewer` call), so REV-2 is inert even with E3 enabled and no
   `review` line carries E3; E3 ships OFF until then.
+- Done (lf14). Tests: `lf-arms-shell` "stage 1" (a harness session over real git: E2 and E3 enabled by settings, a review through the shell's
+  overseer; `test/tree-rig.ts` `treeRig` takes `{apiExt, extra}`), `lf-reviewer-gate` "REV-2 E3 per review". RED seen: the Sonnet-drawn review
+  ran `anthropic/claude-opus-5-5` (m9), and a stray session `E3` arm decided the gate's reviewer.
+- decision (lf14): the E2 half needed no code. `armMap` (the snapshot's session arms, `core/shell.ts`) already feeds `sessionTier` at every
+  reader (start refusal, node and merge lines, crossings, brief budgets) since LF5/LF6; `install.ts` did not change. The test pins it.
+- decision (lf14): E3's draw is made by the gate once per review: `NodeDeps.reviewArms?(unit)` (the shell: `armsFor("review", "<sessionId>:<unit>")`),
+  unit = the reviewed commit. A re-review after a REVISE is a new commit, so a new review and a new draw; the same commit asked again (a
+  review-unavailable retry, an approval reuse) keeps its draw, so a retry never re-rolls its reviewer. The review id is not the unit: it is
+  minted per attempt inside the overseer, after the reviewer is chosen. `reviewer(...)` reads the review's arms only (a session `E3` is ignored).
+  Local and reversible: the key is one expression in `core/shell.ts` and one argument in `core/local/merge.ts`.
+- decision (lf14): E3's arm is on every gate `review` line (each attempt of the review) whatever the review is, as RND-6 says (every line carries
+  its unit's enabled factors); it decides the reviewer only for a standard-class review of an `actualTier: standard` change, so an analysis of E3
+  filters on the line's `class` and `actualTier`. The review's `merge` line carries the session's arms only (its unit is the merge). A review
+  that is not run (an inert class) has no line and no arm. The factor is not conditional like E13: its unit is the review itself.
+- decision (lf14): the 100 % size hint names the reviewer as `reviewer(...)` gives it for the session's arms, i.e. the default (Opus at the
+  standard tier): the draw needs the commit, which does not exist yet. Advisory text; left as is.
+- decision (lf14): a node that outlives a switch to cloud-first (PRO-6) still draws and obeys E3 at its gate, but its lines carry no arms (S33: `arms`
+  iff the session is local-first now), session arms included.
 
 #### LF14.T2 Docs `[ ] todo`
 - Files: `docs/task-router.md` (running factors: enabling, weights, the owner's gate). Then release R2.
@@ -1714,7 +1732,7 @@ reads and reports; it never routes, gates or switches a factor.
 | Id | First router version | Adds to the consumer contract |
 |---|---|---|
 | PE-1 | 0.3.0 (R1) | `v: 2` beside `v ≤ 1`; spawn lines without `arm`; the `session` event; `arms: string[]` (`F=level`, F ∈ `FACTORS`, level ∈ its levels); `merge` fields `base`, `target`, `repo`, `repoId`; the lists read from the exports above; drop `iface-experiments-task-router` |
-| PE-2 | 0.4.0 (R2) | events `profile`, `node`, `split` (`reason` `choice`), `crossing`; `review` fields (`class`, `tier`, `actualTier`, `reviewer`, `binding`, `overCap`, `rereview`, `of`, `sample`, `batch`, `classBy`); `merge` fields (`class`, `classBy`, `tier`, `actualTier`, `node`); `sessionId` (the main session's, absent when unknown) on `review`, `merge`, `plan`, `gatebypass`, `node`, `split` and `crossing`; `ARRAY_FIELDS_V2` (`review.classBy`, `merge.classBy`: string[] fields whose `ENUMS_V2` values apply per element); `ROLES` += `spot`, `fit`, `corrective`, `integration`; `FALLBACKS` (`local-unavailable`, `transient`); `session.profile` incl. `local-first`. Meanings (review lf56): `merge.reviewId` may name an advisory `revise` (`review.binding: false`) or be absent (an inert merge, a failed advisory review); `review.attempt` reaches 3 in local-first (two transient retries); a local-first `fallback` `error` or `transient` means the same chosen member ran again; `review.overCap` ⇔ `actualTier: over`; `crossing.class` is the settings policy's and never `inert`, `merge.class` the policy file's at main's tip; `crossing.kind: plan` is only a split above `planLines`; `node.tier` is the session's drawn tier (`inert` for an inert estimate); `FALLBACKS` `local-unavailable`, `review.sample`, `rereview`, `of` and `batch` are exported but not written yet; no line carries E3 until LF14.T1 (m9) |
+| PE-2 | 0.4.0 (R2) | events `profile`, `node`, `split` (`reason` `choice`), `crossing`; `review` fields (`class`, `tier`, `actualTier`, `reviewer`, `binding`, `overCap`, `rereview`, `of`, `sample`, `batch`, `classBy`); `merge` fields (`class`, `classBy`, `tier`, `actualTier`, `node`); `sessionId` (the main session's, absent when unknown) on `review`, `merge`, `plan`, `gatebypass`, `node`, `split` and `crossing`; `ARRAY_FIELDS_V2` (`review.classBy`, `merge.classBy`: string[] fields whose `ENUMS_V2` values apply per element); `ROLES` += `spot`, `fit`, `corrective`, `integration`; `FALLBACKS` (`local-unavailable`, `transient`); `session.profile` incl. `local-first`. Meanings (review lf56): `merge.reviewId` may name an advisory `revise` (`review.binding: false`) or be absent (an inert merge, a failed advisory review); `review.attempt` reaches 3 in local-first (two transient retries); a local-first `fallback` `error` or `transient` means the same chosen member ran again; `review.overCap` ⇔ `actualTier: over`; `crossing.class` is the settings policy's and never `inert`, `merge.class` the policy file's at main's tip; `crossing.kind: plan` is only a split above `planLines`; `node.tier` is the session's drawn tier (`inert` for an inert estimate); `FALLBACKS` `local-unavailable`, `review.sample`, `rereview`, `of` and `batch` are exported but not written yet; a gate `review` line (every attempt) carries the review's own `E3=<level>` in `arms`, with the session's, sorted (LF14.T1): E3 decides the reviewer only for a standard-class `actualTier: standard` review, so filter on `review.class` and `review.actualTier`; a `merge` line carries the session's arms only; no new export, event or field |
 | PE-3 | 0.5.0 (R3) | events `contact`, `ladder`, `quota`, `lqueue`, `mqueue`; `split.reason` += `review`; `TRIPS` += spec §2.4's; `REASONS` += `conflict`, `aborted-queue`; the harness' `fake-api` additions (X37f) replayed by `log-contract` |
 | PE-4 | 0.6.0 (R4) | `mode: "local"` lines now say `session.profile = "local-first"` (the old value `local-mode` stays valid for old lines) |
 | PE-5 | 0.7.0 (R5) | no new event or value: fixtures with E6–E10 arms (a replay only) |

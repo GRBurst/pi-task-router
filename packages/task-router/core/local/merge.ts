@@ -200,7 +200,7 @@ export type MergePorts = {
   /** The approved plans while plans are active (L7); absent: a branch is merged as one without a plan. */
   plans?: PlanStore;
   /** The work tree (local-first, TREE-7): a node merges into its parent node's branch; absent: every branch into the main branch. */
-  nodes?: Pick<NodeDeps, "tree" | "log" | "strategy" | "arms">;
+  nodes?: Pick<NodeDeps, "tree" | "log" | "strategy" | "arms" | "reviewArms">;
   /** The policy file's reader (local-first, CLS-2): `policyGit` over the runner `git` is built on; absent: the class fails closed. */
   policy?: PolicyGit;
 };
@@ -488,11 +488,15 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     : g.redRun && rec?.check ? await redRun(p, repo, target.sha, rec.check) : "skipped"; // TREE-7 c: at the target
   if (p.signal?.aborted) return aborted(commit);
   // ── local-first (LF6.T8): the class, after the checks (CLS-3); the reviewer by the class and the diff's actual tier (REV-1) ──
-  let choice: ReviewerChoice | undefined, line: ReviewFields | undefined;
+  let choice: ReviewerChoice | undefined, line: ReviewFields | undefined, drawn: string[] = [];
   if (lf) {
     const lfs = p.nodes!.strategy, arms = p.nodes!.arms(), c = await classOf(p, repo, main.sha, st, g.extraChecks.length > 0);
     const actualTier = lfs.tierOfLines(z.lines), tier = lfs.sessionTier(arms);
-    choice = lfs.reviewer({ cls: c.cls, actual: actualTier, inertLike: c.inertLike, review: arms });
+    // REV-2 (LF14.T1; review lf56 m9): E3 is a draw of this review (its unit is the commit, so a new commit is a new review and
+    // the same commit keeps its draw), never of the session: the reviewer reads the review's arms, its lines carry them
+    drawn = p.nodes!.reviewArms?.(commit) ?? [];
+    choice = lfs.reviewer({ cls: c.cls, actual: actualTier, inertLike: c.inertLike,
+      review: Object.fromEntries(drawn.map((a) => a.split("=") as [string, string])) });
     Object.assign(seen, { class: c.cls, classBy: c.why, tier, actualTier, node: self!.id });
     line = { class: c.cls, classBy: c.why, tier, actualTier, ...(choice.reviewer !== "none" && { reviewer: choice.reviewer }), binding: choice.binding };
     // REV-3 (LF6.T10; decision lf56-fix, review m1): elevated = Opus plus an orthogonal check, before any ticket: a configured
@@ -533,7 +537,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     const text = overCap ? overCapReview(facts, s.localFirst.overCapBytes, risk) : reviewInput({ ...facts, maxLines: budget });
     const out = await p.overseer.run({ role: "merge", input: text, cwd: p.branches.facts.mainCheckout.get(repo) ?? repo, worktree: wt.dir,
       submit: verdictSubmit(new Set(paths)), commit, branch, signal: p.signal, ...(overCap && { overCap }),
-      ...(lf && { retryTransient: true }), ...(choice && { choice }), ...(line && { line }) });
+      ...(drawn.length > 0 && { arms: drawn }), ...(lf && { retryTransient: true }), ...(choice && { choice }), ...(line && { line }) });
     // REV-4 (LF6.T9; review lf56 m2): an advisory reviewer's verdict is logged (`binding: false`) and never blocks, nor does its
     // failure (timeout, invalid, error: the merge has no review id and records no approval); an Esc still aborts
     const advisory = choice?.binding === false;
