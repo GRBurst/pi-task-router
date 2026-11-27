@@ -22,7 +22,7 @@
   hm = import ../checks/lib/hm-eval.nix {inherit lib pkgs home-manager homeModule setupModule;};
 
   # One constant; the tag is `v` + version.
-  version = "0.3.0";
+  version = "0.4.0";
 
   fp = hm.eval {
     programs.piTaskRouter.enable = true;

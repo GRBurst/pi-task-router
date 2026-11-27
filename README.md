@@ -92,7 +92,7 @@ spawn API as well). It follows pi-setup's agent directory,
 The repository is also a pi package with one extension, the router:
 
 ```sh
-pi install git:github.com/GRBurst/pi-task-router@v0.3.0
+pi install git:github.com/GRBurst/pi-task-router@v0.4.0
 ```
 
 Its settings are `~/.pi/agent/task-router/settings.json` (keys and defaults:
