@@ -1537,7 +1537,7 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
   of the session" is a pin of `armsOf`'s unit kinds (RND-1, RND-4), red only by a plant (E3's registry unit made `session`), as E2's test is.
 - decision (lf14): the E2 half needed no code. `armMap` (the snapshot's session arms, `core/shell.ts`) already feeds `sessionTier` at every
   reader (start refusal, node and merge lines, crossings, brief budgets) since LF5/LF6; `install.ts` did not change. The test pins it.
-- decision (lf14): E3's draw is made by the gate once per review: `NodeDeps.reviewArms?(unit)` (the shell: `armsFor("review", "<sessionId>:<unit>")`),
+- decision (lf14): E3's draw is made by the gate once per review: `NodeDeps.reviewArms(unit)` (required, review lf14 L4: an unwired E3 is a typecheck error; the shell: `armsFor("review", "<sessionId>:<unit>")`),
   unit = `<node id>:<reviewed commit>` (a review without a node: the branch name for the node id). A re-review after a REVISE is a new
   commit, so a new review and a new draw; the same node's same commit asked again (a review-unavailable retry, an approval reuse) keeps its
   draw, so a retry never re-rolls its reviewer. The commit alone is not the unit (review lf14 H1): a node merges into its parent by

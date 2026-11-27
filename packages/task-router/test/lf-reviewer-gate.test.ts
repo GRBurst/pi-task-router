@@ -348,7 +348,7 @@ test("REV-2 E3 per review", async () => {
   assert.equal((await y.mergeIt()).status, "error");
   assert.equal(units.length, 2);
   assert.equal(units[0], units[1], "the same commit is the same review: the same unit, so the same draw");
-  // no port (the rigs' default, a session without E3): the default level, no arms
+  // the rigs' stub (`reviewArms: () => []`, a session without E3): the default level, no arms
   const z = await gate();
   z.put({ "src/a.ts": 100 });
   assert.equal((await z.mergeIt()).status, "merged");

@@ -495,7 +495,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     // REV-2 (LF14.T1; review lf56 m9, lf14 H1): E3 is a draw of this review (its unit is the node and the commit: a new commit is a
     // new review, the same commit keeps its draw, and a parent's review of the commit its last child merged into it by
     // fast-forward is another review), never of the session: the reviewer reads the review's arms, its lines carry them
-    drawn = p.nodes!.reviewArms?.(`${self?.id ?? branch}:${commit}`) ?? [];
+    drawn = p.nodes!.reviewArms(`${self?.id ?? branch}:${commit}`);
     choice = lfs.reviewer({ cls: c.cls, actual: actualTier, inertLike: c.inertLike,
       review: Object.fromEntries(drawn.map((a) => a.split("=") as [string, string])) });
     Object.assign(seen, { class: c.cls, classBy: c.why, tier, actualTier, node: self!.id });
