@@ -146,7 +146,9 @@ child's session is done there, anything larger is split first.
   branch) and marks the node `split`. These split files are the router's
   own: they never count as a scope violation. `start_branch({parent, child:
   slug})` starts one package of the recorded split, its goal, files, estimate
-  and check taken from the plan; each slug starts once.
+  and check taken from the plan; each slug starts once. `start_branch({parent,
+  slug})` with a slug of that split is the same package: it starts or
+  re-activates it, with the goal, check and estimate from the plan.
 - *Package children.* A spawn card with `package: "<node id>"` (an active node
   started from a split) runs on `localFirst.startMember` at `xhigh`, in the
   node's worktree, and its brief carries the package contract: goal, files,

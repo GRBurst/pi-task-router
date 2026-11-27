@@ -39,3 +39,28 @@ test("TREE-5", async () => {
   assert.deepEqual(s.nodes().map((l) => [l.taskId, l.tier]), [["auth", "standard"], ["auth.form", "standard"], ["auth.docs", "inert"]]);
   assert.deepEqual(s.ops().map((o) => [o.op, o.node?.id ?? o.node]), [["add", "auth"], ["split", "auth"], ["add", "auth.form"], ["add", "auth.docs"]]);
 });
+
+// Review m3 (TREE-5): `start_branch({parent, slug})` naming a package of the parent's split is that package: goal, check,
+// estimate and files come from the split, whatever the call gives, on its start and on its re-activation.
+test("TREE-5 slug of the split", async () => {
+  const s = treeRig();
+  await s.start(ROOT);
+  assert.equal(s.h.router.tree.apply({ op: "split", node: "auth", plan: PLAN }), undefined);
+  const mine = { parent: "auth", slug: "form", goal: "my own goal", check: "true", estimate: { kind: "code", lines: 1 } };
+  const goal = () => s.h.router.branches.all().find((r) => r.branch === "lm/auth.form")!.goal;
+  const form = await s.start(mine);
+  assert.equal(form.isError, undefined, form.content[0]!.text);
+  assert.deepEqual([form.details.node, form.details.check, form.details.files], ["auth.form", "test -n form", ["src/form/**"]]);
+  assert.deepEqual(s.h.router.tree.tree().nodes["auth.form"]!.estimate, { lines: 60, kind: "code" });
+  assert.equal(goal(), LONG);
+  assert.deepEqual(s.h.router.tree.tree().nodes.auth!.started, ["form"]);
+  // again: re-activated, still under the split's contract, no second node
+  const again = await s.start(mine);
+  assert.equal(again.isError, undefined, again.content[0]!.text);
+  assert.deepEqual([again.details.check, goal()], ["test -n form", LONG]);
+  assert.deepEqual(s.ops().map((o) => o.op), ["add", "split", "add"]);
+  // a slug outside the split stays a node of its own (with its estimate)
+  const other = await s.start({ ...mine, slug: "extra" });
+  assert.equal(other.isError, undefined, other.content[0]!.text);
+  assert.deepEqual(s.h.router.tree.tree().nodes["auth.extra"]!.estimate, { lines: 1, kind: "code" });
+});

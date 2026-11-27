@@ -69,7 +69,14 @@ export async function startNode(d: StartDeps, n: NodeDeps, input: unknown, cwd: 
     const c = startable(tree, i.parent as string, String(i.child));
     if (typeof c === "string") return fail(c);
     pkg = c;
-  } else if (i.estimate === undefined) return fail("estimate is required in a local-first session");
+  } else {
+    // review m3 (TREE-5): a slug of the parent's split is that package (its start or its re-activation): goal, check, estimate
+    // and files come from the split, whatever the call gives
+    const p = typeof i.parent === "string" ? nodeOf(tree, i.parent) : undefined;
+    const c = p?.split?.children.find((x) => x.slug === i.slug);
+    if (c) pkg = structuredClone(c);
+    else if (i.estimate === undefined) return fail("estimate is required in a local-first session");
+  }
   const estimate = pkg?.estimate ?? estimateOf(i.estimate);
   if (!estimate) return fail("estimate must be {lines: an integer ≥ 0, kind: code, plan or inert}");
   const parent = i.parent === undefined ? undefined : nodeOf(tree, i.parent as string);
