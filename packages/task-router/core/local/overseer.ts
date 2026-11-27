@@ -315,8 +315,9 @@ export function createOverseer(d: OverseerDeps) {
       let last: "timeout" | "error" | "invalid" = "error";
       const whys: string[] = [];
       /** One attempt on `p`'s member, held and charged against the Opus budget unless a fallback or chosen, and its line. */
+      /** `spent`: the last retry of a run that ends with it; a transient error then gets `fallback: transient` on its line. */
       const once = async (p: { member: string; effort: ThinkingLevel; fallback?: "budget" | "error" | "transient"; chosen?: true }, model: string,
-        no: number): Promise<Settled<T> & { reviewId: string }> => {
+        no: number, spent = false): Promise<Settled<T> & { reviewId: string }> => {
         const steer = r.role === "steer" ? 1 : 0;
         let holding = !p.fallback && !("chosen" in p); // CON-11: a chosen reviewer is outside the Opus budget
         const unhold = (): void => { if (holding) { holding = false; held.opus -= 1; held.steer -= steer; } };
@@ -332,7 +333,8 @@ export function createOverseer(d: OverseerDeps) {
         const o = await attempt(a, r, no, p.member, model, p.effort, reviewId, charge).finally(unhold);
         // The line's outcome: a verdict's approval (V2), else how the attempt ended; an aborted attempt is an `error`.
         const v = o.kind === "ok" && r.submit.name === "submit_verdict" ? o.value as Verdict : undefined;
-        d.log.review({ reviewId, role: r.role, member: p.member, model, attempt: no, durationMs: d.now() - t0, fallback: p.fallback,
+        const fallback = spent && o.kind === "error" && o.transient ? "transient" as const : p.fallback;
+        d.log.review({ reviewId, role: r.role, member: p.member, model, attempt: no, durationMs: d.now() - t0, fallback,
           outcome: o.kind === "ok" ? (v && !approve(v.findings) ? "revise" : "approve") : o.kind === "aborted" || o.kind === "unrouted" ? "error" : o.kind,
           ...(v && { findings: v.findings.length, blocking: v.findings.filter((f) => f.blocking).length, ...(inconsistent(v) && { inconsistent: true }) }),
           commit: r.commit, branch: r.branch, ...(r.overCap && { overCap: true }), ...r.line });
@@ -350,14 +352,18 @@ export function createOverseer(d: OverseerDeps) {
         if (p === "skip") return { ok: false, outcome: "skipped" };
         const model = d.settings.models[p.member]?.model;
         if (!model) continue;
+        // review lf56 m3: a step 1 whose step 2 would rerun the same (chosen) member ends with its last retry: never a third retry
+        const ends = step === 1 && "chosen" in p && p.chosen === true;
         let o: Settled<T> & { reviewId: string };
         for (;;) {
-          o = await once(p, model, ++no);
+          const spent = backoff.length > 0 && retries === backoff.length;
+          o = await once(p, model, ++no, spent && ends);
           if (o.kind !== "error" || !o.transient || !backoff.length) break;
-          if (retries === backoff.length) { gaveUp = true; break; }
+          if (spent) { gaveUp = true; break; }
           await d.sleep(backoff[retries++]!);
           if (r.signal?.aborted) return { ok: false, outcome: "aborted" };
         }
+        if (gaveUp && ends) return { ok: false, outcome: "error", ...(o.kind === "error" && o.why && { why: o.why }) };
         if (o.kind === "aborted") return { ok: false, outcome: "aborted" };
         if (o.kind === "unrouted") return { ok: false, outcome: "error" }; // a second attempt would meet the same policy
         if (o.kind !== "ok") { last = o.kind; if (o.kind === "error" && o.why) whys.push(o.why); continue; }

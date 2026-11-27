@@ -231,16 +231,15 @@ test("REV-9 retry", async () => {
     assert.deepEqual(o.sleeps, [5000], reason);
     assert.deepEqual(o.reviews(), [[1, "opus", "error", null], [2, "opus", "approve", null]], reason);
   }
-  // three transient errors → backoffs 5 s and 20 s, then the existing fallback attempt with `fallback: transient`; its error is
-  // the run's existing `error` outcome (the gate's review-unavailable)
+  // three transient errors → backoffs 5 s and 20 s; the second attempt would rerun the same chosen member, so the last retry ends
+  // the run (review lf56 m3: never a third retry): its line has `fallback: transient`, the run the existing `error` outcome
   const o = retryRig();
   const seen = new Set<number>();
   o.on.each = async () => { const n = o.h.a.apiSpawns.length; if (!seen.has(n)) { seen.add(n); o.fail("429 rate limit")(n); } };
   const out = await o.run({ choice: o.choice, retryTransient: true });
   assert.deepEqual(out, { ok: false, outcome: "error" });
   assert.deepEqual(o.sleeps, [5000, 20000]);
-  assert.deepEqual(o.reviews(), [[1, "opus", "error", null], [2, "opus", "error", null], [3, "opus", "error", null],
-    [4, "opus", "error", "transient"]]);
+  assert.deepEqual(o.reviews(), [[1, "opus", "error", null], [2, "opus", "error", null], [3, "opus", "error", "transient"]]);
   // a non-transient error is not retried: the existing second attempt at once
   const p = retryRig();
   p.on.each = async () => { const n = p.h.a.apiSpawns.length; if (n === 1 && !seen.has(-1)) { seen.add(-1); p.fail("boom")(1); } if (n === 2) await p.tool().execute(VALID); };

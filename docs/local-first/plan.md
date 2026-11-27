@@ -1087,6 +1087,9 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   unavailable); a spawn refusal is not retried. At most two retries per run (`RETRY_MS` 5 s, 20 s) on the same member, each
   its own `review` line (`attempt` counts on, no `fallback`); once they ran out, the existing second attempt runs with
   `fallback: transient` and its failure is the existing `error` outcome. The quota-wait half of REV-9 stays with LF9.T8.
+- review lf56 m3 (fixed): when the second attempt would rerun the same member (a chosen reviewer, local-first), the last retry
+  ends the run: its line has `fallback: transient`, the run returns the existing `error` (three attempts, never a third retry).
+  A second attempt on another member (no choice) keeps `fallback: transient`. Test `lf-reviewer-gate` "REV-9 retry".
 
 #### LF6.T14 Docs `[x] done`
 - Files: `docs/task-router.md` (classes, the policy file and its schema, reviewers), `docs/outcome-log.md`
