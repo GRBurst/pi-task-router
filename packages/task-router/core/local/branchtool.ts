@@ -2,6 +2,7 @@
 // the tool's shape: the schema, and the result as text plus `details`. In a local-first session it starts a node of the work
 // tree (local-first spec §2.3, TREE-1): `parent` cuts it from that node's tip, else from the main tip (the request node, D65).
 import type { NodeLogInput, SplitLogInput } from "../outcome.ts";
+import type { Arms, Strategy } from "../strategy/types.ts";
 import type { Result } from "../types.ts";
 import { nodeLine, nodeOf, startable, type Caps, type Estimate, type Node, type SplitChild } from "./tree.ts";
 import type { TreeStore } from "./treestore.ts";
@@ -39,8 +40,9 @@ export const START_NODE_SCHEMA = {
 /** The error shape of D48: the reason as text, `{status: "error", reason}` as details, `isError`. */
 export const errorReply = (reason: string): ToolReply => ({ content: [{ type: "text", text: reason }], details: { status: "error", reason }, isError: true });
 
-/** The work tree's ports (local-first): the store, whether the session is local-first now, the caps, the `node` and `split` lines. */
-export type NodeDeps = { tree: TreeStore; localFirst(): boolean; caps(): Caps;
+/** The work tree's ports (local-first): the store, whether the session is local-first now, the caps, the `node` and `split` lines;
+ *  the strategy (D60, the composition the shell built) and the session's arms (S33). */
+export type NodeDeps = { tree: TreeStore; localFirst(): boolean; caps(): Caps; strategy: Strategy; arms(): Arms;
   log: { node(i: Omit<NodeLogInput, "now">): void; split(i: Omit<SplitLogInput, "now">): void } };
 const fail = (e: string): Result<never> => ({ ok: false, errors: [e] });
 const estimateOf = (x: unknown): Estimate | undefined => {
@@ -48,6 +50,13 @@ const estimateOf = (x: unknown): Estimate | undefined => {
   return typeof e === "object" && e !== null && Number.isInteger(e.lines) && e.lines! >= 0 && ESTIMATE_KINDS.includes(e.kind!)
     ? { lines: e.lines!, kind: e.kind! } : undefined;
 };
+
+/** SIZE-4: the start refusal's prefix; no other tool result starts with it. */
+export const SIZE_REFUSAL = "size: ";
+/** SIZE-4 (design §5.3): the refusal of an estimate above the session tier's package budget; it says how to split. */
+export const sizeRefusal = (lines: number, budget: number, tier: string, maxChildren: number): string =>
+  `${SIZE_REFUSAL}the estimate of ${lines} changed lines is above the package budget of ${budget} changed lines (tier ${tier}); ` +
+  `split it: call split with at most ${maxChildren} children, then start each with start_branch({parent, child})`;
 
 /** `start_branch` in a local-first session (TREE-1): a slug start is a node; the same node again re-activates it (no second op
  *  or line). A plan unit (L7) stays a plain branch. Validates before it touches git, so a refusal changes nothing. */
@@ -79,6 +88,9 @@ export async function startNode(d: StartDeps, n: NodeDeps, input: unknown, cwd: 
   }
   const estimate = pkg?.estimate ?? estimateOf(i.estimate);
   if (!estimate) return fail("estimate must be {lines: an integer ≥ 0, kind: code, plan or inert}");
+  // SIZE-4: a new code node above the session tier's budget is refused (the only place size blocks); inert and plan never are
+  const tier = n.strategy.sessionTier(n.arms()), budget = n.strategy.tierBudget(tier, "standard");
+  if (estimate.kind === "code" && estimate.lines > budget) return fail(sizeRefusal(estimate.lines, budget, tier, caps.maxChildren));
   const parent = i.parent === undefined ? undefined : nodeOf(tree, i.parent as string);
   if (i.parent !== undefined && !parent) return fail(`unknown node ${i.parent as string}`);
   if (parent && parent.state !== "active" && parent.state !== "split") return fail(`node ${parent.id} is ${parent.state}`);

@@ -122,6 +122,8 @@ export function install(pi: PiLike, deps: Deps) {
   const armed = deps.armed ?? (() => profile.current() === "local-first");
   const sessionArms = (): string[] => [...(e0drawn ? [`E0=${e0}`] : []), ...(armed() ? arms.armsFor("session", sessionId ?? "") : [])].sort();
   const log = createOutcomeLog({ append, now, armed, arms: sessionArms });
+  /** The session's arms as a map (S33): what the strategy parts read. */
+  const armMap = (): Record<string, string> => Object.fromEntries(arms.armsFor("session", sessionId ?? "").map((a) => a.split("=") as [string, string]));
 
   const nowMs = () => now().getTime();
   const api = deps.api ?? (() => (globalThis as { __subagentsApi_v1?: SubagentsApiV1 }).__subagentsApi_v1);
@@ -146,7 +148,7 @@ export function install(pi: PiLike, deps: Deps) {
     // TREE-6, PRO-10 b: the placement view of a local-first session (LF4.T12); its arms are the session's (S33).
     ...(settings.localFirst.experimental && { localFirst: () => (profile.current() !== "local-first" ? undefined : {
       tree: tree.tree(), strategy, startMember: settings.localFirst.startMember, submitSplit: (node: string) => lm.submitSplit(node),
-      arms: Object.fromEntries(arms.armsFor("session", sessionId ?? "").map((a) => a.split("=") as [string, string])),
+      arms: armMap(),
     }) }),
   };
   // L8: the names this instance's policy accepted (and, after a reload, the agents listed then); a listed agent outside them was
@@ -359,7 +361,7 @@ export function install(pi: PiLike, deps: Deps) {
     api, tickets, hex, now: nowMs, sleep: pd.sleep, onBudget: render, force: force.port, run: deps.run, policyOn: () => off.length > 0,
     placed: (n) => placed.has(n), local: () => profile.current() !== "cloud-first",
     ...(settings.localFirst.experimental && { nodes: { tree, localFirst: () => profile.current() === "local-first", caps: () => strategy.treeCaps({}),
-      log } }) });
+      strategy, arms: armMap, log } }) });
   // PRO-7 (S34a): a local session registers the local tools and hooks it lacks (a cloud-first default: at its first switch to
   // local-first); the tools whose component the profile turns off leave the active set (pi cannot unregister a tool) and come
   // back with it. Nothing changes while the set stays (the legacy local mode, a cloud-first session).

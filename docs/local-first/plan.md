@@ -250,7 +250,7 @@ factors with `enabled` by settings.
 | `lf-top-plan` | the root split stored on the main branch | TREE-12 | [x] |
 | `lf-tiers` | elevated not capped | SIZE-1 | [x] |
 | `lf-tiers-git` | untracked files not counted | SIZE-2 | [x] |
-| `lf-start-refusal` | inert estimates refused | SIZE-4 | [ ] |
+| `lf-start-refusal` | inert estimates refused | SIZE-4 | [x] |
 | `lf-size-hints` | the guard returns `{block: true}` at 100 % | SIZE-5 | [ ] |
 | `lf-overcap` | the riskiest hunk exceeds `overCapBytes` | SIZE-8 | [ ] |
 | `lf-classify` / `lf-classify-git` | the policy read from the branch tip | CLS-2 | [x] |
@@ -861,10 +861,12 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - decision (lf56): the numstat is filtered by `isSplitFile` (`core/local/split.ts`, D85's one definition) instead of a
   pathspec: the same lines, and no second spelling of the rule (`withoutSplits`, `core/local/size.ts`; the gate reuses it).
 
-#### LF5.T4 Start refusal (SIZE-4) `[ ] todo`
+#### LF5.T4 Start refusal (SIZE-4) `[x] done`
 - Files: `core/local/branchtool.ts`; test `lf-start-refusal` (new).
 - RED: `estimate.lines = budget + 1` → refusal text names the budget, `maxChildren` and `split` (prefix assertions); `kind: "inert"` and `kind: "plan"` → not refused; property: no other tool result in the harness run contains the refusal prefix.
 - GREEN: compare with `strategy.tierBudget(sessionTier, "standard")`.
+- decision (lf56): `NodeDeps` gains `strategy` (the shell's composition) and `arms()` (the session's arms map); the refusal
+  also applies to a split's package whose recorded estimate is above the budget (a third production file: `core/shell.ts` wires them).
 
 #### LF5.T5 `crossing` builder (SIZE-6 a) `[ ] todo`
 - Files: `core/outcome.ts`; test `lf-size-hints` (new) "builder".

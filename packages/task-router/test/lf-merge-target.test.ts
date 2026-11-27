@@ -14,6 +14,7 @@ import { createTreeStore } from "../core/local/treestore.ts";
 import { fakeGit } from "./fake-git.ts";
 import { mergeRig, REVISE } from "./merge-rig.ts";
 import { treeRig } from "./tree-rig.ts";
+import { localFirst } from "../core/strategy/local-first.ts";
 import { MERGE_REASON } from "../core/local/gitcmd.ts";
 
 /** The merge rig with a work tree: `node(input)` starts a node by start_branch's local-first path, `lines` the merge lines. */
@@ -22,7 +23,7 @@ function nodeRig(settings: Record<string, unknown> = {}) {
   const tree = createTreeStore((type, data) => { m.entries.push({ type, data: structuredClone(data) }); });
   const nodeLines: Array<Record<string, unknown>> = [];
   const nodes: NodeDeps = { tree, localFirst: () => true, caps: () => ({ maxDepth: 3, maxChildren: 5, planLines: 150 }),
-    log: { node(i) { nodeLines.push(i); }, split() {} } };
+    strategy: localFirst(m.settings), arms: () => ({}), log: { node(i) { nodeLines.push(i); }, split() {} } };
   const lines: MergeInput[] = [];
   m.ports.nodes = nodes;
   m.ports.log = (i) => { lines.push(i); };
