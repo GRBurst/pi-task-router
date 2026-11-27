@@ -1109,8 +1109,9 @@ fields in both arms, so an analysis of E0 (or a later per-spawn E0, pending
 the owner's OK) can tell which spawns the cloud-only filter could have changed:
 `planned` is the member the as-used plan picked, before E0's filter and before
 any health fallback of the selection; `localUp` is that member's `up`, written
-only when it is a `route: "local"` member; `triggered` is `true` iff the plan
-picked a local member and it was up (else `false`). `up` is the selection's own
+only when it is a `route: "local"` member; `triggered` is `true` iff the router
+chose the member (no force, no explicit `model`), the plan picked a local member, it was up and the same plan on the table
+without the local members succeeds (else `false`). `up` is the selection's own
 (`memberState`): the member's health probe answers (the probe is the selection's,
 cached per URL for 30 s; a member without a `health` URL counts as up), it is
 not blocked by a provider limit, and its `dailyCap` is not reached; a busy
@@ -1118,13 +1119,16 @@ server (`slots`) is not down. They serve the trigger analysis (the share of
 spawns the as-used plan sends to a local member while it is up, the only ones
 where the arms can differ) and the local server's uptime (`localUp` over the
 planned local spawns). An accepted explicit `model` is the plan's member, and a
-force logs the member routing would have chosen (its `routedModel`). In an
-`as-used` session the plan is the one that routes. In a `cloud-only` session the
-router plans once more, on the full table, for the line only: a private attempt
-state, the real plan's random draws replayed, so its routing, its random stream
-and its attempt state are what they were without the logging; a cloud-only session
-therefore also probes the local server (at most one probe per 30 s) when a plan
-picks a local member. A spawn the cloud-only plan refuses has no line. A ticket
+force logs the member routing would have chosen (its `routedModel`); neither is
+ever triggered, as a spawn a cloud-only session would refuse is not either, so
+the trigger is the same in both arms. In an `as-used` session the plan is the
+one that routes; the router plans once more, on the table without the local
+members, to know whether a cloud plan exists. In a `cloud-only` session it plans
+once more, on the full table. Either way the second plan is for the line only: a
+private attempt state, the real plan's random draws replayed, so the routing, the
+random stream and the attempt state are what they were without the logging; a
+cloud-only session therefore also probes the local server (at most one probe per
+30 s) when a plan picks a local member. A spawn the cloud-only plan refuses has no line. A ticket
 child's and an unrouted line carry none.
 
 A session is in E0 only when it is a main session with an id, routing is on

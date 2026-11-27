@@ -217,12 +217,15 @@ child's, not on an unrouted one), computed the same way in both E0 arms. `planne
 `qwen-local`) the as-used plan picked, before E0's filter and before any health fallback; `localUp` is that member's `up`
 (`memberState`: its cached health probe answers, a member without a `health` URL counts as up, ∧ not blocked by a provider limit,
 ∧ `dailyCap` not reached; a busy server is up), written only when `planned` is a `route: "local"` member; `triggered` is `true`
-iff `planned` is a local member and it was up, else `false` (so `triggered` is on every such line). `workerMember` stays where the
-child started. Uses: the trigger analysis (an E0 comparison counts only sessions with at least one `triggered` spawn, the only ones the
-cloud-only filter could have changed; the trigger is computed identically in both arms) and the local server's uptime (`localUp` over
-the spawns whose `planned` is local). An accepted explicit `model` is the plan's member; a forced spawn (`forced`) logs what routing
-would have chosen; in a `cloud-only` session the plan is computed once more on the full table for the line only (no effect on routing).
-A spawn that is refused has no line. A reader that rejects unknown fields must take the three keys. They are strings and booleans, so
+iff the router chose the member (no force, no explicit `model`), `planned` is a local member, it was up, and the same plan on the
+table without the local members (E0's cloud-only table) succeeds; else `false` (so `triggered` is on every such line). A spawn
+the caller or the owner placed, and one a cloud-only session would refuse, is therefore never triggered, in either arm. `workerMember`
+stays where the child started. Uses: the trigger analysis (an E0 comparison counts only sessions with at least one `triggered` spawn,
+the only ones the cloud-only filter could have changed; the trigger is computed identically in both arms) and the local server's uptime
+(`localUp` over the spawns whose `planned` is local). An accepted explicit `model` is the plan's member (never triggered); a forced
+spawn (`forced`) logs what routing would have chosen (never triggered). The router plans once more for the line only (no effect on
+routing): in a `cloud-only` session on the full table (the as-used plan), in an `as-used` session on the cloud-only table (is there a
+cloud plan). A spawn that is refused has no line. A reader that rejects unknown fields must take the three keys. They are strings and booleans, so
 no `ENUMS_V2` key; `planned` is a member name (a settings key), not an enumerated list.
 
 § Optional, added with task-router's overseer (local mode L4, no `v` bump). The router spawns its own children (an

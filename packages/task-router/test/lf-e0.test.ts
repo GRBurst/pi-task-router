@@ -257,7 +257,7 @@ test("MEAS-4 an explicit model and a force: planned is what the plan picked, a f
   await h.f.commands.get("force")!.handler("opus", c);
   const forced = await placed(h, "f1");
   assert.equal(forced.line?.forced, true);
-  assert.deepEqual(cf(forced.line), ["qwen-local", true, true], "what routing would have chosen, as the routedModel says");
+  assert.deepEqual(cf(forced.line), ["qwen-local", true, false], "what routing would have chosen, as the routedModel says; a forced spawn is no arm's to claim");
 });
 
 test("MEAS-4 the randomized leg: the as-used plan's draw decides `planned` in both arms", async () => {
@@ -324,4 +324,56 @@ test("MEAS-4 after /profile local-first: planned is the placement's start member
     seen.push(cf(p.line));
   }
   assert.deepEqual(seen, [["qwen-local", true, true], ["qwen-local", true, true]]);
+});
+
+// R3A review H1: `triggered` = ¬forced ∧ ¬explicit model ∧ planned is local ∧ up ∧ a cloud plan exists (the E0 v2 delta's predicate): the
+// spawns it counts are the ones both arms place by the router's own choice, so the filter is the same in both arms.
+test("MEAS-4 triggered: an explicit local model and a force are not the arm's to claim", async () => {
+  // as used, an explicit local model runs on its member; in a cloud-only session it is refused (E0_OFF) and leaves no line
+  const { h } = as(0);
+  const explicit = await placed(h, "e1", { model: QWEN });
+  accepted(explicit.r);
+  assert.deepEqual(cf(explicit.line), ["qwen-local", true, false], "as used: explicit local model");
+  const off = await placed(as(1).h, "e1", { model: QWEN });
+  assert.ok("reject" in off.r && off.line === undefined, "cloud-only: refused, no line");
+  // a force (the command or the settings), in both arms
+  for (const share of [0, 1]) {
+    const f = as(share, { force: { model: "qwen-local", thinkingLevel: "" } });
+    const line = (await placed(f.h, "f1")).line;
+    assert.equal(line?.forced, true, `share ${share}`);
+    assert.deepEqual(cf(line), ["qwen-local", true, false], `share ${share}: forced`);
+  }
+});
+
+test("MEAS-4 triggered: a card only a local member reaches (no cloud plan) is not triggered", async () => {
+  // the local member sits above every cloud member; the cloud-only arm refuses the card, as used places it on the local member
+  const top = { models: { "qwen-local": { abilities: { write: 2, read: 3 } }, sonnet: { model: "" }, opus: { model: "" } } };
+  const hi = card({ importance: "critical" });
+  const used = await placed(as(0, top).h, "t1", { task: hi });
+  accepted(used.r);
+  assert.deepEqual(cf(used.line), ["qwen-local", true, false], "as used: no cloud plan, so no trigger");
+  assert.ok("reject" in (await placed(as(1, top).h, "t1", { task: hi })).r, "cloud-only: refused");
+});
+
+test("MEAS-4 triggered: over a card sequence the arms agree, and a spawn triggered as used is placed in cloud-only", async () => {
+  // a table in which the cloud members reach less than the local one, so some cards have no cloud plan
+  const settings = { models: { "qwen-local": { abilities: { write: 2, read: 3 } }, sonnet: { model: "" }, opus: { model: "" } } };
+  const run = async (share: number) => {
+    const { h } = as(share, settings);
+    provideSkills(h, SKILLS);
+    const out: { refused: boolean; triggered?: unknown }[] = [];
+    for (const [i, c] of cards(60).entries()) {
+      const p = await placed(h, `c${i}`, { task: c });
+      out.push({ refused: "reject" in p.r, triggered: p.line?.triggered });
+      h.clock.t += 61_000;
+    }
+    return out;
+  };
+  const used = await run(0), off = await run(1);
+  for (const [i, u] of used.entries()) {
+    if (u.triggered === true) assert.equal(off[i]!.refused, false, `card ${i}: triggered as used, refused in cloud-only`);
+    if (!off[i]!.refused) assert.equal(off[i]!.triggered, u.triggered, `card ${i}: the same trigger in both arms`);
+  }
+  assert.ok(used.some((x) => x.triggered === true) && used.some((x) => x.triggered === false), "both outcomes occur as used");
+  assert.ok(off.some((x) => x.refused) && off.some((x) => !x.refused), "the cloud-only arm refuses some cards, places others");
 });

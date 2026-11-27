@@ -116,14 +116,17 @@ async function ticketRoom(d: PolicyDeps, member: string, name: string): Promise<
   return undefined;
 }
 
-/** R3A.T3 (owner): the spawn line's counterfactual of the member the as-used plan picked. `localUp` is the member's `up` as the selection
- *  reads it (`memberState`: its cached health probe, no `health` URL = up, ∧ ¬blocked ∧ ¬capped), only for a `route: "local"` member;
- *  `triggered` = it is local and up. The same function in both E0 arms; the probe is the selection's own (cached per URL). */
-async function counterfactual(d: PolicyDeps, planned: string): Promise<Counterfactual> {
-  const m = named(d.settings.models, planned);
+/** R3A.T3 (owner; review H1): the spawn line's counterfactual of the member the as-used plan picked. `localUp` is the member's `up` as the
+ *  selection reads it (`memberState`: its cached health probe, no `health` URL = up, ∧ ¬blocked ∧ ¬capped), only for a `route: "local"`
+ *  member. `triggered` = ¬chosen ∧ it is local ∧ up ∧ `cloudPlanOk`: `chosen` = a force or an explicit model (the caller or the owner
+ *  picked the member, so no arm can claim the spawn), `cloudPlanOk` = the same plan on the table without the local members succeeds
+ *  (else a cloud-only session refuses the spawn). So the trigger is true only for a spawn both arms place by the router's own choice:
+ *  the same function in both E0 arms; the probe is the selection's own (cached per URL). */
+async function counterfactual(d: PolicyDeps, x: { planned: string; chosen: boolean; cloudPlanOk: boolean }): Promise<Counterfactual> {
+  const { planned } = x, m = named(d.settings.models, planned);
   if (m?.route !== "local") return { planned, triggered: false };
   const up = memberState(d, m, new Map(), d.now(), m.health ? await d.probe(m.health) : undefined).up;
-  return { planned, localUp: up, triggered: up };
+  return { planned, localUp: up, triggered: !x.chosen && up && x.cloudPlanOk };
 }
 
 /** The selection of one leg (spec §4.5): probe the candidates with a `health` URL, pick (`pickMember`), else poll every
@@ -209,8 +212,8 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     if (cloudOnly && !f && args.model !== undefined && byModel(base.settings.models, args.model)?.route === "local")
       return reject([`model ${args.model} is not available: ${E0_OFF}`]);
     const spIn: SpawnIn = { taskId: args.name, card, verified: v, profile: prof.value, importance, model: f ? undefined : args.model, effort: f ? undefined : args.thinkingLevel };
-    const draws: number[] = []; // R3A.T3: in a cloud-only session, the real plan's random draws, kept for the logging plan
-    const sp = planSpawn(cloudOnly ? { ...d, rng: () => { const u = d.rng(); draws.push(u); return u; } } : d, spIn);
+    const draws: number[] = []; // R3A.T3: the real plan's random draws, kept for the logging plan
+    const sp = planSpawn({ ...d, rng: () => { const u = d.rng(); draws.push(u); return u; } }, spIn);
     // Its "blank or missing in the router settings" is untrue here: the blank members are E0's.
     if (!sp.ok) return reject(cloudOnly ? sp.errors.map((e) => (e.startsWith(NO_MEMBER) ? `${e.split(" (")[0]} (${E0_OFF})` : e)) : sp.errors);
     const names = skillNames(prof.value, card);
@@ -224,13 +227,15 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     const plan: Plan = { ...sp.value.plan, reasons: [...sp.value.plan.reasons] }, a = plan.ability, need = v.tokens ?? 0;
     const capped = capToTable(s, prof.value).models, cappedLvl = (m: Named) => lvl(named(capped, m.name)!, a);
     const failover = (st.pinned ? leg.filter((m) => cappedLvl(m) >= cappedLvl(M)) : leg).map((m) => m.name);
-    // R3A.T3 (owner): the as-used plan's pick for the spawn line: this plan's own, or in a cloud-only session a dry plan on the full table
-    // (a private attempt store, the real plan's draws replayed); it never changes the routing below
-    let asUsed: ReturnType<typeof planSpawn> = sp;
-    if (cloudOnly) { const dry = dryPlan({ settings: base.settings, attempts: shadow }, spIn, draws); asUsed = dry.plan; shadow = dry.attempts; }
+    // R3A.T3 (owner; review H1): the counterfactual for the spawn line needs the other arm's plan too, one dry plan on the other table (a
+    // private attempt store, the real plan's draws replayed); it never changes the routing below. In a cloud-only session the other is the
+    // as-used plan (its pick is `planned`; the real plan, on the cloud table, is the cloud plan that succeeded); as used it is the cloud plan.
+    const dry = dryPlan({ settings: cloudOnly ? base.settings : cloud.settings, attempts: shadow }, spIn, draws);
+    shadow = dry.attempts;
+    const asUsed = cloudOnly ? dry.plan : sp, cloudPlanOk = cloudOnly || dry.plan.ok;
     // R3A review M1: the placement's start member as the as-used arm has it (a cloud-only session's `view` has none)
     const planned = cloudOnly && lf ? placement(card, prof.value, lf) : pl, plannedPlace = planned?.ok ? planned.value.member : undefined;
-    const cf = asUsed.ok ? await counterfactual(base, plannedPlace ?? asUsed.value.start.member) : undefined;
+    const cf = asUsed.ok ? await counterfactual(base, { planned: plannedPlace ?? asUsed.value.start.member, chosen: f !== undefined || args.model !== undefined, cloudPlanOk }) : undefined;
     const entry: ChildBase = {
       parent: caller.name, parentSession: caller.sessionId, card, plan, cwd, importance, ...(cf ? { cf } : {}),
       ...(v.unresolved ? { unresolved: true as const } : {}), ...(sp.value.esc ? { esc: sp.value.esc } : {}),
