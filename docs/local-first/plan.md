@@ -1064,7 +1064,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - Files: `core/local/merge.ts`; test `lf-reviewer-gate` "REV-10".
 - RED: inert + passing extra check → merged without a ticket, `merge.class = "inert"`; no configured check → standard path (CLS-3).
 - decision (lf56): an inert merge has no `reviewId` and records no approval (nothing was reviewed); the audit sample (§5.5) is a
-  later stage's.
+  later stage's: LF8.T16 (CON-8 b; review lf56 m4, accepted).
 
 #### LF6.T12 Cheap refusals first (REV-8) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-merge-target` "REV-8".
@@ -1231,6 +1231,9 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 #### LF8.T16 Spot-check tickets (CON-8 b) `[ ] todo`
 - Files: `core/local/spot.ts`, `core/local/merge.ts`; test `lf-spotcheck` "CON-8".
 - RED: a sampled inert merge, a sampled ungated output and a sampled gate review → one bounded Opus ticket each after the merge, `review` line `role: "spot"`, `sample`, `of`; a `revise` never reverts or blocks; cloud-first keeps `core/spotcheck.ts` (`spotcheck` green).
+- Review lf56 m4 (tracked here): REV-10's audit sample of inert merges is this task's. Since LF6.T11 an inert merge has no
+  `reviewId` and records no approval, so inert merges are unaudited until this task lands (R2 ships them behind
+  `localFirst.experimental` only).
 - Ungated output (D90): a child placed local by its card kind (S34b; `meta.ungated = true`: scout, lookup,
   mechanical, implement, debug-design outside a package); the artifact sampled is its report as the main's
   session received it (the `[message from <child>]` entry; X44 verifies that shape first); a child that ends
