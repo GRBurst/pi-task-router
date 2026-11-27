@@ -1550,7 +1550,7 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
 - decision (lf14): a node that outlives a switch to cloud-first (PRO-6) still draws and obeys E3 at its gate, but its lines carry no arms (S33: `arms`
   iff the session is local-first now), session arms included.
 
-#### LF14.T2 Docs `[ ] todo`
+#### LF14.T2 Docs `[x] done`
 - Files: `docs/task-router.md` (running factors: enabling, weights, the owner's gate). Then release R2.
 
 ### LF15 — Factors, stage 2: E12, E13 (after LF12)

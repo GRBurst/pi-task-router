@@ -278,7 +278,7 @@ and fallback member.
   there too is no orthogonal check by itself; the reviewer reads its "the
   check may be vacuous" note. A `small` diff gets Sonnet (Haiku, advisory, when
   it holds only tests and inert files); `standard` gets Opus or Sonnet as
-  the E3 factor draws it (Opus while E3 is off); `large` and above get Opus.
+  the E3 factor draws it for each review (Opus while E3 is off); `large` and above get Opus.
   `localFirst.reviewers` names the member for each (`haiku`, `sonnet`,
   `opus`, `local`); a chosen reviewer does not spend the Opus budget, and
   its second attempt keeps the member. An advisory verdict never blocks, nor
@@ -990,7 +990,8 @@ an unknown id; E0 (it runs by `cloudOnlyShare`); a value that is no object;
 `enabled` that is no boolean; `weights` that are not one non-negative number
 per level, or all 0; an unknown key; and `enabled` before the factor's
 release (`experiments.factors.E2 is available from 0.4.0`; the factor stays
-off). Until local-first (later releases) no factor has a mechanism.
+off). E2 and E3 have a mechanism in a local-first session from 0.4.0
+("Running a factor"); the other factors follow in the releases their `from` names.
 
 **The draw** (D61). A unit's level of a factor is
 `pick(levels, weights, u)` with `u` the first 53 bits of
@@ -1016,10 +1017,56 @@ the `session` line's `arms`. A child session, a session without an id and
 legacy local mode take none (they draw nothing).
 
 **Arms on lines.** A local-first session (later releases) will carry `arms`,
-the sorted `id=level` of its enabled factors, on every outcome line; a
+the sorted `id=level` of its enabled factors, on every outcome line, and
+a gate `review` line also carries the arm of its own review (E3, below); a
 cloud-first session carries `arms` on its `session` line only, and only
 E0's (`["E0=as-used"]` or `["E0=cloud-only"]`) while E0 is drawn
 (`docs/outcome-log.md`).
+
+**Running a factor.** A factor runs in three steps, all the owner's: the
+gate, the switch and the weights.
+
+- *The owner's gate.* No release enables a factor in code: the registry's
+  `enabled` is `false` for every id (a check holds it). The owner enables one
+  in `settings.json` once E0 has run for at least two weeks with a share
+  above 0 and its analysis has reported E0 and E1 (randomizing before a
+  baseline exists pollutes the data). A factor named before its release is a
+  problem at `session_start` and stays off, so a settings file may be
+  written ahead of an upgrade. Stage 1 is E2 with the reviewer factor E3.
+- *The switch.* `experiments.factors.<id>.enabled: true`. It acts on
+  sessions that start afterwards: a running or resumed session keeps the
+  snapshot it took ("The snapshot"). Turning a factor off is the same edit
+  and again reaches new sessions only. Without the setting a factor has no
+  arm on any line and its default level runs.
+- *The weights.* `weights` has one number per level, in the registry's level
+  order (the first level is the default); they are relative, need not sum to
+  1, and a 0 never draws its level. Equal weights are the default; a one-hot
+  vector pins every new session to one level, which is how an experiment
+  concludes. Changing the weights starts a new population: the sessions
+  before it keep theirs, and the arm on each line says what ran, so analysis
+  groups by the line's arm, not by the settings. The weights of a session are in its
+  `task-router/arms` entry.
+
+Stage 1, in a local-first session:
+
+| Factor | Unit | Levels (weights in this order) | Effect |
+|---|---|---|---|
+| E2 | session | `standard`, `small`, `large` | the session's size tier: the package budget at `start_branch` and `split`, the budgets line, the 80 % and 100 % hints, and the `tier` of its `node`, `crossing` and gate lines |
+| E3 | review | `opus`, `sonnet` | the reviewer of a standard-class change whose actual size is `standard` |
+
+E2 is drawn once per session from the seed and the session id, so its arm is
+on the `session` line and on every line of the session. E3 is drawn once per
+review, from the seed, the session id and the reviewed commit: a REVISE and
+a new commit is a new review with a new draw, while the same commit asked
+again (a retry after an unavailable reviewer) keeps its draw. The arm is on
+each `review` line of that review, beside the session's, and on no other
+line; it is on every gate review whatever its class and size, but the level
+changes the reviewer only for a standard-class change of `actualTier:
+standard`, so an analysis of E3 keeps the lines with that `class` and
+`actualTier`. The 100 % size hint names the reviewer the defaults give (it
+is sent before the commit that E3's draw needs). A node that is still open
+after a switch to cloud-first keeps its gate and its E3 draw, but its lines
+carry no arms.
 
 **E0, the cloud-only reference.** At a cloud-first `session_start`, while
 the snapshot's `cloudOnlyShare` is above 0, the router draws the session's
