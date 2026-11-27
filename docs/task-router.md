@@ -582,7 +582,9 @@ Opus last (`packages/task-router/core/local/merge.ts`):
    marked for the reviewer ("passed — the check may be vacuous"), it refuses
    nothing;
 6. approval reuse: an approval (`task-router/approval`) holds for exactly
-   `(repo, branch, commit, tree)`; a new commit needs a new review;
+   `(repo, branch, commit, tree)`; a new commit needs a new review. A
+   local-first approval records its reviewer and holds only for a choice no
+   stronger (an advisory Haiku approval never stands in for Sonnet or Opus);
 7. review: the `merge` overseer (above) in the main checkout, the worktree by
    its absolute path; its input is the goal, the summary, the check runs, the
    red run, risky paths and the numstat and the whole diff. A file name with a
@@ -916,7 +918,7 @@ session branch; never in the model's context):
 | `task-router/budget` | `{opusUsed, steerUsed}`, one per change |
 | `task-router/review` | `{reviewId, role, member, commit?, verdict, approved?, ts}`, one per submitted verdict or skeleton |
 | `task-router/branch` | `{repo, branch, worktree, base, state, rejections, fixerRuns, fixer?, goal?, check?, plan?: {slug, id}, files?, handmade?}`, one per change (`keep: true` on an update in place); `state` `active`, `merged`, `abandoned`, `fixer` or `blocked` |
-| `task-router/approval` | `{repo, branch, commit, tree, reviewId}` |
+| `task-router/approval` | `{repo, branch, commit, tree, reviewId, reviewer?, binding?}` (`reviewer`, `binding`: the local-first choice that approved) |
 | `task-router/main-ref` | `{repo, branch, sha}`, the last main tip the router knows |
 | `task-router/plan` | `{slug, repo, file, skeletonHash, approvedBy, triggers: [{id, kind, task?, open, rejected?}]}` |
 | `task-router/arms` | `{v: 1, sessionId, experiments: {seed, cloudOnlyShare, factors: {<id>: {enabled, levels, weights}}}, routerVersion, arms: {<id>: level}}`, once per main session, in default mode too (Experiments, below); `arms` holds the session's draws of its enabled factors, E0 aside (E0's is on the `session` line) |

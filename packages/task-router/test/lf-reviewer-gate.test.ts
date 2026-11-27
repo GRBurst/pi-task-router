@@ -10,6 +10,7 @@ import { REVISE } from "./merge-rig.ts";
 import { rig as overseerRig, VALID } from "./overseer-rig.ts";
 import type { PolicyGit } from "../core/local/policyfile.ts";
 import type { ReviewerChoice } from "../core/strategy/types.ts";
+import { APPROVAL_TYPE, createApprovals } from "../core/local/merge.ts";
 
 const text = (n: number, tag: string): string => Array.from({ length: n }, (_, k) => `export const ${tag}${k} = ${k};\n`).join("");
 
@@ -144,6 +145,37 @@ test("REV-4 an advisory review that fails never blocks (review lf56 m2)", async 
   y.verdicts.push("fail");
   const b = await y.mergeIt();
   assert.deepEqual([b.status, b.reason], ["error", "review-unavailable"], b.detail);
+});
+
+test("REV-4 an approval holds only for a reviewer at least as strong (review lf56 m6)", async () => {
+  // the very commit approved by an advisory Haiku (e.g. before a failure at step 9, or before main's policy made it stronger): a
+  // small code change asks for Sonnet, binding, so it is reviewed again; the approval keeps its reviewer
+  const keyOf = (x: Awaited<ReturnType<typeof gate>>) => {
+    const commit = x.r.git(["rev-parse", x.n.branch]);
+    return { repo: x.store.all().find((r) => r.branch === x.n.branch)!.repo, branch: x.n.branch, commit,
+      tree: x.r.git(["rev-parse", `${commit}^{tree}`]) };
+  };
+  const x = await gate();
+  x.put({ "src/a.ts": 5 });
+  x.approvals.add(keyOf(x), "rv-haiku", { reviewer: "haiku", binding: false });
+  const r = await x.mergeIt();
+  assert.deepEqual([r.status, r.reviewId, x.reviews.length], ["merged", "rv-1", 1], r.detail);
+  const stored = x.entries.filter((e) => e.type === APPROVAL_TYPE).at(-1)!.data;
+  assert.deepEqual([stored.reviewId, stored.reviewer, stored.binding], ["rv-1", "sonnet", true]);
+  // an Opus approval holds for the Sonnet choice: no second review
+  const y = await gate();
+  y.put({ "src/a.ts": 5 });
+  const k = keyOf(y);
+  y.approvals.add(k, "rv-opus", { reviewer: "opus", binding: true });
+  const b = await y.mergeIt();
+  assert.deepEqual([b.status, b.reviewId, y.reviews.length], ["merged", "rv-opus", 0], b.detail);
+  // a restart keeps the reviewer; an approval without one (the legacy gate's) holds only where no strength is asked
+  const a = createApprovals(() => undefined);
+  a.rebuild([{ customType: APPROVAL_TYPE, data: { ...k, reviewId: "rv-h", reviewer: "haiku", binding: false } }]);
+  const find = a.find;
+  assert.deepEqual([find(k, 2), find(k, 1), find(k)], [undefined, "rv-h", "rv-h"]);
+  a.rebuild([{ customType: APPROVAL_TYPE, data: { ...k, reviewId: "rv-l" } }]);
+  assert.deepEqual([find(k, 1), find(k, 0), find(k)], [undefined, "rv-l", "rv-l"]);
 });
 
 test("REV-3", async () => {

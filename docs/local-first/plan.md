@@ -1049,6 +1049,9 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - RED: inert-like + haiku `revise` → merged; `review.binding = false`.
 - decision (lf56): an advisory approval is recorded like a binding one (its review id on the merge, the approval key reused on
   a repeated request); a binding reviewer's revise keeps the legacy path (the test pins a small code change → Sonnet `revise`).
+- decision (lf56-fix, review m6): the approval entry records the choice's `reviewer` and `binding`; local-first reuses it only when
+  its `strength` (S39) is at least the current choice's (a legacy approval, without a reviewer, only where none is needed). Test
+  `lf-reviewer-gate` "REV-4 an approval holds only for a reviewer at least as strong (review lf56 m6)".
 
 #### LF6.T10 Elevated: Opus + orthogonal check (REV-3) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-reviewer-gate` "REV-3".

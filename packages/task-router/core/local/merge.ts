@@ -5,7 +5,8 @@ import { basename } from "node:path";
 import type { Runner } from "../gate.ts";
 import type { Card, RouterSettings } from "../types.ts";
 import type { MergeInput, ReviewFields } from "../outcome.ts";
-import type { Classification, ReviewerChoice } from "../strategy/types.ts";
+import type { Classification, ReviewerChoice, ReviewerName } from "../strategy/types.ts";
+import { strength } from "../strategy/local-first.ts";
 import { type PolicyGit, readPolicy, settingsPolicy } from "./policyfile.ts";
 import type { Finding } from "./verdict.ts";
 import type { BranchRecord, BranchStore } from "./branches.ts";
@@ -76,16 +77,28 @@ export function reasonText(r: MergeReason, x: Record<string, string>): string {
 // ── step 7: approvals (design §3.4.3) ──
 export const APPROVAL_TYPE = "task-router/approval";
 export type ApprovalKey = { repo: string; branch: string; commit: string; tree: string };
-export type Approvals = { find(k: ApprovalKey): string | undefined; add(k: ApprovalKey, reviewId: string): void; rebuild(entries: readonly unknown[]): void };
+/** The local-first reviewer an approval came from (review lf56 m6). */
+export type ApprovedBy = { reviewer: ReviewerName; binding: boolean };
+export type Approvals = {
+  /** The approval of `k`; with `need` (the current choice's `strength`, local-first) only one by a reviewer at least that strong:
+   *  an approval without a reviewer (the legacy gate's) holds only where `need` is absent or 0. */
+  find(k: ApprovalKey, need?: number): string | undefined;
+  add(k: ApprovalKey, reviewId: string, by?: ApprovedBy): void;
+  rebuild(entries: readonly unknown[]): void;
+};
 const keyOf = (k: ApprovalKey): string => JSON.stringify([k.repo, k.branch, k.commit, k.tree]);
+const REVIEWERS: readonly unknown[] = ["haiku", "sonnet", "opus", "qwen"] satisfies ReviewerName[];
 /** The approvals of this session: memory, one `task-router/approval` entry per approval; `rebuild` reads them back (a restart). */
 export function createApprovals(append: (customType: string, data: unknown) => void): Approvals {
-  const ids = new Map<string, string>();
+  const ids = new Map<string, { reviewId: string; strength?: number }>();
   return {
-    find: (k) => ids.get(keyOf(k)),
-    add(k, reviewId) {
-      ids.set(keyOf(k), reviewId);
-      append(APPROVAL_TYPE, { repo: k.repo, branch: k.branch, commit: k.commit, tree: k.tree, reviewId });
+    find(k, need) {
+      const a = ids.get(keyOf(k));
+      return a && (!need || (a.strength ?? 0) >= need) ? a.reviewId : undefined;
+    },
+    add(k, reviewId, by) {
+      ids.set(keyOf(k), { reviewId, ...(by && { strength: strength(by.reviewer, by.binding) }) });
+      append(APPROVAL_TYPE, { repo: k.repo, branch: k.branch, commit: k.commit, tree: k.tree, reviewId, ...by });
     },
     rebuild(entries) {
       ids.clear();
@@ -93,8 +106,9 @@ export function createApprovals(append: (customType: string, data: unknown) => v
         const x = e as { customType?: unknown; data?: Record<string, unknown> } | null;
         if (x?.customType !== APPROVAL_TYPE || typeof x.data !== "object" || x.data === null) continue;
         const d = x.data;
-        if ([d.repo, d.branch, d.commit, d.tree, d.reviewId].every((v) => typeof v === "string" && v !== ""))
-          ids.set(keyOf(d as ApprovalKey), d.reviewId as string);
+        if (![d.repo, d.branch, d.commit, d.tree, d.reviewId].every((v) => typeof v === "string" && v !== "")) continue;
+        const by = REVIEWERS.includes(d.reviewer) && typeof d.binding === "boolean" ? strength(d.reviewer as ReviewerName, d.binding) : undefined;
+        ids.set(keyOf(d as ApprovalKey), { reviewId: d.reviewId as string, ...(by !== undefined && { strength: by }) });
       }
     },
   };
@@ -493,7 +507,8 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   const tree = await git.tree(repo, commit);
   if (tree === undefined) return gitError(`cannot read the tree of ${commit}`, commit);
   const key: ApprovalKey = { repo, branch, commit, tree };
-  let reviewId = p.approvals.find(key);
+  // review lf56 m6: local-first reuses an approval only from a reviewer at least as strong as the current choice
+  let reviewId = p.approvals.find(key, choice && strength(choice.reviewer, choice.binding));
   // REV-10 (LF6.T11): an inert change (every file inert, a configured extra check passed) merges without a review
   if (reviewId === undefined && choice?.reviewer !== "none") {
     // ── 8 review: the merge overseer in the main checkout, the worktree by its absolute path (LD14) ──
@@ -550,7 +565,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     }
     if (out.ok) {
       reviewId = out.reviewId;
-      p.approvals.add(key, reviewId);
+      p.approvals.add(key, reviewId, choice && { reviewer: choice.reviewer, binding: choice.binding }); // never "none" here
     }
   }
   // ── 9 merge: fast-forward only (LD7), so main's tree is the reviewed and checked one ──

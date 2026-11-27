@@ -8,6 +8,8 @@ import { reviewer } from "./reviewer.ts";
 
 /** SIZE-9: the budgets line (`brief.ts`), re-exported here: the mechanism reaches strategy files only through this one (NR-6). */
 export { budgetLine } from "./brief.ts";
+/** S39's reviewer strength, re-exported for the same reason: an approval is reused only for a choice no stronger (review lf56 m6). */
+export { strength } from "./reviewer.ts";
 
 const notYet = (part: keyof Strategy) => (): never => { throw new Error(`task-router: strategy part ${part}: not yet`); };
 
