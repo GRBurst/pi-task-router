@@ -42,6 +42,8 @@ const KEYS = [
   "parent", "depth", "fanout", "children", "planLines",
   // the crossing line (LF5.T5, SIZE-6): a size stage's lines, budget, estimate and when
   "lines", "budget", "estimate", "turn", "call", "sinceStartMs",
+  // the review line (LF5.T10, SIZE-8): an over-cap review
+  "overCap",
   // NOT listed: `arms` (RND-6, S33) is added by log.ts after the builders, and is not clipped to MAX_ITEMS: the registry has 21
   // factors, so a line can carry 21 `id=level` items, one more than the cap.
 ];
@@ -110,13 +112,15 @@ export const hintEvent = (i: { now: Date; taskId: string; trip: Trip; stage: Hin
 
 export type ReviewOutcome = "approve" | "revise" | "invalid" | "timeout" | "error";
 export type ReviewInput = { reviewId: string; role: Role; member: string; model: string; outcome: ReviewOutcome; attempt: number; durationMs: number;
-  fallback?: Fallback; findings?: number; blocking?: number; inconsistent?: boolean; commit?: string; branch?: string };
+  fallback?: Fallback; findings?: number; blocking?: number; inconsistent?: boolean; commit?: string; branch?: string;
+  /** SIZE-8: an over-cap review (local-first). */
+  overCap?: boolean };
 /** One overseer attempt (design §3.0.3): `taskId` is the review id; the verdict's counts and flags, never its text. */
 export const reviewEvent = (i: ReviewInput & { now: Date }) =>
   finish({
     ...base("review", i.now, i.reviewId), role: i.role, member: i.member, model: i.model, outcome: i.outcome, attempt: i.attempt,
     durationMs: i.durationMs, fallback: i.fallback, findings: i.findings, blocking: i.blocking, inconsistent: i.inconsistent,
-    commit: i.commit, branch: i.branch,
+    commit: i.commit, branch: i.branch, overCap: i.overCap,
   });
 /** A ticket child's spawn line (D26): no card, so no `cardHash`; kind `overseer` (a fixer: `implement`), `ticket` its role. */
 export const ticketSpawnEvent = (i: { now: Date; taskId: string; role: TicketRole; member: string; tier: string; model: string; effort: ThinkingLevel; sessionId?: string; parentSessionId?: string; forced?: Forced }) =>

@@ -36,3 +36,57 @@ test("no size refusal", async () => {
     assert.equal(l.reason === "size", lines > g.maxDiffLines || files > g.maxDiffFiles, `legacy ${lines} lines in ${files} files: ${l.reason} ${l.detail}`);
   }
 });
+
+const bytes = (s: string): number => Buffer.byteLength(s, "utf8");
+const lines = (n: number, tag: string): string => Array.from({ length: n }, (_, k) => `export const ${tag}${k} = ${k};\n`).join("");
+
+test("SIZE-8", async () => {
+  const cap = 6000, x = nodeRig({ localFirst: { overCapBytes: cap }, mergeGate: { extraChecks: ["echo check-output-marker"] } });
+  // 900 lines: one risky file (riskGlobs `**/auth/**`), then three by size
+  const n = await x.node({ slug: "big", estimate: { kind: "code", lines: 100 } });
+  const files: Array<[string, number]> = [["src/auth/login.ts", 60], ["src/big.ts", 500], ["src/mid.ts", 240], ["src/small.ts", 100]];
+  for (const [p, k] of files) { mkdirSync(dirname(join(n.worktree, p)), { recursive: true }); writeFileSync(join(n.worktree, p), lines(k, "v")); }
+  x.r.git(["add", "-A"], n.worktree);
+  x.r.git(["commit", "-q", "-m", "big"], n.worktree);
+  const r = await x.merge({ branch: n.branch });
+  assert.equal(r.status, "merged", r.detail);
+  const a = x.reviews[0]!, input = a.input as string;
+  assert.equal(a.overCap, true);
+  assert.ok(bytes(input) <= cap, `${bytes(input)} > ${cap}`);
+  for (const [p, k] of files) assert.ok(input.split("\n").includes(`${k}\t0\t${p}`), `numstat ${p}`);
+  assert.ok(input.includes("check-output-marker"), "the check output");
+  // the hunks: the risky file first, then by changed lines; what does not fit is left out
+  const shown = input.split("\n").filter((l) => l.startsWith("diff --git a/")).map((l) => l.slice("diff --git a/".length).split(" ")[0]);
+  assert.deepEqual(shown, ["src/auth/login.ts", "src/small.ts"], input);
+  // the riskiest file's part alone above the cap: its head, cut, still within the cap
+  const y = nodeRig({ localFirst: { overCapBytes: cap } });
+  const m = await y.node({ slug: "risky", estimate: { kind: "code", lines: 100 } });
+  mkdirSync(join(m.worktree, "src", "auth"), { recursive: true });
+  writeFileSync(join(m.worktree, "src", "auth", "a.ts"), lines(400, "w"));
+  y.r.git(["add", "-A"], m.worktree);
+  y.r.git(["commit", "-q", "-m", "risky"], m.worktree);
+  assert.equal((await y.merge({ branch: m.branch })).status, "merged");
+  const ri = y.reviews[0]!.input as string;
+  assert.ok(bytes(ri) <= cap, `${bytes(ri)} > ${cap}`);
+  assert.ok(ri.includes("diff --git a/src/auth/a.ts") && ri.includes("… cut: the rest of src/auth/a.ts is not shown"), ri.slice(-300));
+  assert.equal(y.reviews[0]!.overCap, true);
+});
+
+test("SIZE-8 never the diff budget's refusal", async () => {
+  // 300 changed lines (large, not over) in scattered hunks: the diff exceeds the review's line budget → over-cap, not an error
+  const x = nodeRig();
+  x.r.commit("src/long.ts", lines(3000, "l"));
+  const n = await x.node({ slug: "spread", estimate: { kind: "code", lines: 100 } });
+  const body = lines(3000, "l").split("\n").map((l, i) => (i % 20 === 0 && i < 3000 ? `${l} // changed` : l)).join("\n");
+  writeFileSync(join(n.worktree, "src", "long.ts"), body);
+  x.r.git(["commit", "-q", "-am", "spread"], n.worktree);
+  const r = await x.merge({ branch: n.branch });
+  assert.equal(r.status, "merged", r.detail);
+  assert.equal(x.reviews[0]!.overCap, true);
+  // a diff within the budget: the plain review, no overCap
+  const small = await x.node({ slug: "small", estimate: { kind: "code", lines: 10 } });
+  x.r.commit("src/s.ts", lines(20, "s"), "small", small.worktree);
+  assert.equal((await x.merge({ branch: small.branch })).status, "merged");
+  assert.equal(x.reviews[1]!.overCap, undefined);
+  assert.ok((x.reviews[1]!.input as string).includes("diff --git a/src/s.ts"));
+});

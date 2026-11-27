@@ -77,8 +77,9 @@ export type RunResult<T> = { ok: true; value: T; reviewId: string; member: strin
 /** LD14 (review F5): `cwd` is the child session's (default `base()`, the main checkout), never inside `worktree`, the tree under
  *  review, which the brief names by its absolute path: pi loads AGENTS.md and project settings from the cwd, and a branch must
  *  not write its reviewer's instructions. */
+/** `overCap`: the local-first gate's over-cap review (SIZE-8), on its review lines. */
 export type RunArgs<T> = { role: Role; input: string; cwd?: string; worktree?: string; submit: SubmitSpec<T>; commit?: string; branch?: string;
-  signal?: AbortSignal };
+  signal?: AbortSignal; overCap?: boolean };
 export type OverseerDeps = {
   api(): SubagentsApiV1 | undefined; settings: RouterSettings; tickets: Tickets;
   /** The router's own spawn policy is registered (review F1): without it a ticket reaches no one, so nothing is spawned. */
@@ -312,7 +313,7 @@ export function createOverseer(d: OverseerDeps) {
         d.log.review({ reviewId, role: r.role, member: p.member, model, attempt: no, durationMs: d.now() - t0, fallback: p.fallback,
           outcome: o.kind === "ok" ? (v && !approve(v.findings) ? "revise" : "approve") : o.kind === "aborted" || o.kind === "unrouted" ? "error" : o.kind,
           ...(v && { findings: v.findings.length, blocking: v.findings.filter((f) => f.blocking).length, ...(inconsistent(v) && { inconsistent: true }) }),
-          commit: r.commit, branch: r.branch });
+          commit: r.commit, branch: r.branch, ...(r.overCap && { overCap: true }) });
         if (o.kind === "aborted") return { ok: false, outcome: "aborted" };
         if (o.kind === "unrouted") return { ok: false, outcome: "error" }; // a second attempt would meet the same policy
         if (o.kind !== "ok") { last = o.kind; if (o.kind === "error" && o.why) whys.push(o.why); continue; }

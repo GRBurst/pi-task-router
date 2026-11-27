@@ -22,6 +22,7 @@ import { mergedUnits, type PlanStore } from "./plans.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { contractOf, nodeLine, nodeOf, nodeOfBranch, openChildren, parentOf, refFormatOk, type Node, type Tree } from "./tree.ts";
 import { isSplitFile } from "./split.ts";
+import { cutBytes, fileHunks, overCapInput } from "./overcap.ts";
 
 export const REASONS = ["main-branch", "dirty", "behind", "fixer-running", "abandoned", "blocked", "size", "scope",
   "check", "main-dirty", "plan-changed", "no-worktree", "review-unavailable", "aborted", "git"] as const;
@@ -101,10 +102,12 @@ export type ReviewFacts = { goal?: string; summary?: string; checks: CheckRun[];
   stat: Stat; base: string; commit: string; diff: string; maxLines: number };
 const none = (x: string | undefined): string => (x === undefined || x.trim() === "" ? "none" : x);
 /** What the merge overseer reads (S27): the router renders it; no file bodies beyond the diff. */
+const checkLines = (checks: readonly CheckRun[]): string[] =>
+  checks.length ? checks.flatMap((c) => [`Check: \`${c.cmd}\` exit ${c.exit}`, ...(c.output ? [c.output] : [])]) : ["Check: none"];
 export const reviewInput = (x: ReviewFacts): string => [
   `Goal: ${none(x.goal)}`,
   `Summary from the author: ${none(x.summary)}`,
-  ...(x.checks.length ? x.checks.flatMap((c) => [`Check: \`${c.cmd}\` exit ${c.exit}`, ...(c.output ? [c.output] : [])]) : ["Check: none"]),
+  ...checkLines(x.checks),
   `Red run at base: ${RED_TEXT[x.red]}`,
   `Risky paths: ${x.risky.length ? x.risky.map(quotePath).join(", ") : "none"}`,
   `Invariants: ${none(x.invariants)}`,
@@ -113,6 +116,14 @@ export const reviewInput = (x: ReviewFacts): string => [
   `Diff ${x.base}..${x.commit} (≤ ${x.maxLines} lines):`,
   ...(x.diff ? [x.diff] : []),
 ].join("\n");
+/** SIZE-8: the over-cap input (local-first): the facts without the diff, then the numstat, the checks and the riskiest hunks
+ *  (`overCapInput`), within `bytes` in all. */
+export const overCapReview = (x: Omit<ReviewFacts, "maxLines">, bytes: number, risk: (path: string) => boolean): string => {
+  const head = [`Goal: ${none(x.goal)}`, `Summary from the author: ${none(x.summary)}`, `Red run at base: ${RED_TEXT[x.red]}`,
+    `Risky paths: ${x.risky.length ? x.risky.map(quotePath).join(", ") : "none"}`, `Invariants: ${none(x.invariants)}`].join("\n");
+  const room = bytes - new TextEncoder().encode(head).length - 1;
+  return cutBytes(`${head}\n${overCapInput(x.stat, fileHunks(x.diff, x.stat), checkLines(x.checks).join("\n"), Math.max(0, room), risk)}`, bytes);
+};
 /** The review's diff budget in lines (review F9): never below what the size gate lets through. With git's default 3 context
  *  lines a changed line adds at most a hunk header and 6 context lines, and a file at most 8 header lines (diff --git, two
  *  mode lines, index, ---, +++, two "\ No newline"). A diff past it is not cut: the review fails closed. */
@@ -172,7 +183,7 @@ export type MergePorts = {
   /** The approved plans while plans are active (L7); absent: a branch is merged as one without a plan. */
   plans?: PlanStore;
   /** The work tree (local-first, TREE-7): a node merges into its parent node's branch; absent: every branch into the main branch. */
-  nodes?: Pick<NodeDeps, "tree" | "log">;
+  nodes?: Pick<NodeDeps, "tree" | "log" | "strategy" | "arms">;
 };
 /** Where a merge goes (TREE-7 a): the parent node's branch and tip (`parent`), else the main branch. */
 export type Target = { name: string; sha: string; parent?: Node };
@@ -442,17 +453,22 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   if (reviewId === undefined) {
     // ── 8 review: the merge overseer in the main checkout, the worktree by its absolute path (LD14) ──
     const globs = riskGlobsOf(s), paths = st.map((f) => f.path), budget = diffBudget(g);
-    const diff = await git.diff(repo, target.sha, commit, budget); // TREE-7 c: the diff against the target
-    if (cutDiff(diff)) { // review F9: the review never approves hunks it did not see
+    // SIZE-8 (local-first): above `large`, or a diff longer than the budget, is an over-cap review of the whole diff's riskiest hunks
+    let overCap = lf && p.nodes!.strategy.tierOfLines(z.lines) === "over";
+    let diff = overCap ? "" : await git.diff(repo, target.sha, commit, budget); // TREE-7 c: the diff against the target
+    if (lf && cutDiff(diff)) overCap = true;
+    if (overCap) diff = await git.diff(repo, target.sha, commit, Number.MAX_SAFE_INTEGER);
+    if (!overCap && cutDiff(diff)) { // review F9: the review never approves hunks it did not see
       return done("error", "review-unavailable", `${reasonText("review-unavailable", {})}: the diff ${target.name}..${commit.slice(0, 7)} is longer than the review's ${budget} lines`, commit);
     }
     if (diff === "" && st.length > 0) return gitError(`cannot read the diff ${target.name}..${commit}`, commit);
     const goal = bound ? (bound.tasks.length === 1 && bound.tasks[0]!.id === bound.id ? bound.tasks[0]!.goal : bound.milestone.goal) : rec?.goal;
     const invariants = bound ? [...bound.sk.invariants, ...bound.tasks.flatMap((x) => x.forbidden.map((f) => `${x.id} forbidden: ${f}`))].join("; ") : undefined;
-    const text = reviewInput({ goal, summary: input.summary, invariants, checks, red, risky: paths.filter((f) => globs.some((x) => globMatch(x, f))),
-      stat: st, base: target.sha, commit, diff, maxLines: budget });
+    const risk = (f: string): boolean => globs.some((x) => globMatch(x, f));
+    const facts = { goal, summary: input.summary, invariants, checks, red, risky: paths.filter(risk), stat: st, base: target.sha, commit, diff };
+    const text = overCap ? overCapReview(facts, s.localFirst.overCapBytes, risk) : reviewInput({ ...facts, maxLines: budget });
     const out = await p.overseer.run({ role: "merge", input: text, cwd: p.branches.facts.mainCheckout.get(repo) ?? repo, worktree: wt.dir,
-      submit: verdictSubmit(new Set(paths)), commit, branch, signal: p.signal });
+      submit: verdictSubmit(new Set(paths)), commit, branch, signal: p.signal, ...(overCap && { overCap }) });
     if (!out.ok) {
       const r: MergeReason = out.outcome === "aborted" ? "aborted" : "review-unavailable";
       return done("error", r, out.why ? `${reasonText(r, {})}: ${out.why}` : reasonText(r, {}), commit); // a cap or a full member (L4 note)

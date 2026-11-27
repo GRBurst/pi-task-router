@@ -252,7 +252,7 @@ factors with `enabled` by settings.
 | `lf-tiers-git` | untracked files not counted | SIZE-2 | [x] |
 | `lf-start-refusal` | inert estimates refused | SIZE-4 | [x] |
 | `lf-size-hints` | the guard returns `{block: true}` at 100 % | SIZE-5 | [x] |
-| `lf-overcap` | the riskiest hunk exceeds `overCapBytes` | SIZE-8 | [ ] |
+| `lf-overcap` | the riskiest hunk exceeds `overCapBytes` | SIZE-8 | [x] |
 | `lf-classify` / `lf-classify-git` | the policy read from the branch tip | CLS-2 | [x] |
 | `lf-reviewer` | `min` instead of `max` strength | REV-1 property | [x] |
 | `lf-reviewer-gate` | the advisory verdict blocks | REV-4 | [ ] |
@@ -918,10 +918,16 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   nodeless branch keeps the legacy gate. The property runs 11 sizes (5 edges, 6 seeded) on a real repository; `test/node-rig.ts`
   holds the node rig (moved from `lf-merge-target`).
 
-#### LF5.T10 Over-cap review input (SIZE-8 b) `[ ] todo`
+#### LF5.T10 Over-cap review input (SIZE-8 b) `[x] done`
 - Files: `core/local/overcap.ts` (new), `core/local/merge.ts`; test `lf-overcap` "SIZE-8".
 - RED: a 900-line diff → review input = numstat + check output + hunks of the riskiest files (riskGlobs first, then by changed lines) with total ≤ `overCapBytes`; `review.overCap = true`; never the fail-closed `diffBudget` refusal (`merge.ts:117`) in local-first.
 - GREEN: `overCapInput(stat, hunks, checkOut, bytes, risk)`.
+- decision (lf56): over-cap = the actual tier `over` (`strategy.tierOfLines` of the gate's lines) or, in local-first, a diff the
+  review's line budget would cut (a `large` diff of scattered hunks); the whole diff is then read and split per file (`fileHunks`).
+  Whole file parts in risk order while they fit (a part that does not fit is skipped, smaller ones may follow); the riskiest part
+  alone above the budget is shown cut, marked `… cut: the rest of <path> is not shown`; the input (goal, summary, red run, risky
+  paths, invariants, then numstat, checks, hunks) is cut to `overCapBytes` in all. `RunArgs.overCap` → the review line's `overCap`
+  (KEYS += `overCap`; LF6.T7 adds the other review fields).
 
 #### LF5.T11 Budgets at the start (SIZE-9) `[ ] todo`
 - Files: `core/prompt.ts`, `core/local/package.ts`; test `lf-prompt` "SIZE-9".
