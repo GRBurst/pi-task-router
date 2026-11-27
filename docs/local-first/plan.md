@@ -255,7 +255,7 @@ factors with `enabled` by settings.
 | `lf-overcap` | the riskiest hunk exceeds `overCapBytes` | SIZE-8 | [x] |
 | `lf-classify` / `lf-classify-git` | the policy read from the branch tip | CLS-2 | [x] |
 | `lf-reviewer` | `min` instead of `max` strength | REV-1 property | [x] |
-| `lf-reviewer-gate` | the advisory verdict blocks | REV-4 | [ ] |
+| `lf-reviewer-gate` | the advisory verdict blocks | REV-4 | [x] |
 | `lf-contacts` / `-shell` | the counter not persisted | CON-2 after resume | [ ] |
 | `lf-ladder` | split offered after a child merged | TREE-10 | [ ] |
 | `lf-breakers` | diff-apply counts non-consecutive failures | CON-5 | [ ] |
@@ -1031,9 +1031,11 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   review's arms are the session's (`arms()`) until a per-review draw exists. Obligations 2 and 6 are `validateLocal` rules
   (`lf-settings` "gate paths and tiers"). A `none` choice (inert) runs the legacy pick until LF6.T11.
 
-#### LF6.T9 Advisory reviews (REV-4) `[ ] todo`
+#### LF6.T9 Advisory reviews (REV-4) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-reviewer-gate` "REV-4".
 - RED: inert-like + haiku `revise` → merged; `review.binding = false`.
+- decision (lf56): an advisory approval is recorded like a binding one (its review id on the merge, the approval key reused on
+  a repeated request); a binding reviewer's revise keeps the legacy path (the test pins a small code change → Sonnet `revise`).
 
 #### LF6.T10 Elevated: Opus + orthogonal check (REV-3) `[ ] todo`
 - Files: `core/local/merge.ts`; test `lf-reviewer-gate` "REV-3".

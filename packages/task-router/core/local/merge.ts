@@ -502,7 +502,8 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
       const r: MergeReason = out.outcome === "aborted" ? "aborted" : "review-unavailable";
       return done("error", r, out.why ? `${reasonText(r, {})}: ${out.why}` : reasonText(r, {}), commit); // a cap or a full member (L4 note)
     }
-    if (!approve(out.value.findings)) {
+    // REV-4 (LF6.T9): an advisory reviewer's verdict is logged (`binding: false`) and never blocks
+    if (!approve(out.value.findings) && (choice?.binding ?? true)) {
       // Review F8: a branch without a record (D40) gets a hand-made one, which holds its counts and is never active.
       const now = p.branches.get(repo, branch) ?? { repo, branch, worktree: wt.dir, base: target.sha, state: "active" as const, rejections: 0, fixerRuns: 0, handmade: true as const };
       const rej: BranchRecord = { ...now, rejections: now.rejections + 1 }, findings = out.value.findings.map(findingLine);

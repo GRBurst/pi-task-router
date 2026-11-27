@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { nodeRig } from "./node-rig.ts";
+import { REVISE } from "./merge-rig.ts";
 import { rig as overseerRig, VALID } from "./overseer-rig.ts";
 import type { PolicyGit } from "../core/local/policyfile.ts";
 
@@ -90,4 +91,23 @@ test("REV-1 policy errors fail closed", async () => {
     assert.deepEqual([x.reviews[0]!.line!.class, x.reviews[0]!.line!.classBy, x.reviews[0]!.choice!.reviewer], ["elevated", ["error"], "opus"], name);
     assert.deepEqual([x.lines.at(-1)!.class, x.lines.at(-1)!.classBy], ["elevated", ["error"]], name);
   }
+});
+
+test("REV-4", async () => {
+  // inert-like (docs only, no extra check: class standard) and small → Haiku, advisory: its revise is logged, never blocks
+  const x = await gate();
+  x.put({ "docs/guide.md": 5 });
+  x.verdicts.push(REVISE);
+  const r = await x.mergeIt();
+  assert.equal(r.status, "merged", r.detail);
+  assert.equal(r.reviewId, "rv-1");
+  assert.deepEqual(x.reviews[0]!.choice, { reviewer: "haiku", binding: false, fresh: true, orthogonal: false, stratum: "inert-like" });
+  assert.deepEqual([x.reviews[0]!.line!.reviewer, x.reviews[0]!.line!.binding], ["haiku", false]);
+  // a binding reviewer's revise still blocks: a small code change → Sonnet
+  const y = await gate();
+  y.put({ "src/a.ts": 5 });
+  y.verdicts.push(REVISE);
+  const b = await y.mergeIt();
+  assert.equal(b.status, "revise", b.detail);
+  assert.deepEqual([y.reviews[0]!.choice!.reviewer, y.reviews[0]!.choice!.binding], ["sonnet", true]);
 });
