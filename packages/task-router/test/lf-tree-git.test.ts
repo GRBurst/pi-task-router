@@ -42,6 +42,8 @@ test("TREE-1 refusals", async () => {
   assert.equal(await reason(LOGIN), "unknown node auth");
   await s.start(ROOT);
   await s.start(LOGIN);
+  // review m2: a node whose branch git refuses (`lm/auth.lock`) is refused before git
+  assert.equal(await reason({ ...LOGIN, slug: "lock" }), "the branch lm/auth.lock is not a valid git branch name (git check-ref-format)");
   assert.equal(await reason({ ...LOGIN, parent: "auth.login", slug: "form" }), "node auth.login is at depth 1: maxDepth 1 allows no node below it");
   assert.deepEqual([s.ops().length, s.nodes().length], [2, 2], "a refusal adds nothing");
 });

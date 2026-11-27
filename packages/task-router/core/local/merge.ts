@@ -20,7 +20,7 @@ import { errorReply } from "./branchtool.ts";
 import { type Milestone, parsePlan, planBudget, type PlanRecord, type Skeleton, skeletonHash, type Task, tickOnly } from "./plan.ts";
 import { mergedUnits, type PlanStore } from "./plans.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
-import { contractOf, nodeLine, nodeOf, nodeOfBranch, openChildren, parentOf, type Node, type Tree } from "./tree.ts";
+import { contractOf, nodeLine, nodeOf, nodeOfBranch, openChildren, parentOf, refFormatOk, type Node, type Tree } from "./tree.ts";
 import { isSplitFile } from "./split.ts";
 
 export const REASONS = ["main-branch", "dirty", "behind", "fixer-running", "abandoned", "blocked", "size", "scope",
@@ -228,12 +228,9 @@ export async function redRun(p: MergePorts, repo: string, base: string, check: s
   }
 }
 
-/** `name` passes `git check-ref-format --branch` (its rules, without git): the merge line logs only a branch name, never the
- *  model's free text (review F10, AC-L2). */
-export const branchName = (name: string): boolean =>
-  name !== "" && name !== "@" && name.length <= 256 && !name.startsWith("-") && !name.startsWith("/") && !name.endsWith("/") &&
-  !name.endsWith(".") && !/[\x00-\x20\x7f~^:?*[\\]|\.\.|@\{|\/\//.test(name) &&
-  name.split("/").every((c) => !c.startsWith(".") && !c.endsWith(".lock"));
+/** `name` passes `git check-ref-format --branch` (`refFormatOk`): the merge line logs only a branch name, never the model's
+ *  free text (review F10, AC-L2). */
+export const branchName = refFormatOk;
 
 /** `request_merge` (design §3.4.2). Total: an unexpected exception is a `git` error, and nothing after it runs. */
 export async function requestMerge(p: MergePorts, input: Input, cwd: string): Promise<MergeResult> {

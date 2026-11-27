@@ -139,7 +139,9 @@ child's session is done there, anything larger is split first.
   `node` it splits the root of the active node (the top-level plan). A plan has
   1 to `localFirst.tree.maxChildren` children, each `{slug, goal, files (1–30
   globs), estimate, check, forbidden?}` (`forbidden`: globs the package must
-  not touch). The router validates it, commits it as canonical JSON at
+  not touch). The router validates it (a slug whose node branch git refuses,
+  such as `lock` for `<node>.lock`, is refused; `start_branch` refuses such a
+  branch name too), commits it as canonical JSON at
   `<plans.dir>/split/<node>.json` on the node's branch (never on the main
   branch) and marks the node `split`. These split files are the router's
   own: they never count as a scope violation. `start_branch({parent, child:

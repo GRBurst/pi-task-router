@@ -26,6 +26,12 @@ export type TreeOp =
 export type Tree = { readonly nodes: Readonly<Record<string, Node>> };
 export const EMPTY_TREE: Tree = { nodes: {} };
 
+/** `name` passes `git check-ref-format --branch` (its rules, without git; test/merge-log.test.ts compares them with git). A
+ *  node's branch must (review m2: the child `lock` of `auth` would be `lm/auth.lock`, a name git refuses). */
+export const refFormatOk = (name: string): boolean =>
+  name !== "" && name !== "@" && name.length <= 256 && !name.startsWith("-") && !name.startsWith("/") && !name.endsWith("/") &&
+  !name.endsWith(".") && !/[\x00-\x20\x7f~^:?*[\\]|\.\.|@\{|\/\//.test(name) &&
+  name.split("/").every((c) => !c.startsWith(".") && !c.endsWith(".lock"));
 /** The slug of a child node within its parent's split (the request node: its id). */
 export const slugOf = (n: Pick<Node, "id" | "parent">): string => (n.parent === undefined ? n.id : n.id.slice(n.parent.length + 1));
 const put = (t: Tree, ...ns: Node[]): Tree => ({ nodes: { ...t.nodes, ...Object.fromEntries(ns.map((n) => [n.id, n])) } });

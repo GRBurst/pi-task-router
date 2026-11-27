@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Result } from "../types.ts";
 import type { Git } from "./git.ts";
-import type { Caps, Node, SplitChild, SplitPlan } from "./tree.ts";
+import { type Caps, type Node, refFormatOk, type SplitChild, type SplitPlan } from "./tree.ts";
 /** spec §2.3 (the same pattern as `start_branch`'s slug; kept here so that worktree.ts may import this file). */
 const SLUG = /^[a-z0-9-]{1,40}$/;
 
@@ -31,7 +31,12 @@ export function validateSplit(plan: unknown, node: Node | undefined, caps: Caps)
     if (!isObj(c)) { out.push(`${at}: must be {slug, goal, files, estimate, check, forbidden?}`); return; }
     if (typeof c.slug !== "string" || !SLUG.test(c.slug)) out.push(`${at}.slug: must match ${SLUG.source}`);
     else if (seen.has(c.slug)) out.push(`${at}.slug: duplicate ${c.slug}`);
-    else seen.add(c.slug);
+    else {
+      seen.add(c.slug);
+      // review m2: the child's branch `<node's branch>.<slug>` must be one git accepts (`lock` would end it in `.lock`)
+      const b = node && `${node.branch}.${c.slug}`;
+      if (b !== undefined && !refFormatOk(b)) out.push(`${at}.slug: ${c.slug} makes the branch ${b}, which git refuses (check-ref-format)`);
+    }
     if (!text(c.goal)) out.push(`${at}.goal: must be 1 to ${MAX_TEXT} characters`);
     if (!Array.isArray(c.files) || c.files.length < 1 || c.files.length > MAX_FILES) out.push(`${at}.files: 1 to ${MAX_FILES} paths`);
     else for (const f of c.files) if (!relativePath(f)) out.push(`${at}.files: ${String(f)} must be relative, without ..`);

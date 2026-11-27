@@ -8,6 +8,7 @@ import type { Git, Wt } from "./git.ts";
 import { guardGit } from "./gitcmd.ts";
 import { parsePlan, type Skeleton, skeletonHash } from "./plan.ts";
 import { mergedUnits, otherSession, type PlanStore } from "./plans.ts";
+import { refFormatOk } from "./tree.ts";
 
 export const SLUG = /^[a-z0-9-]{1,40}$/;
 /** `<prefix><slug>`, or `<prefix><plan>/<id>` for a unit of a plan (design §3.3.1). */
@@ -140,6 +141,8 @@ export async function startBranch(d: StartDeps, input: unknown, cwd: string,
       check: at?.unit?.check ?? (i.check as string) } };
   if (!u.ok) return u;
   const { branch, goal, check, files } = u.value;
+  // review m2: a name git refuses (a node `auth.lock`, a prefix) fails here, before any git write
+  if (!refFormatOk(branch)) return fail(`the branch ${branch} is not a valid git branch name (git check-ref-format)`);
   const known = d.store.get(repo, branch);
   const there = wts.find((w) => w.branch === branch && !w.prunable); // a prunable one has lost its directory
   const existed = (await d.git.sha(repo, branch)) !== undefined;

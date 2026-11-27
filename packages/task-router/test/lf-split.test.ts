@@ -33,6 +33,13 @@ test("TREE-4 slugs", () => {
   only(plan({ children: [kid("Bad_Slug")] }), root(), /^children\[0\]\.slug: must match/);
   only(plan({ children: [kid("a"), kid("a")] }), root(), /^children\[1\]\.slug: duplicate a/);
 });
+test("TREE-4 slugs make valid branch names (review m2)", () => {
+  // `<node>.lock` ends a ref component in .lock: git check-ref-format refuses it, so that child could never start
+  only(plan({ children: [kid("a"), kid("lock")] }), root(), /^children\[1\]\.slug: lock makes the branch lm\/req\.lock, which git refuses/);
+  // the node's own branch name rules apply too (a prefix git refuses)
+  only(plan({ children: [kid("a")] }), root({ branch: "lm/.req" }), /^children\[0\]\.slug: a makes the branch lm\/\.req\.a, which git refuses/);
+  assert.deepEqual(validateSplit(plan({ children: [kid("locks"), kid("lock-x")] }), root(), CAPS), []);
+});
 test("TREE-4 goal", () => only(plan({ children: [kid("a", { goal: "g".repeat(401) })] }), root(), /^children\[0\]\.goal: /));
 test("TREE-4 files", () => {
   only(plan({ children: [kid("a", { files: [] })] }), root(), /^children\[0\]\.files: 1 to 30/);
