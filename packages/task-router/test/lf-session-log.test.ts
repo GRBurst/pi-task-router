@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { card, harness } from "./harness.ts";
 
 const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+const E0_ALL = { experiments: { cloudOnlyShare: 1 } };
 const CTX = { sessionManager: { getSessionId: () => "s-main" }, model: { provider: "anthropic", id: "claude-opus-5-5" } };
 
 const sessions = (settings: Record<string, unknown>, apiExt = false) => {
@@ -23,12 +24,35 @@ test("MEAS-1", () => {
   // cloud-first: only while E0 runs (D64's default share 0.1)
   assert.deepEqual(sessions({ experiments: { cloudOnlyShare: 0 } }), []);
   // with E0's arm, drawn from the registry (LF2.T7)
-  assert.deepEqual(sessions({ experiments: { cloudOnlyShare: 0.1 } }), [{ ...want("cloud-first")[0], arms: ["E0=as-used"] }]);
+  assert.deepEqual(sessions({ experiments: { cloudOnlyShare: 0.1 } }), [{ ...want("cloud-first")[0], cloudOnlyShare: 0.1, arms: ["E0=as-used"] }]);
+});
+
+// R3A.T1 (owner B5): the session line names the share its E0 draw used, so a later change of the share shows in the data.
+test("MEAS-3", () => {
+  for (const share of [0.1, 0.5, 1]) {
+    const [line] = sessions({ experiments: { cloudOnlyShare: share } });
+    assert.equal(line!.cloudOnlyShare, share, `share ${share}`);
+  }
+  // a resume under another share: the snapshot's share, the one the draw used, not the settings'
+  const first = harness({ settings: { experiments: { cloudOnlyShare: 0.5 } } as never });
+  first.f.fire("session_start", { reason: "startup" }, CTX);
+  const again = harness({ settings: { experiments: { cloudOnlyShare: 0.2 } } as never });
+  again.f.entries.push(...first.f.entries);
+  again.f.fire("session_start", { reason: "resume" }, { ...CTX, sessionManager: { getSessionId: () => "s-main",
+    getBranch: () => again.f.entries.map((e) => ({ type: "custom", customType: e.type, data: e.data })) } });
+  assert.deepEqual(again.lines().filter((l) => l.event === "session").map((l) => l.cloudOnlyShare), [0.5]);
+  // outside E0 the key is absent: the legacy local mode, routing off, a table without an enabled cloud member
+  const off = { models: { haiku: { model: "" }, sonnet: { model: "" }, opus: { model: "" } } };
+  for (const [name, settings, apiExt] of [["local mode", { mode: "local" }, true], ["routing off", { ...E0_ALL, routing: false }, false],
+    ["no cloud member", { ...E0_ALL, ...off }, false]] as const) {
+    const lines = sessions(settings, apiExt);
+    assert.equal(lines.length, 1, name);
+    assert.equal("cloudOnlyShare" in lines[0]!, false, name);
+  }
 });
 
 // ---- LF1 review: who writes a session line, and when ----
 const ctxOf = (id: string) => ({ sessionManager: { getSessionId: () => id }, model: { provider: "anthropic", id: "claude-opus-5-5" } });
-const E0_ALL = { experiments: { cloudOnlyShare: 1 } };
 
 test("MEAS-1 child: a child session that loads the router writes no line and draws nothing", async () => {
   const h = harness({ settings: E0_ALL as never });

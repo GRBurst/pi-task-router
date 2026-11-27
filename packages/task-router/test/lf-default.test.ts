@@ -70,7 +70,7 @@ test("NR-2 the session line is the only new line, at the real default share", as
   const version: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
   // draw("task-router", "E0", "s-main") ≈ 0.09 < 0.9: the session is drawn as-used, so every spawn is placed as before
   const session = { v: 2, ts: "2026-10-02T12:00:00.000Z", event: "session", taskId: "s-main", profile: "cloud-first",
-    mainModel: "anthropic/claude-opus-5-5", startSet: false, localMembers: "on", routerVersion: version, arms: ["E0=as-used"] }; // E0's arm (LF2.T7)
+    mainModel: "anthropic/claude-opus-5-5", startSet: false, localMembers: "on", cloudOnlyShare: share, routerVersion: version, arms: ["E0=as-used"] }; // E0's arm (LF2.T7), its share (R3A.T1)
   assert.deepEqual(await v1Session(share), [session, ...fixture().map((l) => ({ ...now(l), v: 2 }))]);
 });
 

@@ -293,7 +293,7 @@ factors with `enabled` by settings.
 | `lf-outcome` ENUMS_V2 | a builder writes `kind: "other"` | the `∈ ENUMS_V2` assertion | [x] |
 | `lf-arms-shell` stage n (LF14–LF18) | a factor drawn without its `enabled` setting | the "without the settings → no arm" case | [ ] |
 | module-eval `localMode.enable` (LF19.T7a) | the option still sets `mode = "local"` | the expected HM-1 b list | [ ] |
-| `lf-session-log` MEAS-3 (R3A.T1) | the shell writes the settings' share instead of the snapshot's | the resume case | [ ] |
+| `lf-session-log` MEAS-3 (R3A.T1) | the shell writes the settings' share instead of the snapshot's | the resume case | [x] |
 | `lf-split` TREE-15 (R3A.T2) | `splitNow` passes no contract | the `src/other.ts` refusal | [ ] |
 | `lf-e0` MEAS-4 (R3A.T3) | the cloud-only arm's logging plan shares the real plan's `attempts` | the attempt-state case | [ ] |
 
@@ -1153,7 +1153,7 @@ they ride on release R3 (0.5.0). Only T2 changes routing behaviour (a refusal at
 fields, so no schema bump (§2.4), and the new keys only grow the consumer contract (LOG-4; PE-3 reads them). Factors stay OFF.
 Keep green: KG-R; KG-S for the docs.
 
-#### R3A.T1 `cloudOnlyShare` on the `session` line (B5; spec §2.4, MEAS-3) `[ ] todo`
+#### R3A.T1 `cloudOnlyShare` on the `session` line (B5; spec §2.4, MEAS-3) `[x] done`
 - Files: `core/outcome.ts` (`KEYS`, `SessionInput`, `sessionEvent`), `core/shell.ts` (the session line); tests `lf-session-log` "MEAS-1" (its cloud-first expectation grows the key) and "MEAS-3" (new), `lf-default` "NR-2 the session line…" (its expected line grows the key); `docs/outcome-log.md`.
 - Why: without the share on the line a change of `experiments.cloudOnlyShare` is invisible in the data (router 0.4.0 lines do not carry it).
 - RED: a cloud-first session that draws E0 (share 0.1, 0.5 or 1) writes `cloudOnlyShare` equal to the snapshot's share, a number; after a resume with another share the line carries the snapshot's (the draw's), not the settings'; no key on a session outside E0 (legacy local mode, routing off, no enabled cloud member; share 0 writes no line at all); fails first: the builder writes no such key.

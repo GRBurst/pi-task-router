@@ -34,6 +34,8 @@ const KEYS = [
   "trigger", "nTasks", "full",
   // outcome log v2 (local-first spec §2.4): the session line
   "profile", "mainModel", "startSet", "localMembers", "routerVersion",
+  // the session line, router 0.5.0 (R3A.T1): the share E0 drew with
+  "cloudOnlyShare",
   // the profile line (LF3.T4)
   "by",
   // outcome log v2: what a revert needs on a merge line (LOG-1); class, tier, actualTier, node from LF5/LF6
@@ -221,13 +223,14 @@ export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = 
 /** The `ENUMS_V2` keys whose field is a `string[]` (review lf56 M3): its values apply per item. Append-only, like `ENUMS_V2`. */
 export const ARRAY_FIELDS_V2: readonly string[] = ["review.classBy", "merge.classBy"];
 export type SessionInput = { now: Date; sessionId: string; profile: (typeof PROFILES)[number]; mainModel: string; startSet: boolean;
-  localMembers?: (typeof LOCAL_MEMBERS)[number]; routerVersion: string };
+  localMembers?: (typeof LOCAL_MEMBERS)[number]; cloudOnlyShare?: number; routerVersion: string };
 /** A session's start (MEAS-1): `taskId` is the session id; the profile, the main's model, whether a start set was
  *  configured, the router's version; `localMembers` (E0's arm): `off` = the router routed no spawn of the session to a local
- *  member (forced spawns excluded), `on` = it may; absent = the session is outside E0 (routing off, or no cloud member). */
+ *  member (forced spawns excluded), `on` = it may; absent = the session is outside E0 (routing off, or no cloud member);
+ *  `cloudOnlyShare` (R3A.T1): the snapshot's share, written while E0 is drawn. */
 export const sessionEvent = (i: SessionInput) =>
   finish({ ...base("session", i.now, i.sessionId), profile: i.profile, mainModel: i.mainModel, startSet: i.startSet,
-    localMembers: i.localMembers, routerVersion: i.routerVersion });
+    localMembers: i.localMembers, cloudOnlyShare: i.cloudOnlyShare, routerVersion: i.routerVersion });
 
 export type ProfileInput = { now: Date; sessionId: string; from: (typeof PROFILES)[number]; to: (typeof ROUTING_PROFILES)[number];
   by: (typeof PROFILE_BY)[number] };

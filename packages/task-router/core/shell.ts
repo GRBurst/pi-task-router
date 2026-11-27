@@ -311,7 +311,8 @@ export function install(pi: PiLike, deps: Deps) {
       const eligible = settings.routing && active && enabled(settings.models).some((m) => m.route !== "local");
       if (p === "cloud-first" && eligible) { e0 = assign(x, "E0", sid) as E0Level; e0drawn = true; }
       const line = (startSet: boolean): void => append({ ...sessionEvent({ now: now(), sessionId: sid, profile: p, mainModel: main ?? "", startSet,
-        ...(p === "local-mode" || (p === "cloud-first" && eligible) ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}), routerVersion: ROUTER_VERSION }),
+        ...(p === "local-mode" || (p === "cloud-first" && eligible) ? { localMembers: e0 === "cloud-only" ? "off" as const : "on" as const } : {}),
+        ...(e0drawn ? { cloudOnlyShare: x.cloudOnlyShare } : {}), routerVersion: ROUTER_VERSION }),
         ...(armed() || sessionArms().length ? { arms: sessionArms() } : {}) });
       // The line waits for the start model: its main model and `startSet` are the session's start.
       if (start && "model" in start) pending = setStart(start, ctx).then(line);
