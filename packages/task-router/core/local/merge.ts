@@ -25,7 +25,7 @@ import { mergedUnits, type PlanStore } from "./plans.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { contractOf, nodeLine, nodeOf, nodeOfBranch, openChildren, parentOf, refFormatOk, type Node, type Tree } from "./tree.ts";
 import { isSplitFile } from "./split.ts";
-import { withoutSplits } from "./size.ts";
+import { linesOf, withoutSplits } from "./size.ts";
 import { cutBytes, fileHunks, overCapInput } from "./overcap.ts";
 
 export const REASONS = ["main-branch", "dirty", "behind", "fixer-running", "abandoned", "blocked", "size", "scope",
@@ -512,8 +512,12 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   // REV-10 (LF6.T11): an inert change (every file inert, a configured extra check passed) merges without a review
   if (reviewId === undefined && choice?.reviewer !== "none") {
     // ── 8 review: the merge overseer in the main checkout, the worktree by its absolute path (LD14) ──
-    const globs = riskGlobsOf(s), paths = st.map((f) => f.path), budget = diffBudget(g);
-    // SIZE-8 (local-first): above `large`, or a diff longer than the budget, is an over-cap review of the whole diff's riskiest hunks
+    // review lf56 m7: local-first budgets the diff from its own numstat (every file, the split files too), so it is never cut
+    // below `over`; the legacy gate from mergeGate.maxDiffLines/maxDiffFiles (what its size gate lets through)
+    const globs = riskGlobsOf(s), paths = st.map((f) => f.path);
+    const budget = diffBudget(lf ? { maxDiffLines: linesOf(st), maxDiffFiles: st.length } : g);
+    // SIZE-8 (local-first): above `large` is an over-cap review of the whole diff's riskiest hunks (a cut diff, which the
+    // numstat's budget should never give, too)
     let overCap = lf && p.nodes!.strategy.tierOfLines(z.lines) === "over";
     let diff = overCap ? "" : await git.diff(repo, target.sha, commit, budget); // TREE-7 c: the diff against the target
     if (lf && cutDiff(diff)) overCap = true;

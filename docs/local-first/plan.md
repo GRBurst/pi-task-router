@@ -938,6 +938,10 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   alone above the budget is shown cut, marked `… cut: the rest of <path> is not shown`; the input (goal, summary, red run, risky
   paths, invariants, then numstat, checks, hunks) is cut to `overCapBytes` in all. `RunArgs.overCap` → the review line's `overCap`
   (KEYS += `overCap`; LF6.T7 adds the other review fields).
+- decision (lf56-fix, review m7; supersedes the cut-diff half above): over-cap ⇔ the actual tier `over`. Local-first budgets
+  the review's diff from the numstat (`diffBudget({maxDiffLines: linesOf(st), maxDiffFiles: st.length})`, the split files
+  included), never from `mergeGate.maxDiffLines`, so a `large` diff of scattered hunks is reviewed whole; a cut diff still turns
+  over-cap as a backstop. Test `lf-overcap` "SIZE-8 never the diff budget's refusal".
 
 #### LF5.T11 Budgets at the start (SIZE-9) `[x] done`
 - Files: `core/prompt.ts`, `core/local/package.ts`; test `lf-prompt` "SIZE-9".

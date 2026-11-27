@@ -230,8 +230,9 @@ split files (`<plans.dir>/split/**`) never.
   that kind: a `plan` or `inert` estimate has no work stages); one with more than
   `maxChildren` children is refused.
 - *At the gate.* The local-first `request_merge` never refuses on size: the
-  reviewer follows the actual lines. A diff above `large`, or one longer than
-  the review's line budget, is an over-cap review: the reviewer reads the
+  reviewer follows the actual lines. The review's line budget follows the
+  diff's numstat, so a `large` diff is reviewed whole. A diff above `large` is
+  an over-cap review: the reviewer reads the
   numstat, the checks' output and the hunks of the riskiest files (risk rules
   first, then the most changed lines) within `localFirst.overCapBytes` (60000)
   bytes in all; the riskiest file is cut when it alone does not fit. Its

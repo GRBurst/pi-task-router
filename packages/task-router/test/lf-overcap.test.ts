@@ -74,7 +74,9 @@ test("SIZE-8", async () => {
 });
 
 test("SIZE-8 never the diff budget's refusal", async () => {
-  // 300 changed lines (large, not over) in scattered hunks: the diff exceeds the review's line budget → over-cap, not an error
+  // 300 changed lines (large, not over) in scattered hunks, a diff longer than the legacy budget (diffBudget of maxDiffLines):
+  // local-first budgets the diff from its numstat, so a large diff is a plain review of the whole diff (review lf56 m7: over-cap
+  // ⇔ actualTier over), never an error
   const x = nodeRig();
   x.r.commit("src/long.ts", lines(3000, "l"));
   const n = await x.node({ slug: "spread", estimate: { kind: "code", lines: 100 } });
@@ -83,7 +85,9 @@ test("SIZE-8 never the diff budget's refusal", async () => {
   x.r.git(["commit", "-q", "-am", "spread"], n.worktree);
   const r = await x.merge({ branch: n.branch });
   assert.equal(r.status, "merged", r.detail);
-  assert.equal(x.reviews[0]!.overCap, true);
+  assert.deepEqual([x.reviews[0]!.overCap, x.lines.at(-1)!.actualTier], [undefined, "large"]);
+  const whole = x.reviews[0]!.input as string;
+  assert.ok(whole.includes("+export const l2980 = 2980; // changed") && !/^… \d+ more lines$/m.test(whole), whole.slice(-300));
   // a diff within the budget: the plain review, no overCap
   const small = await x.node({ slug: "small", estimate: { kind: "code", lines: 10 } });
   x.r.commit("src/s.ts", lines(20, "s"), "small", small.worktree);
