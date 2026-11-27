@@ -472,6 +472,11 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     choice = lfs.reviewer({ cls: c.cls, actual: actualTier, inertLike: c.inertLike, review: arms });
     Object.assign(seen, { class: c.cls, classBy: c.why, tier, actualTier, node: self!.id });
     line = { class: c.cls, classBy: c.why, tier, actualTier, ...(choice.reviewer !== "none" && { reviewer: choice.reviewer }), binding: choice.binding };
+    // REV-3 (LF6.T10): elevated = Opus plus the orthogonal check passing, before any ticket: the red run, when it ran, shows the
+    // branch check is not vacuous, and a deterministic check ran besides the review (the red run or a configured extra check)
+    const vacuous = red === "passed" ? `the check passes at ${target.name} too (the red run): it may be vacuous`
+      : red === "skipped" && g.extraChecks.length === 0 ? "no red run and no mergeGate.extraChecks entry" : undefined;
+    if (choice.orthogonal && vacuous) return done("refused", "check", `an elevated change (${c.why.join(", ")}) needs an orthogonal check: ${vacuous}`, commit);
   }
   // ── 7 approval reuse: (repo, branch, commit, tree) ──
   const tree = await git.tree(repo, commit);

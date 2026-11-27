@@ -43,7 +43,8 @@ const lines = (n: number, tag: string): string => Array.from({ length: n }, (_, 
 test("SIZE-8", async () => {
   const cap = 6000, x = nodeRig({ localFirst: { overCapBytes: cap }, mergeGate: { extraChecks: ["echo check-output-marker"] } });
   // 900 lines: one risky file (riskGlobs `**/auth/**`), then three by size
-  const n = await x.node({ slug: "big", estimate: { kind: "code", lines: 100 } });
+  // (the risky file makes it elevated: the branch check is not vacuous, the orthogonal check of REV-3)
+  const n = await x.node({ slug: "big", check: "test -f src/auth/login.ts", estimate: { kind: "code", lines: 100 } });
   const files: Array<[string, number]> = [["src/auth/login.ts", 60], ["src/big.ts", 500], ["src/mid.ts", 240], ["src/small.ts", 100]];
   for (const [p, k] of files) { mkdirSync(dirname(join(n.worktree, p)), { recursive: true }); writeFileSync(join(n.worktree, p), lines(k, "v")); }
   x.r.git(["add", "-A"], n.worktree);
@@ -60,7 +61,7 @@ test("SIZE-8", async () => {
   assert.deepEqual(shown, ["src/auth/login.ts", "src/small.ts"], input);
   // the riskiest file's part alone above the cap: its head, cut, still within the cap
   const y = nodeRig({ localFirst: { overCapBytes: cap } });
-  const m = await y.node({ slug: "risky", estimate: { kind: "code", lines: 100 } });
+  const m = await y.node({ slug: "risky", check: "test -f src/auth/a.ts", estimate: { kind: "code", lines: 100 } });
   mkdirSync(join(m.worktree, "src", "auth"), { recursive: true });
   writeFileSync(join(m.worktree, "src", "auth", "a.ts"), lines(400, "w"));
   y.r.git(["add", "-A"], m.worktree);

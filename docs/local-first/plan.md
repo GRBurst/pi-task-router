@@ -1037,9 +1037,14 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - decision (lf56): an advisory approval is recorded like a binding one (its review id on the merge, the approval key reused on
   a repeated request); a binding reviewer's revise keeps the legacy path (the test pins a small code change → Sonnet `revise`).
 
-#### LF6.T10 Elevated: Opus + orthogonal check (REV-3) `[ ] todo`
+#### LF6.T10 Elevated: Opus + orthogonal check (REV-3) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-reviewer-gate` "REV-3".
 - RED: elevated with a red `extraChecks` entry and an Opus approve → refused `check`; both green → merged; no second LLM ticket.
+- decision (lf56): the extra checks already refuse before any ticket (step 5), so the new rule is the red run's: "the orthogonal
+  check (red run and `extraChecks`) passing" (REV-3) reads as both, where present, and at least one of them: an elevated change is
+  refused `check` before any ticket when the red run shows the branch check vacuous (`passed` at the target) or when neither a red
+  run nor a configured extra check ran. The detail names the class's proxies. Tests whose elevated changes had a vacuous `true`
+  check (`lf-overcap` SIZE-8, `lf-reviewer-gate` REV-1) now give a real one. Reversible; reported to the owner.
 
 #### LF6.T11 Inert merges (REV-10) `[ ] todo`
 - Files: `core/local/merge.ts`; test `lf-reviewer-gate` "REV-10".
