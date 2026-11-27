@@ -897,9 +897,13 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   respawned package child gets no stage twice); the hint is `sizeBlock` sent with `api.send(child, text, "router")`; `turn` is the
   child's turns, `call` the calls its tripwire guard saw (`childTrips.calls`, 0 without the guard). Only while `hints` is on.
 
-#### LF5.T8 Plan budgets (SIZE-10) `[ ] todo`
+#### LF5.T8 Plan budgets (SIZE-10) `[x] done`
 - Files: `core/local/split.ts`; test `lf-split` "SIZE-10".
 - RED: a split rendering to 151 lines (`planLines` 150) → accepted + one `crossing` (kind `plan`); 6 children → refused (TREE-2's reason).
+- decision (lf56): the crossing is logged by `splitNow` (`core/local/splittool.ts`, port `SplitDeps.crossing`; `split.ts` unchanged):
+  stage 100, `lines` = the rendered lines, `budget` = `planLines`, kind `plan`, class `standard` (a split file never counts toward
+  the class, D85), turn and call the main's (also for a child's `submit_split`); at exactly `planLines` none. The m7 check below
+  is not implemented (owner decision open).
 - Review LF4 m7 (recorded, needs the owner: S37 is silent): a package node's split (`submit_split`) is not checked against
   the node's own contract, so a child whose `files` leave the contract's, or that drops its `forbidden`, is accepted and its
   work is refused only at the node's merge (TREE-14). Proposed RED (`lf-split` "S37 contract"): a split of `auth.form`

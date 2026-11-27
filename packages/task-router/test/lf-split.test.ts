@@ -4,6 +4,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderSplit, validateSplit } from "../core/local/split.ts";
 import type { Node, SplitChild, SplitPlan } from "../core/local/tree.ts";
+import { planLinesOf } from "../core/local/splittool.ts";
+import { treeRig } from "./tree-rig.ts";
 
 const CAPS = { maxDepth: 3, maxChildren: 5, planLines: 150 };
 const kid = (slug: string, over: Partial<SplitChild> = {}): SplitChild =>
@@ -94,4 +96,34 @@ test("TREE-4 rendering is canonical and byte-stable", () => {
   const shuffled = JSON.parse(JSON.stringify({ children: [{ slug: "a", check: "npm test", forbidden: ["x/**"], goal: "add the parser",
     files: ["src/parse.ts", "test/parse.test.ts"], estimate: { lines: 80, kind: "code" }, extra: 1 }], summary: "parser, then the CLI" }));
   assert.equal(renderSplit("req", shuffled), text, "key order and unknown keys do not change the bytes");
+});
+
+/** A plan for `node` whose rendering has exactly `n` lines (one more file adds one line). */
+const sized = (node: string, n: number): SplitPlan => {
+  const p = plan({ children: ["a", "b", "c", "d", "e"].map((x) => kid(x, { files: [`src/${x}.ts`] })) });
+  for (let i = 0; planLinesOf(node, p) < n; i++) p.children[i % 5]!.files.push(`src/p${i}.ts`);
+  assert.equal(planLinesOf(node, p), n);
+  return p;
+};
+
+test("SIZE-10", async () => {
+  // above planLines: accepted, one crossing of kind plan against planLines
+  const s = treeRig();
+  await s.start({ slug: "req", goal: "the parser", check: "true", estimate: { lines: 0, kind: "plan" } });
+  const ok = await s.call("split", sized("req", 151) as never);
+  assert.equal(ok.isError, undefined, ok.content[0]!.text);
+  const c = s.h.lines().filter((l) => l.event === "crossing");
+  assert.deepEqual(c.map((l) => [l.node, l.stage, l.lines, l.budget, l.estimate, l.tier, l.class, l.depth, l.kind]),
+    [["req", 100, 151, 150, 0, "standard", "standard", 0, "plan"]]);
+  for (const f of ["turn", "call", "sinceStartMs"]) assert.equal(typeof c[0]![f], "number", f);
+  // at planLines: no crossing
+  const at = treeRig();
+  await at.start({ slug: "req", goal: "the parser", check: "true", estimate: { lines: 0, kind: "plan" } });
+  assert.equal((await at.call("split", sized("req", 150) as never)).isError, undefined);
+  assert.deepEqual(at.h.lines().filter((l) => l.event === "crossing"), []);
+  // more than maxChildren: refused with TREE-2's reason, no crossing
+  const six = await at.call("split", { node: "req", ...plan({ children: ["a", "b", "c", "d", "e", "f"].map((x) => kid(x)) }) } as never);
+  assert.equal(six.isError, true);
+  assert.match(six.content[0]!.text, /children: 6; a split has 1 to maxChildren 5/);
+  assert.deepEqual(at.h.lines().filter((l) => l.event === "crossing"), []);
 });

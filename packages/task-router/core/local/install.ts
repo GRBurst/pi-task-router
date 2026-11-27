@@ -15,6 +15,7 @@ import type { BranchRecord } from "./branches.ts";
 import { startBranchTool } from "./branchtool.ts";
 import { SPLIT_MESSAGE_TYPE, splitTool, submitSplitTool } from "./splittool.ts";
 import { nodeOf, nodeOfBranch, openIn, openParents } from "./tree.ts";
+import type { Node } from "./tree.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { createGit, gitRunner } from "./git.ts";
 import type { Git } from "./git.ts";
@@ -263,7 +264,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     /** PRO-7: registers the tools and hooks of the components on now that are not yet (the shell, in a local-first session). */
     attach: (): void => attach(),
     /** TREE-13: a package child's `submit_split` for its node; it tells the main (a steer that wakes an idle main). */
-    submitSplit: (node: string): ChildTool | undefined => d.nodes && submitSplitTool({ git, branches, settings: d.settings, nodes: d.nodes,
+    submitSplit: (node: string): ChildTool | undefined => d.nodes && submitSplitTool({ git, branches, settings: d.settings, nodes: d.nodes, crossing,
       tell: (content) => pi.sendMessage?.({ customType: SPLIT_MESSAGE_TYPE, content, display: true }, { deliverAs: "steer", triggerTurn: true }) }, node),
     /** The tools registered so far, each with whether its component is on in the session's profile now (PRO-7). */
     tools: (): { name: string; on: boolean }[] => owned.map((t) => ({ name: t.name, on: t.live() })),
@@ -286,7 +287,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
       () => act().mergeGate ? checkRefs() : Promise.resolve(), d.nodes), () => act().worktrees);
     // split (local-first spec §2.3, S34a): with the work tree, live while the session is local-first
     const nodes = d.nodes;
-    if (x.worktrees && nodes) register(splitTool({ git, branches, settings: s, nodes }, () => ready), () => act().worktrees && nodes.localFirst());
+    if (x.worktrees && nodes) register(splitTool({ git, branches, settings: s, nodes, crossing }, () => ready), () => act().worktrees && nodes.localFirst());
     // request_merge (design §3.4.1) while the merge gate is active; one set of ports per call, with its AbortSignal (D49).
     // PRO-6: a node merges under the profile it started in, so an open local-first node keeps request_merge and its gate after
     // a switch to cloud-first
@@ -400,6 +401,8 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   // SIZE-5 (local-first): the main's active node gets the size stages 80 %/100 % instead of the legacy one-stage monitor
   const stages = d.nodes && createSizeHints({ settings: s, strategy: d.nodes.strategy, arms: d.nodes.arms, now: d.now, log: d.log });
   const tree = d.nodes?.tree;
+  /** SIZE-10: a split above `planLines`, at the main's turn and call. */
+  const crossing = (n: Node, lines: number, budget: number): void => stages?.plan(n, lines, budget, { turn, call });
   const childSizes = stages && tree && createChildSizes({ hints: stages, git, node: (id) => nodeOf(tree.tree(), id), calls: d.childCalls ?? (() => 0),
     send: (to, text) => { try { void d.api()?.send(to, text, "router")?.catch?.(() => undefined); } catch { /* a hint is advisory */ } } });
   let turn = 0, call = 0, armed = true, stall = 0, progressed = false, shown = false, warned = false;

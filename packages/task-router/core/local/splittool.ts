@@ -11,7 +11,9 @@ import type { Git } from "./git.ts";
 import { commitSplit, normalizeSplit, renderSplit, validateSplit } from "./split.ts";
 import { nodeLine, nodeOf, rootOf, type Node, type SplitPlan, type Tree } from "./tree.ts";
 
-export type SplitDeps = { git: Pick<Git, "commitPath">; branches: Pick<BranchStore, "active">; settings: RouterSettings; nodes: NodeDeps };
+/** `crossing`: SIZE-10, an accepted split whose rendering has more than `planLines` lines (its `crossing` line, kind `plan`). */
+export type SplitDeps = { git: Pick<Git, "commitPath">; branches: Pick<BranchStore, "active">; settings: RouterSettings; nodes: NodeDeps;
+  crossing?(n: Node, lines: number, budget: number): void };
 const CHILD = { type: "object", required: ["slug", "goal", "files", "estimate", "check"], properties: {
   slug: { type: "string", pattern: "^[a-z0-9-]{1,40}$" }, goal: { type: "string", maxLength: 400 },
   files: { type: "array", minItems: 1, maxItems: 30, items: { type: "string" }, description: "paths or globs, relative to the repository root" },
@@ -52,14 +54,16 @@ const splitNode = (d: SplitDeps, id: string | undefined, p: Record<string, unkno
   serial(d.nodes.tree, () => splitNow(d, id === undefined ? undefined : nodeOf(d.nodes.tree.tree(), id), p));
 async function splitNow(d: SplitDeps, n: Node | undefined, p: Record<string, unknown>): Promise<Result<Split>> {
   const plan = { summary: p.summary, children: p.children };
-  const why = validateSplit(plan, n, d.nodes.caps());
+  const caps = d.nodes.caps(), why = validateSplit(plan, n, caps);
   if (why.length > 0) return { ok: false, errors: [why.join("; ")] };
   const norm = normalizeSplit(plan as SplitPlan);
   const c = await commitSplit(d.git, n!.worktree, d.settings.plans.dir, n!.id, norm);
   if (!c.ok) return c;
   const problem = d.nodes.tree.apply({ op: "split", node: n!.id, plan: norm });
   if (problem !== undefined) return { ok: false, errors: [`the split of ${n!.id} was committed at ${c.value.commit.slice(0, 7)} but not recorded: ${problem}`] };
-  d.nodes.log.split({ node: n!.id, reason: "choice", children: norm.children.length, depth: n!.depth, planLines: planLinesOf(n!.id, norm) });
+  const lines = planLinesOf(n!.id, norm);
+  d.nodes.log.split({ node: n!.id, reason: "choice", children: norm.children.length, depth: n!.depth, planLines: lines });
+  if (lines > caps.planLines) d.crossing?.(n!, lines, caps.planLines); // SIZE-10: accepted, logged
   d.nodes.log.node(nodeLine(nodeOf(d.nodes.tree.tree(), n!.id)!));
   return { ok: true, value: { node: n!.id, commit: c.value.commit, file: c.value.file, children: norm.children.map((x) => x.slug) } };
 }

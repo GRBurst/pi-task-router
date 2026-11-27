@@ -44,16 +44,29 @@ export type SizeHint = { stage: Stage; text: string };
 
 /** The stages of every node of the session: `observe` takes a node's worktree numstat and when it was read (the turn and the
  *  call of the session that measures), logs one `crossing` per stage reached and returns their hints. */
-export function createSizeHints(d: SizeHintDeps): { observe(n: Node, st: Stat, at: { turn: number; call: number }): SizeHint[] } {
+export function createSizeHints(d: SizeHintDeps): {
+  observe(n: Node, st: Stat, at: { turn: number; call: number }): SizeHint[];
+  /** SIZE-10: an accepted split of `n` rendering to `lines` > `budget` (`planLines`): one `crossing`, stage 100, kind `plan`,
+   *  class standard (a split file never counts toward the class, D85); no hint. */
+  plan(n: Node, lines: number, budget: number, at: { turn: number; call: number }): void;
+} {
   const nodes = new Map<string, { stages: ReturnType<typeof createSizeStages>; first: number }>();
   const s = d.settings, plansDir = s.plans.dir;
   const ctx = { glob: globMatch, plansDir, isSplit: (p: string) => isSplitFile(plansDir, p), policyFile: s.localFirst.policyFile, inertChecked: false };
+  const track = (id: string, now: number) => {
+    let k = nodes.get(id);
+    if (!k) nodes.set(id, (k = { stages: createSizeStages(), first: now }));
+    return k;
+  };
   return {
+    plan(n, lines, budget, at) {
+      const now = d.now(), k = track(n.id, now);
+      d.log.crossing({ node: n.id, stage: 100, lines, budget, estimate: n.estimate.lines, tier: d.strategy.sessionTier(d.arms()), class: "standard",
+        depth: n.depth, kind: "plan", turn: at.turn, call: at.call, sinceStartMs: now - k.first });
+    },
     observe(n, st, at) {
       if (n.estimate.kind === "inert") return [];
-      const now = d.now();
-      let k = nodes.get(n.id);
-      if (!k) nodes.set(n.id, (k = { stages: createSizeStages(), first: now }));
+      const now = d.now(), k = track(n.id, now);
       const files = withoutSplits(st, plansDir), lines = linesOf(files), arms = d.arms();
       const c = d.strategy.classify(files, settingsPolicy(s), ctx);
       const cls = c.cls === "inert" ? "standard" : c.cls; // no configured check is read here: never inert (CLS-3)
