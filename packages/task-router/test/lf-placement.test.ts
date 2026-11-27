@@ -7,6 +7,7 @@ import type { PolicyResult } from "../core/api.ts";
 import type { SplitPlan } from "../core/local/tree.ts";
 import { accepted, card, harness, provideSkills } from "./harness.ts";
 import { treeRig } from "./tree-rig.ts";
+import { MERGE_REASON } from "../core/local/gitcmd.ts";
 
 type Placed = Extract<PolicyResult, { model: string }>;
 const QWEN = "llama/qwen3.8";
@@ -167,4 +168,15 @@ test("TREE-13 concurrent splits", async () => {
   assert.equal(s.h.router.tree.tree().nodes["auth.form"]!.split!.summary, committed.summary);
   assert.deepEqual(s.ops().slice(before).map((o) => [o.op, o.node]), [["split", "auth.form"]]);
   assert.equal(s.h.lines().filter((l) => l.event === "split" && l.taskId === "auth.form").length, 1);
+});
+
+// Review m8 (TREE-7 f, a child's guard): a routed child's git guard protects the open parent as the main's does.
+test("TREE-7 guard: a child's", async () => {
+  const { s, worktree } = await packaged();
+  const parent = s.h.router.tree.tree().nodes.auth!;
+  const r = accepted(await spawn(s.h, "p1", card({ package: "auth.form" } as never))) as Placed;
+  assert.equal(await r.toolGuard!("bash", { command: `git -C ${parent.worktree} commit -qm x` }), MERGE_REASON(parent.branch));
+  assert.equal(await r.toolGuard!("bash", { command: `git -C ${worktree} commit -qm x` }), undefined);
+  const plain = accepted(await spawn(s.h, "p2", card({ kind: "implement", files: ["src/a.ts"] }))) as Placed;
+  assert.equal(await plain.toolGuard!("bash", { command: `git -C ${parent.worktree} merge lm/auth.form` }), MERGE_REASON(parent.branch));
 });

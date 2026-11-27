@@ -144,6 +144,17 @@ test("TREE-7 no push: a dirty parent worktree", async () => {
   assert.equal(pushed(), "");
 });
 
+test("TREE-7 parent without a worktree", async () => {
+  // review m8: a parent whose worktree is gone moves by a compare-and-swap update-ref from its tip, never pushed
+  const x = nodeRig({ mergeGate: { push: true } });
+  const { root, child, tip, pushed } = await pushShape(x);
+  x.r.git(["worktree", "remove", "--force", root.worktree]);
+  const r = await x.merge({ branch: child.branch });
+  assert.equal(r.status, "merged", r.detail);
+  assert.equal(x.r.git(["rev-parse", root.branch]), tip);
+  assert.deepEqual([r.pushed, pushed()], [undefined, ""]);
+});
+
 test("TREE-7 main-ref", async () => {
   const x = nodeRig();
   const { root, child, tip } = await pushShape(x);
