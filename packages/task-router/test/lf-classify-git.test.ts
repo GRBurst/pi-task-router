@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gitRunner, type GitOut, type GitRun } from "../core/local/git.ts";
+import { isSplitFile } from "../core/local/split.ts";
 import { policyGit, readPolicy, settingsPolicy } from "../core/local/policyfile.ts";
 import { classify } from "../core/strategy/classify.ts";
 import { globMatch } from "../core/glob.ts";
@@ -46,7 +47,7 @@ test("CLS-2 the branch edits the policy file to mark everything inert → elevat
   assert.ok("policy" in got);
   assert.deepEqual(got.policy.inertGlobs, ["docs/**"], "the base's globs, not the branch tip's");
   assert.deepEqual(got.policy.riskGlobs, FALLBACK.riskGlobs);
-  const ctx = { plansDir: "docs/plans", policyFile: FILE, glob: globMatch, inertChecked: true };
+  const ctx = { plansDir: "docs/plans", policyFile: FILE, glob: globMatch, inertChecked: true, isSplit: (path: string) => isSplitFile("docs/plans", path) };
   const c = classify([{ path: FILE, added: 1, deleted: 1 }, { path: "src/a.ts", added: 1, deleted: 0 }], got.policy, ctx);
   assert.deepEqual([c.cls, c.why, c.inertLike], ["elevated", ["policy-edit"], false]);
   // by the base's policy, the branch's code file is plain code (the tip's would have made it inert)
@@ -60,7 +61,7 @@ test("CLS-2 a branch that adds the policy file is judged by the settings and is 
   r.commit(FILE, JSON.stringify({ inertGlobs: ["**"] }));
   const got = await readPolicy(r.port, r.dir, base, FILE, FALLBACK);
   assert.deepEqual(got, { policy: FALLBACK, source: "settings" });
-  const ctx = { plansDir: "docs/plans", policyFile: FILE, glob: globMatch, inertChecked: true };
+  const ctx = { plansDir: "docs/plans", policyFile: FILE, glob: globMatch, inertChecked: true, isSplit: (path: string) => isSplitFile("docs/plans", path) };
   assert.deepEqual(classify([{ path: FILE, added: 1, deleted: 0 }], FALLBACK, ctx).why, ["policy-edit"]);
 });
 
@@ -152,7 +153,7 @@ test("CLS-2 a git failure is an error; only a proven absence falls back to the s
 
 // ── the settings' policy (spec §2.1, S38; LF6 review, deviation 2): the settings' lists plus the built-in test, CI and config globs
 const SETTINGS = { riskGlobs: ["**/auth/**"], mergeGate: { inertGlobs: ["**/*.md", "NOTICE"] }, plans: { publicApiGlobs: ["api/**"] } };
-const CTX = { plansDir: "docs/plans", policyFile: FILE, glob: globMatch, inertChecked: true };
+const CTX = { plansDir: "docs/plans", policyFile: FILE, glob: globMatch, inertChecked: true, isSplit: (path: string) => isSplitFile("docs/plans", path) };
 const kinds = (path: string) => {
   const p = settingsPolicy(SETTINGS), at = (gs: string[]) => gs.some((g) => globMatch(g, path));
   return [at(p.testGlobs) && "test", at(p.ciGlobs) && "ci", at(p.configGlobs) && "config"].filter(Boolean);

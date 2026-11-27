@@ -5,6 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { classify } from "../core/strategy/classify.ts";
 import { globMatch } from "../core/glob.ts";
+import { isSplitFile } from "../core/local/split.ts";
 import type { ClassifyContext, FileFact, Policy } from "../core/strategy/types.ts";
 
 const POLICY: Policy = {
@@ -16,7 +17,10 @@ const POLICY: Policy = {
   publicApiGlobs: ["api/**"],
   componentDepth: 1,
 };
-const CTX: ClassifyContext = { plansDir: "docs/plans", policyFile: ".pi/task-router-policy.json", glob: globMatch, inertChecked: true };
+/** The composition's context: `isSplit` is `isSplitFile` (`core/local/split.ts`) of the plans directory, the one definition (D85). */
+const ctxFor = (plansDir: string): ClassifyContext =>
+  ({ plansDir, policyFile: ".pi/task-router-policy.json", glob: globMatch, inertChecked: true, isSplit: (path) => isSplitFile(plansDir, path) });
+const CTX: ClassifyContext = ctxFor("docs/plans");
 const f = (path: string, added = 5, deleted = 1): FileFact => ({ path, added, deleted });
 const run = (paths: (string | FileFact)[], p: Policy = POLICY, ctx: ClassifyContext = CTX) =>
   classify(paths.map((x) => (typeof x === "string" ? f(x) : x)), p, ctx);
@@ -155,9 +159,35 @@ test("split files: <plans.dir>/split/** is router-owned, dropped before the rule
   assert.equal(run(["docs/plans/split/n1.json", "src/a.ts"]).cls, "standard");
   assert.deepEqual([run(["docs/plans/split/n1.json", "src/auth/a.ts"]).cls, run(["docs/plans/split/n1.json", "src/auth/a.ts"]).why], ["elevated", ["risk"]]);
   // a custom plans dir
-  assert.equal(run(["plans/split/n1.json", "svc/a.json"], POLICY, { ...CTX, plansDir: "plans" }).cls, "standard");
+  assert.equal(run(["plans/split/n1.json", "svc/a.json"], POLICY, ctxFor("plans")).cls, "standard");
   // only the split directory is dropped, other plan files are not
   assert.equal(run(["docs/plans/p1.json", "svc/a.json"]).cls, "elevated");
+});
+
+test("split files: one definition, isSplitFile; the classifier drops exactly what ctx.isSplit says (D85)", () => {
+  // the classifier has no split test of its own: a predicate that names another file drops that file and keeps the split one
+  const odd: ClassifyContext = { ...CTX, isSplit: (path) => path === "x/odd.json" };
+  assert.equal(run(["x/odd.json", "svc/a.json"], POLICY, odd).cls, "standard", "dropped: one config file left");
+  assert.equal(run(["docs/plans/split/n1.json", "svc/a.json"], POLICY, odd).cls, "elevated", "kept: the predicate decides");
+  // isSplitFile itself: the plans directory's split directory, anchored, with a plain prefix (no glob meaning in the directory name)
+  const table: [string, string, boolean][] = [
+    ["docs/plans", "docs/plans/split/n1.json", true],
+    ["docs/plans/", "docs/plans/split/n1.json", true],
+    ["docs/plans//", "docs/plans/split/a/b.json", true],
+    ["docs/plans", "docs/plans/split", false],
+    ["docs/plans", "docs/plans/splitx/n1.json", false],
+    ["docs/plans", "docs/plans/p1.json", false],
+    ["docs/plans", "docs/plans/sub/split/n1.json", false],
+    ["docs/plans", "other/docs/plans/split/n1.json", false],
+    ["pl*ns", "plans/split/n1.json", false],
+    ["pl*ns", "pl*ns/split/n1.json", true],
+  ];
+  for (const [dir, path, want] of table) {
+    assert.equal(isSplitFile(dir, path), want, `isSplitFile(${dir}, ${path})`);
+    // the classifier agrees: a router-owned file never counts, a plan or code file does (the risk glob "**" stands for "counted")
+    const r = classify([f(path)], { ...POLICY, riskGlobs: ["**"] }, ctxFor(dir));
+    assert.equal(r.why.includes("risk"), !want, `classify(${dir}, ${path})`);
+  }
 });
 
 test("CLS-3 inert: every file inert and a configured extraChecks entry passes", () => {

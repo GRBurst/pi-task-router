@@ -68,7 +68,8 @@ const sorted = (x: unknown): unknown => Array.isArray(x) ? x.map(sorted)
 export const renderSplit = (node: string, p: SplitPlan): string => `${JSON.stringify(sorted({ v: 1, node, ...normalizeSplit(p) }), null, 2)}\n`;
 /** The plan file's repository-relative path (spec §2.3; router-owned, D85). */
 export const splitFile = (plansDir: string, node: string): string => `${plansDir.replace(/\/+$/, "")}/split/${node}.json`;
-/** D85: `<plans.dir>/split/**`, the router's own files: never a scope violation (TREE-14). */
+/** D85: `<plans.dir>/split/**`, the router's own files: never a scope violation (TREE-14), never counted by the classifier (its
+ *  `ClassifyContext.isSplit` is this function: the one definition). A plain prefix, anchored at the repository root. */
 export const isSplitFile = (plansDir: string, path: string): boolean => path.startsWith(`${plansDir.replace(/\/+$/, "")}/split/`);
 
 /** D66: writes the plan's file in the node's worktree and commits it alone on the node's branch (`commitPath`); a failure (a

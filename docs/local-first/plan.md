@@ -919,7 +919,8 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - Files: `core/strategy/classify.ts`; test `lf-classify` "split files".
 - RED: a change set of `<plans.dir>/split/n1.json` only → `inertLike`, not elevated by the `plans.dir` config
   rule; with one code file → the code file's class.
-- GREEN: drop `<plans.dir>/split/**` from the list before the rules.
+- GREEN: drop `<plans.dir>/split/**` from the list before the rules, by `ctx.isSplit` (the composition passes `isSplitFile(plansDir, path)`,
+  `core/local/split.ts`: the one definition, a plain prefix; the classifier has none of its own; test "split files: one definition").
 
 #### LF6.T2 Inert needs a check (CLS-3) `[x] done`
 - Files: `core/strategy/classify.ts`; test `lf-classify` "CLS-3".
@@ -954,7 +955,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   `reviewer` into the gate, LF6.T8–T12, honour them):
   1. `actual` for `reviewer` is `tierOfLines(n)` of the combined diff, for every class; never `"inert"` derived from the
      start estimate's `kind` (`reviewer` itself reads class `inert` as no review and a non-inert class's `"inert"` as small).
-  2. `ctx = {glob: globMatch, plansDir: settings.plans.dir, policyFile: settings.localFirst.policyFile, inertChecked}`;
+  2. `ctx = {glob: globMatch, plansDir: settings.plans.dir, isSplit: (p) => isSplitFile(settings.plans.dir, p), policyFile: settings.localFirst.policyFile, inertChecked}`;
      validate both paths as repository-relative, no `./`, no trailing `/` (else `policy-edit` and the split filter
      silently miss). `ClassifyContext` is in `core/strategy/types.ts`; the gate imports no strategy part (NR-6).
   3. `inertChecked` = at least one configured `mergeGate.extraChecks` entry, all passing (a failing one refuses `check`

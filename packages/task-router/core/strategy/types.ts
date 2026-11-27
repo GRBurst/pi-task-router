@@ -21,6 +21,9 @@ export interface Policy { inertGlobs: string[]; testGlobs: string[]; ciGlobs: st
 export interface ClassifyContext {
   /** `plans.dir`: its files are never inert (a plan rewrite goes through a code review, MGS §2.1). */
   plansDir: string;
+  /** D85: a router-owned plan-split file (`<plans.dir>/split/**`): it never counts toward class, size or scope. The composition passes
+   *  `isSplitFile(plansDir, path)` (`core/local/split.ts`), the one definition. */
+  isSplit: (path: string) => boolean;
   /** `localFirst.policyFile`: an edit of it is `policy-edit`. */
   policyFile: string;
   /** CLS-3: a configured `mergeGate.extraChecks` entry exists and passes (the branch's own check does not count). */
