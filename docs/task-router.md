@@ -160,11 +160,14 @@ child's session is done there, anything larger is split first.
   in cloud-first, and so is every `t2` card. Cloud-first ignores `package`.
 - *Merges.* `request_merge` merges a node into its parent node's branch, the
   request node into the main branch. `behind`, the size, the red run and the
-  review diff are taken against the parent's tip. The parent moves by a
+  review diff are taken against the parent's tip (`behind` tells the node to
+  rebase onto its parent's branch). The parent moves by a
   fast-forward in its own worktree (a dirty one refuses `dirty`); only the
   request node's merge into main pushes (`mergeGate.push`) and records the
   main tip. A package node's merge is refused `scope`, naming the path, when it
   changes a file outside its contract's `files` or one matching `forbidden`.
+  A node with a started child not merged yet is refused `blocked`, naming the
+  open children: partial work never reaches its parent or the main branch.
   While a node has started children that are not merged yet, its branch is
   protected like the main branch: the git guard blocks committing or merging
   into it directly, in the main session and in children.

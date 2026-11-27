@@ -212,6 +212,17 @@ test("TREE-7 open children", async () => {
   assert.equal(x.mainSha(), tip);
 });
 
+test("TREE-7 second sibling behind", async () => {
+  // review M2: the second sibling is behind its parent after the first merged; the text names the parent, not main
+  const x = nodeRig();
+  const { root, form, docs } = await twoKids(x);
+  assert.equal((await x.merge({ branch: form.branch })).status, "merged");
+  const r = await x.merge({ branch: docs.branch });
+  assert.deepEqual([r.status, r.reason], ["refused", "behind"], r.detail);
+  assert.equal(r.detail, reasonText("behind", { main: root.branch }));
+  assert.ok(r.detail.startsWith(`${root.branch} is not an ancestor`), r.detail);
+});
+
 test("TREE-14", async () => {
   const x = nodeRig();
   await x.node({ slug: "auth", estimate: { kind: "plan", lines: 0 } });

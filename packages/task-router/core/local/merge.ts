@@ -342,7 +342,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     rec = { ...rest, state: "active" };
     p.branches.update(rec);
   }
-  const x = { branch, main: main.name };
+  const x = { branch, main: target.name }; // review M2: `behind` names the target (a node's parent branch)
   /** A blocked plan-bound branch (design §3.4.4): its text names amend_plan and the open remediation-failed trigger. */
   const blockedOf = (r: MergeResult): MergeResult => {
     const plan = rec?.plan;
