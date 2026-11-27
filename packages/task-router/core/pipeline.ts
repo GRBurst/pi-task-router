@@ -6,6 +6,7 @@ import { acceptModel } from "./explicit.ts";
 import type { Accepted } from "./explicit.ts";
 import { randomizeLeg } from "./randomize.ts";
 import { requirementLabel, requirementOf } from "./requirement.ts";
+import { createHash } from "node:crypto";
 import { candidates, labelLeg } from "./select.ts";
 import { levels } from "./members.ts";
 import { beyondTop, capToTable, planLegs } from "./table.ts";
@@ -46,4 +47,13 @@ export function planSpawn(d: PlanDeps, i: SpawnIn): Result<SpawnPlan> {
   const acc = acceptModel(plan, i.model, i.effort, s);
   const cands = candidates(s, a, worker.level, need).cands.map((m) => m.name);
   return acc.ok ? { ok: true, value: { plan, start: acc.value, ...(att.value.esc ? { esc: att.value.esc } : {}), cands } } : acc;
+}
+
+/** R3A.T3: `planSpawn` for the spawn line only (what the as-used plan would pick in a cloud-only session). `d.attempts` is a private
+ *  store, never the router's; the random source replays `draws` (the real plan's, in order), then a hash of the task id and the call's
+ *  index: the real plan's routing and the router's random stream are untouched. */
+export function dryPlan(d: Omit<PlanDeps, "rng">, i: SpawnIn, draws: readonly number[]): Result<SpawnPlan> {
+  const spare = (k: number): number => createHash("sha256").update(`dry-plan\0${i.taskId}\0${k}`).digest().readUIntBE(0, 6) / 2 ** 48;
+  let k = 0;
+  return planSpawn({ ...d, rng: () => (k < draws.length ? draws[k++]! : spare(k++)) }, i);
 }

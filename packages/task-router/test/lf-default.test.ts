@@ -14,10 +14,12 @@ const fixture = (): Record<string, unknown>[] =>
 const EVENTS = ["check", "corrective", "escalate", "force", "gatebypass", "hint", "merge", "plan", "reroute", "review", "spawn", "spotcheck", "verdict"];
 /** The experiments package's arm id in v1 (the router read it from `__piExperimentsApi_v1.armFor`). */
 const ARM = "+-+--";
-/** A fixture line as the router writes it now: no experiments read (NR-3), so no `arm`. */
+/** A fixture line as the router writes it now: no experiments read (NR-3), so no `arm`; a routed spawn line also names the as-used
+ *  plan's member (R3A.T3): the fixture's q1 is planned on the local member and it is up, q2 on a cloud member. */
+const CF: Record<string, Record<string, unknown>> = { q1: { planned: "qwen-local", localUp: true, triggered: true }, q2: { planned: "sonnet", triggered: false } };
 const now = (l: Record<string, unknown>): Record<string, unknown> => {
   const { arm: _arm, ...rest } = l;
-  return rest;
+  return l.event === "spawn" && typeof l.taskId === "string" && l.taskId in CF ? { ...rest, ...CF[l.taskId] } : rest;
 };
 
 /** The v1 session; the experiments stub stays in place: the router no longer reads it (NR-3, LF1.T1). */

@@ -171,7 +171,7 @@ export function install(pi: PiLike, deps: Deps) {
         sessionId: e.childSessionId, parentSessionId: t.parentSession, forced: t.forced });
     }
     if (e.type === "spawn" && c) {
-      log.spawn({ taskId: e.name, card: c.card, plan: c.plan, start: c.start, sessionId: e.childSessionId, parentSessionId: c.parentSession, unresolved: c.unresolved, forced: c.forced });
+      log.spawn({ taskId: e.name, card: c.card, plan: c.plan, start: c.start, sessionId: e.childSessionId, parentSessionId: c.parentSession, unresolved: c.unresolved, forced: c.forced, cf: c.cf });
       if (c.esc) { // from the attempt state (D9): the failed attempt's entry may be gone (killed), its ranMember is not
         // An unknown attempt (RG6): its stand-in member is the new plan's, not where it ran, so the line names no `from` side.
         const ran = c.esc.known ? settings.models[c.esc.ranMember] : undefined, to = settings.models[c.start.member];

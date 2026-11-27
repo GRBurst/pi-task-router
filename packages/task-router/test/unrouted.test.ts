@@ -62,5 +62,5 @@ test("T4.1 routing=false: the unrouted line has none of the router's new spawn f
   const h = rig();
   spawned(h, "kid", "s-kid");
   const [l] = h.lines();
-  for (const k of ["ability", "level", "draft", "workerLevel", "reviewLevel", "workerMember", "workerModel", "startEffort", "waitMs"]) assert.ok(!(k in l), k);
+  for (const k of ["ability", "level", "draft", "workerLevel", "reviewLevel", "workerMember", "workerModel", "startEffort", "waitMs", "planned", "localUp", "triggered"]) assert.ok(!(k in l), k);
 });

@@ -186,3 +186,14 @@ test("log: reroute/check/corrective/escalate append events", () => {
   log.escalate("t1", "qwen", "T1", "t0");
   assert.deepEqual(out.map((e) => e.event), ["spawn", "reroute", "check", "corrective", "escalate"]);
 });
+
+test("R3A.T3 spawn line: the counterfactual keys come from `cf` only; a ticket child's line and a plain one have none", () => {
+  const e = spawnEvent({ now: NOW, taskId: "t1", card, plan: routed, start, cf: { planned: "qwen-local", localUp: false, triggered: false } });
+  assert.deepEqual([e.planned, e.localUp, e.triggered], ["qwen-local", false, false], "a false boolean is kept");
+  const cloud = spawnEvent({ now: NOW, taskId: "t2", card, plan: routed, start, cf: { planned: "sonnet", triggered: false } });
+  assert.deepEqual([cloud.planned, "localUp" in cloud, cloud.triggered], ["sonnet", false, false]);
+  for (const x of [spawnEvent({ now: NOW, taskId: "t3", card, plan: routed, start }),
+    ticketSpawnEvent({ now: NOW, taskId: "r1", role: "merge", member: "opus", tier: "T2", model: "anthropic/opus", effort: "high", sessionId: "s1" })]) {
+    for (const k of ["planned", "localUp", "triggered"]) assert.ok(!(k in x), k);
+  }
+});

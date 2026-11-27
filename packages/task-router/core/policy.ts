@@ -15,7 +15,8 @@ import { placement } from "./local/package.ts";
 import type { LocalFirstView } from "./local/package.ts";
 import { ticketPolicy } from "./local/overseer.ts";
 import type { Tickets } from "./local/overseer.ts";
-import { planSpawn } from "./pipeline.ts";
+import { dryPlan, planSpawn } from "./pipeline.ts";
+import type { SpawnIn } from "./pipeline.ts";
 import { profileFor, skillBlocks, skillNames } from "./profile.ts";
 import { pickMember } from "./select.ts";
 import { NO_MEMBER, capToTable } from "./table.ts";
@@ -26,7 +27,7 @@ import { composeGuards, toolsFor } from "./toolguard.ts";
 import type { Guard, SyncGuard } from "./toolguard.ts";
 import { resolveCwd, verifyT0 } from "./verify.ts";
 import type { FsPort } from "./verify.ts";
-import type { Forced } from "./outcome.ts";
+import type { Counterfactual, Forced } from "./outcome.ts";
 import type { Card, Importance, Plan, Result, RouterSettings, Start, ThinkingLevel } from "./types.ts";
 
 /** What the router remembers about a child it spawned (keyed by child name = task id). */
@@ -36,6 +37,8 @@ import type { Card, Importance, Plan, Result, RouterSettings, Start, ThinkingLev
 export type ChildBase = {
   parent: string; parentSession: string; card: Card; plan: Plan; cwd: string; importance: Importance; unresolved?: true; esc?: Escalation;
   forced?: Forced;
+  /** R3A.T3: the as-used plan's counterfactual, for the spawn line. */
+  cf?: Counterfactual;
 };
 /** `member`/`model`: the member it runs on (its slot, counter, window); `route`: that member's log label; `reservedUntil`: its
  *  slot is held until then, listed or not (mi11); `failover`: the leg's candidate names, the targets of a move (spec §4.8);
@@ -113,6 +116,16 @@ async function ticketRoom(d: PolicyDeps, member: string, name: string): Promise<
   return undefined;
 }
 
+/** R3A.T3 (owner): the spawn line's counterfactual of the member the as-used plan picked. `localUp` is the member's `up` as the selection
+ *  reads it (`memberState`: its cached health probe, no `health` URL = up, ∧ ¬blocked ∧ ¬capped), only for a `route: "local"` member;
+ *  `triggered` = it is local and up. The same function in both E0 arms; the probe is the selection's own (cached per URL). */
+async function counterfactual(d: PolicyDeps, planned: string): Promise<Counterfactual> {
+  const m = named(d.settings.models, planned);
+  if (m?.route !== "local") return { planned, triggered: false };
+  const up = memberState(d, m, new Map(), d.now(), m.health ? await d.probe(m.health) : undefined).up;
+  return { planned, localUp: up, triggered: up };
+}
+
 /** The selection of one leg (spec §4.5): probe the candidates with a `health` URL, pick (`pickMember`), else poll every
  *  POLL_MS until `queueMaxSec`. The effort: a pinned start keeps its own; else the requested effort when the member shares the
  *  planned member's ladder, else the member's effort at the leg's step. From the listing to the reservation the step is
@@ -158,6 +171,8 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
   const models = Object.fromEntries(Object.entries(base.settings.models).map(([n, m]) => [n, m.route === "local" ? { ...m, model: "" } : m]));
   const cloud: PolicyDeps = { ...base, settings: { ...base.settings, models } };
   const reject = (errors: string[]) => ({ reject: errors.join("; ") });
+  // R3A.T3: the attempt state of the logging plan in a cloud-only session (the as-used plan's own), never the router's
+  const shadow: AttemptState = new Map();
   return async (args, caller: Caller) => {
     const cloudOnly = base.cloudOnly?.() === true, d = cloudOnly ? cloud : base, s = d.settings;
     // D25 (design §3.2.2 step 3): the router's own spawn first, whatever routing and a force say; an unknown ticket is no card field.
@@ -193,7 +208,9 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     // A local member asked for by name in a cloud-only session: the cause is E0, not the settings (a force is the owner's override and skips this).
     if (cloudOnly && !f && args.model !== undefined && byModel(base.settings.models, args.model)?.route === "local")
       return reject([`model ${args.model} is not available: ${E0_OFF}`]);
-    const sp = planSpawn(d, { taskId: args.name, card, verified: v, profile: prof.value, importance, model: f ? undefined : args.model, effort: f ? undefined : args.thinkingLevel });
+    const spIn: SpawnIn = { taskId: args.name, card, verified: v, profile: prof.value, importance, model: f ? undefined : args.model, effort: f ? undefined : args.thinkingLevel };
+    const draws: number[] = []; // R3A.T3: in a cloud-only session, the real plan's random draws, kept for the logging plan
+    const sp = planSpawn(cloudOnly ? { ...d, rng: () => { const u = d.rng(); draws.push(u); return u; } } : d, spIn);
     // Its "blank or missing in the router settings" is untrue here: the blank members are E0's.
     if (!sp.ok) return reject(cloudOnly ? sp.errors.map((e) => (e.startsWith(NO_MEMBER) ? `${e.split(" (")[0]} (${E0_OFF})` : e)) : sp.errors);
     const names = skillNames(prof.value, card);
@@ -207,8 +224,12 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     const plan: Plan = { ...sp.value.plan, reasons: [...sp.value.plan.reasons] }, a = plan.ability, need = v.tokens ?? 0;
     const capped = capToTable(s, prof.value).models, cappedLvl = (m: Named) => lvl(named(capped, m.name)!, a);
     const failover = (st.pinned ? leg.filter((m) => cappedLvl(m) >= cappedLvl(M)) : leg).map((m) => m.name);
+    // R3A.T3 (owner): the as-used plan's pick for the spawn line: this plan's own, or in a cloud-only session a dry plan on the full table
+    // (a private attempt store, the real plan's draws replayed); it never changes the routing below
+    const asUsed = cloudOnly ? dryPlan({ settings: base.settings, attempts: shadow }, spIn, draws) : sp;
+    const cf = asUsed.ok ? await counterfactual(base, place?.member ?? asUsed.value.start.member) : undefined;
     const entry: ChildBase = {
-      parent: caller.name, parentSession: caller.sessionId, card, plan, cwd, importance,
+      parent: caller.name, parentSession: caller.sessionId, card, plan, cwd, importance, ...(cf ? { cf } : {}),
       ...(v.unresolved ? { unresolved: true as const } : {}), ...(sp.value.esc ? { esc: sp.value.esc } : {}),
     };
     // Local mode (design §3.1.3, plan D19): the child's tripwires observe every call first and never block; then the local guards

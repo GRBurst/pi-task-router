@@ -36,6 +36,8 @@ const KEYS = [
   "profile", "mainModel", "startSet", "localMembers", "routerVersion",
   // the session line, router 0.5.0 (R3A.T1): the share E0 drew with
   "cloudOnlyShare",
+  // the spawn line, router 0.5.0 (R3A.T3): the counterfactual of the as-used plan
+  "planned", "localUp", "triggered",
   // the profile line (LF3.T4)
   "by",
   // outcome log v2: what a revert needs on a merge line (LOG-1); class, tier, actualTier, node from LF5/LF6
@@ -73,9 +75,12 @@ const base = (event: string, now: Date, taskId: string) => ({ v: SCHEMA_VERSION,
 /** Hash of the card; the card text itself is never logged. */
 export const cardHash = (c: Card): string => createHash("sha256").update(JSON.stringify(c)).digest("hex").slice(0, 16);
 
+/** R3A.T3 (owner): what the as-used plan (before E0's filter and any health fallback) picked: `planned` the member, `localUp` its
+ *  `up` (health ∧ ¬blocked ∧ ¬capped) when it is a `route: "local"` member, `triggered` = planned is local and up. */
+export type Counterfactual = { planned: string; localUp?: boolean; triggered: boolean };
 /** `workerTier`/`workerEffort` are the planned leg (RD2); `start` is what the child started on (a routed spawn only; a forced
  *  non-member has no member, so no `workerMember`, plan D10); `forced`: the force it ran under and the routed counterfactual. */
-export const spawnEvent = (i: { now: Date; taskId: string; card: Card; plan: LoggedPlan; start?: Start; sessionId?: string; parentSessionId?: string; attemptOf?: string; unresolved?: boolean; forced?: Forced }) =>
+export const spawnEvent = (i: { now: Date; taskId: string; card: Card; plan: LoggedPlan; start?: Start; sessionId?: string; parentSessionId?: string; attemptOf?: string; unresolved?: boolean; forced?: Forced; cf?: Counterfactual }) =>
   finish({
     ...base("spawn", i.now, i.taskId), cardHash: cardHash(i.card), kind: i.card.kind,
     workerTier: i.plan.worker.tier, workerEffort: i.plan.worker.effort,
@@ -85,6 +90,7 @@ export const spawnEvent = (i: { now: Date; taskId: string; card: Card; plan: Log
     base: i.plan.base, importance: i.plan.importance, reasons: i.plan.reasons,
     sessionId: i.sessionId, parentSessionId: i.parentSessionId, attemptOf: i.attemptOf ?? i.card.attemptOf,
     assigned: i.plan.assigned, routeBase: i.plan.routeBase, unresolved: i.unresolved || undefined, reviewOf: i.card.reviewOf,
+    ...(i.cf ? { planned: i.cf.planned, localUp: i.cf.localUp, triggered: i.cf.triggered } : {}),
     ...(i.forced ? { forced: true, forceSource: i.forced.source, routedModel: i.forced.routedModel, routedEffort: i.forced.routedEffort } : {}),
   });
 /** A failover's line: the routes and, when known, the models on both (spec §6.4). */

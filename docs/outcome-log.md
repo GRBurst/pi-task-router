@@ -113,7 +113,7 @@ on `review` lines; the node id on `node` and `split` lines; the branch on `merge
 
 | event | fields (required **bold**) | meaning |
 | --- | --- | --- |
-| `spawn` | **`kind`**, **`workerTier`** (`qwen` \| `haiku` \| `T1` \| `T2` \| …), **`workerEffort`**, `reviewTier`, `reviewEffort`, `cardHash`, `base`, `importance`, `reasons` (string[]), `arm`* (`v` ≤ 1), **`sessionId`** (child), **`parentSessionId`**, `attemptOf`, `assigned`† (`router` \| `random`), `routeBase`† (tier), `unresolved`† (`true`), `reviewOf`†, `ability`†, `level`† (int ≥ 0), `draft`† (`true`), `workerLevel`†, `reviewLevel`† (int ≥ 0), `workerMember`†, `workerModel`†, `startEffort`†, `waitMs`† (≥ 0), `forced`‡ (`true`), `forceSource`‡ (`command` \| `settings`), `routedModel`‡, `routedEffort`‡, `ticket`§ (`merge` \| `plan-author` \| `plan-review` \| `delta` \| `steer` \| `fixer`) | a routed (or unrouted) spawn; with `ticket`, the router's own child (§) |
+| `spawn` | **`kind`**, **`workerTier`** (`qwen` \| `haiku` \| `T1` \| `T2` \| …), **`workerEffort`**, `reviewTier`, `reviewEffort`, `cardHash`, `base`, `importance`, `reasons` (string[]), `arm`* (`v` ≤ 1), **`sessionId`** (child), **`parentSessionId`**, `attemptOf`, `assigned`† (`router` \| `random`), `routeBase`† (tier), `unresolved`† (`true`), `reviewOf`†, `ability`†, `level`† (int ≥ 0), `draft`† (`true`), `workerLevel`†, `reviewLevel`† (int ≥ 0), `workerMember`†, `workerModel`†, `startEffort`†, `waitMs`† (≥ 0), `forced`‡ (`true`), `forceSource`‡ (`command` \| `settings`), `routedModel`‡, `routedEffort`‡, `ticket`§ (`merge` \| `plan-author` \| `plan-review` \| `delta` \| `steer` \| `fixer`), `planned`¤, `localUp`¤ (bool), `triggered`¤ (bool) | a routed (or unrouted) spawn; with `ticket`, the router's own child (§) |
 | `session` | **`profile`** (`cloud-first` \| `local-first` \| `local-mode`), **`mainModel`**, **`startSet`** (bool), **`localMembers`** (`on` \| `off`), **`routerVersion`**, `cloudOnlyShare`⁂ (number), `arms`∥ | v2: a main session started; `taskId` is its session id; `local-mode` = `mode: "local"`; `mainModel` is `provider/id` (`""` when unknown); `localMembers` is E0's arm: `off` = the router routed no spawn of the session to a `route: "local"` member (a forced spawn is excluded: it may run on one, and its `spawn` line has `forced`), `on` = it may; it is absent when the session is outside E0 (routing off, no enabled cloud member in the member table, a local-first session); the legacy `local-mode` line says `on`; `routerVersion` is the package's version; `startSet` (from 0.4.0) = the router set the session's main model at this start (local-first's start model, `docs/task-router.md` "Routing profiles"), and `mainModel` is that model |
 | `profile` | **`from`** (`cloud-first` \| `local-first` \| `local-mode`), **`to`** (`cloud-first` \| `local-first`), **`by`** (`settings` \| `command`), `arms`∥ | v2, from 0.4.0: the session's routing profile switched; `taskId` is its session id; `/profile` writes it with `by: "command"` (the profile a session starts with is on its `session` line; `settings` is enumerated, no line carries it yet) |
 | `node` | `parent`, **`depth`** (int ≥ 0), **`kind`** (`leaf` \| `plan` \| `integration` \| `fix`), **`fanout`** (int ≥ 0), **`outcome`** (`started` \| `split` \| `merged` \| `blocked` \| `abandoned`), **`tier`**, `class`, **`profile`**, `sessionId`◊, `arms`∥ | v2, local-first preview: a node of the work tree (`docs/task-router.md` "The work tree") started, split or merged; `taskId` is the node id, `parent` its parent's (absent on the request node); `fanout` the children of its split; `tier` is `inert` for an inert estimate, else the session's drawn tier (as on `crossing` and `merge`) |
@@ -212,6 +212,19 @@ line: a resume under another share repeats the first line's value. Written only 
 It makes a later change of `experiments.cloudOnlyShare` visible in the data: an analysis of E0 groups sessions by the share they
 were drawn with. A number, so no `ENUMS_V2` key.
 
+¤ Optional, added within v2 (from 0.5.0; no bump): the counterfactual of the as-used plan, on a routed spawn line (not on a ticket
+child's, not on an unrouted one), computed the same way in both E0 arms. `planned` is the member (a router settings key, such as
+`qwen-local`) the as-used plan picked, before E0's filter and before any health fallback; `localUp` is that member's `up`
+(`memberState`: its cached health probe answers, a member without a `health` URL counts as up, ∧ not blocked by a provider limit,
+∧ `dailyCap` not reached; a busy server is up), written only when `planned` is a `route: "local"` member; `triggered` is `true`
+iff `planned` is a local member and it was up, else `false` (so `triggered` is on every such line). `workerMember` stays where the
+child started. Uses: the trigger analysis (an E0 comparison counts only sessions with at least one `triggered` spawn, the only ones the
+cloud-only filter could have changed; the trigger is computed identically in both arms) and the local server's uptime (`localUp` over
+the spawns whose `planned` is local). An accepted explicit `model` is the plan's member; a forced spawn (`forced`) logs what routing
+would have chosen; in a `cloud-only` session the plan is computed once more on the full table for the line only (no effect on routing).
+A spawn that is refused has no line. A reader that rejects unknown fields must take the three keys. They are strings and booleans, so
+no `ENUMS_V2` key; `planned` is a member name (a settings key), not an enumerated list.
+
 § Optional, added with task-router's overseer (local mode L4, no `v` bump). The router spawns its own children (an
 overseer: `kind: "overseer"`; a fixer: `kind: "implement"`) with a ticket instead of a card: their `spawn` line has
 `ticket` (the role), the member's `workerTier`, `workerEffort`, `workerMember`, `workerModel`, no `cardHash` and no
@@ -243,4 +256,15 @@ off: no `localMembers`, no `arms`), and a merge with the fields a revert needs.
 {"v":2,"ts":"2026-11-30T09:00:00.000Z","event":"session","taskId":"s-main","profile":"cloud-first","mainModel":"anthropic/claude-opus-5-5","startSet":false,"localMembers":"off","routerVersion":"0.3.0","arms":["E0=cloud-only"]}
 {"v":2,"ts":"2026-11-30T09:10:00.000Z","event":"session","taskId":"s-plain","profile":"cloud-first","mainModel":"anthropic/claude-opus-5-5","startSet":false,"routerVersion":"0.3.0"}
 {"v":2,"ts":"2026-11-30T09:30:00.000Z","event":"merge","taskId":"lm/parser","base":"0123abc","outcome":"merged","commit":"89abcde","nLines":42,"nFiles":2,"reviewId":"rv-9a8b7c6d","repo":"app","target":"main","repoId":"a1b2c3d4e5f6"}
+```
+
+## Examples: 0.5.0
+
+A cloud-only session (its `session` line names the share it was drawn with) in which the as-used plan picked the local member while it was
+up: the spawn ran on a cloud member, and the line says the filter changed it (`triggered`). The second spawn's plan picked a cloud member.
+
+```jsonl
+{"v":2,"ts":"2026-12-02T09:00:00.000Z","event":"session","taskId":"s-main","profile":"cloud-first","mainModel":"anthropic/claude-opus-5-5","startSet":false,"localMembers":"off","cloudOnlyShare":0.1,"routerVersion":"0.5.0","arms":["E0=cloud-only"]}
+{"v":2,"ts":"2026-12-02T09:01:00.000Z","event":"spawn","taskId":"t1","cardHash":"988975daea7ef376","kind":"implement","workerTier":"qwen","workerEffort":"xhigh","workerMember":"haiku","workerModel":"anthropic/claude-haiku-5-5","planned":"qwen-local","localUp":true,"triggered":true,"sessionId":"s-t1","parentSessionId":"s-main"}
+{"v":2,"ts":"2026-12-02T09:05:00.000Z","event":"spawn","taskId":"t2","cardHash":"74e46dd9f1e7dcc2","kind":"lookup","workerTier":"T1","workerEffort":"high","workerMember":"sonnet","workerModel":"anthropic/claude-sonnet-5-5","planned":"sonnet","triggered":false,"sessionId":"s-t2","parentSessionId":"s-main"}
 ```

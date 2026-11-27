@@ -206,3 +206,106 @@ test("MEAS-2 profile switch", async () => {
   assert.deepEqual(used.models, plain.models.map((m, i) => (byKind(cs[i]!) ? LOCAL[0] : m)), "as-used stays as-used");
   assert.ok(cs.some(byKind) && cs.some((k) => !byKind(k)), "both placements exercised");
 });
+
+// ---- R3A.T3 (owner; spec MEAS-4): counterfactual logging on the routed spawn line ----
+// `planned` = the member the as-used plan picked (before E0's filter and any health fallback), `localUp` = that member's `up`
+// (health ∧ ¬blocked ∧ ¬capped, `memberState`) when it is a `route: "local"` member, `triggered` = planned is local and up.
+const CF = ["planned", "localUp", "triggered"];
+const cf = (l: Record<string, unknown> | undefined) => CF.map((k) => l?.[k]);
+const as = (share: number, settings: Record<string, unknown> = {}) => e0({ experiments: { cloudOnlyShare: share }, ...settings });
+
+test("MEAS-4 fields: the same three values in both arms, a down local server is the health fallback", async () => {
+  for (const share of [0, 1]) {
+    const arm = share === 0 ? "as used" : "cloud-only";
+    const { h } = as(share);
+    const up = await placed(h, "u1");
+    accepted(up.r);
+    assert.deepEqual(cf(up.line), ["qwen-local", true, true], `${arm}: planned local and up`);
+    assert.equal(up.line?.workerMember === "qwen-local", share === 0, `${arm}: where it ran`);
+    h.health.health = 0; // the local server is down: the next probe (after the cache's 30 s) says so
+    h.clock.t += 61_000;
+    const down = await placed(h, "d1");
+    accepted(down.r);
+    assert.deepEqual(cf(down.line), ["qwen-local", false, false], `${arm}: planned local, down`);
+    assert.notEqual(down.line?.workerMember, "qwen-local", `${arm}: the health fallback ran it elsewhere`);
+  }
+  // a plan that picks a cloud member: `planned` names it, no `localUp`, `triggered` false
+  for (const share of [0, 1]) {
+    const hi = await placed(as(share).h, "c1", { task: card({ t2: ["security"] }) });
+    assert.equal(hi.line?.triggered, false, `share ${share}`);
+    assert.ok(!("localUp" in hi.line!), `share ${share}`);
+    assert.ok(typeof hi.line?.planned === "string" && !LOCAL.includes(hi.line.planned), `share ${share}: ${hi.line?.planned}`);
+    assert.equal(hi.line?.planned, hi.line?.workerMember, `share ${share}`);
+  }
+});
+
+test("MEAS-4 a blocked or capped local member is not up", async () => {
+  const { h } = as(0, { models: { "qwen-local": { dailyCap: 1 } } });
+  assert.deepEqual(cf((await placed(h, "u1")).line), ["qwen-local", true, true]);
+  h.a.emit({ type: "turn", name: "u1", ts: 2 }); // one request on the local member: today's cap reached
+  h.clock.t += 61_000;
+  assert.deepEqual(cf((await placed(h, "u2")).line), ["qwen-local", false, false]);
+});
+
+test("MEAS-4 an explicit model and a force: planned is what the plan picked, a force logs the routed counterfactual", async () => {
+  for (const share of [0, 1]) {
+    const { h } = as(share);
+    const pinned = await placed(h, "p1", { model: "anthropic/claude-sonnet-5-5" });
+    assert.deepEqual(cf(pinned.line), ["sonnet", undefined, false], `share ${share}: an accepted explicit model is the plan's member`);
+  }
+  const { h, c } = as(1);
+  await h.f.commands.get("force")!.handler("opus", c);
+  const forced = await placed(h, "f1");
+  assert.equal(forced.line?.forced, true);
+  assert.deepEqual(cf(forced.line), ["qwen-local", true, true], "what routing would have chosen, as the routedModel says");
+});
+
+test("MEAS-4 the randomized leg: the as-used plan's draw decides `planned` in both arms", async () => {
+  for (const [u, want] of [[0, "sonnet"], [0.99, "qwen-local"]] as const) {
+    for (const share of [0, 1]) {
+      const h = harness({ settings: { experiments: { cloudOnlyShare: share }, randomize: { enabled: true, share: 0.5 } } as never, extra: { rng: () => u } });
+      h.f.fire("session_start", { reason: "startup" }, ctx("s-main"));
+      assert.equal((await placed(h, "r1")).line?.planned, want, `draw ${u}, share ${share}`);
+    }
+  }
+});
+
+test("MEAS-4 logging changes no routing: a cloud-only session routes, draws and escalates as a table without local members does", async () => {
+  // cards at the bottom of the table draw (the randomizer); every fifth is a re-spawn of the one before
+  const rnd = seeded(77);
+  const cs = Array.from({ length: 80 }, (_, i): Card => {
+    const c = card({ kind: ["mechanical", "implement", "scout", "lookup"][rnd(4)]!, files: [`src/f${i}.ts`], t2: rnd(6) ? [] : ["security"] });
+    if (!rnd(4)) c.importance = IMPS[rnd(2)];
+    return i % 5 === 4 ? { ...c, attemptOf: `c${i - 1}` } : c;
+  });
+  const run = async (settings: Record<string, unknown>) => {
+    const next = seeded(4242), draws: number[] = [];
+    const h = harness({ settings: { randomize: { enabled: true, share: 0.5 }, ...settings } as never,
+      extra: { rng: () => { const u = next(1_000_000) / 1_000_000; draws.push(u); return u; } } });
+    h.f.fire("session_start", { reason: "startup" }, ctx("s-main"));
+    provideSkills(h, SKILLS);
+    const out: unknown[] = [];
+    for (const [i, c] of cs.entries()) {
+      const r = (await h.a.spawn({ name: `c${i}`, task: c })) as Record<string, unknown>;
+      out.push("reject" in r ? r.reject : [r.model, r.thinkingLevel, r.briefAppend]);
+      if (!("reject" in r)) h.a.emit({ type: "spawn", name: `c${i}`, by: "main", parent: "main", childSessionId: `s-c${i}`, ts: i });
+      h.clock.t += 61_000;
+    }
+    return { out, draws, h };
+  };
+  // the local member sits above every cloud member (write 2): the as-used plan picks it for every card, the cloud-only plan a cheaper
+  // cloud member of a lower level, so a logging plan that touched the router's attempt state would escalate a re-spawn from the wrong level
+  const cloudOnly = await run({ experiments: { cloudOnlyShare: 1 }, models: { "qwen-local": { abilities: { write: 2, read: 3 } } } });
+  // the reference has no logging plan of its own: no local member, as used
+  const reference = await run({ experiments: { cloudOnlyShare: 0 }, models: { "qwen-local": { model: "" } } });
+  assert.ok(cloudOnly.draws.length > 10, "the randomizer drew");
+  assert.deepEqual(cloudOnly.draws, reference.draws, "the logging plan consumed no draw of the router's stream");
+  assert.deepEqual(cloudOnly.out, reference.out, "the same models, efforts and briefs");
+  assert.ok(cloudOnly.out.filter((x) => Array.isArray(x)).length > 40, "most cards are placed");
+  const spawnLines = (r: typeof cloudOnly) => r.h.lines().filter((l) => l.event === "spawn");
+  assert.ok(spawnLines(cloudOnly).length > 40 && spawnLines(cloudOnly).every((l) => typeof l.planned === "string" && typeof l.triggered === "boolean"));
+  assert.ok(spawnLines(cloudOnly).some((l) => l.triggered === true), "some spawns are triggered: the as-used plan picked the local member");
+  assert.ok(spawnLines(reference).every((l) => l.triggered === false && !("localUp" in l)), "the reference has no local member to pick");
+  assert.deepEqual(cloudOnly.h.lines().filter((l) => l.event === "escalate").map((l) => [l.taskId, l.toLevel]),
+    reference.h.lines().filter((l) => l.event === "escalate").map((l) => [l.taskId, l.toLevel]), "the same escalations");
+});
