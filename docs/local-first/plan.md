@@ -249,7 +249,7 @@ factors with `enabled` by settings.
 | `lf-tree-log` | `split` line without `depth` | TREE-11 | [x] |
 | `lf-top-plan` | the root split stored on the main branch | TREE-12 | [x] |
 | `lf-tiers` | elevated not capped | SIZE-1 | [x] |
-| `lf-tiers-git` | untracked files not counted | SIZE-2 | [ ] |
+| `lf-tiers-git` | untracked files not counted | SIZE-2 | [x] |
 | `lf-start-refusal` | inert estimates refused | SIZE-4 | [ ] |
 | `lf-size-hints` | the guard returns `{block: true}` at 100 % | SIZE-5 | [ ] |
 | `lf-overcap` | the riskiest hunk exceeds `overCapBytes` | SIZE-8 | [ ] |
@@ -846,10 +846,12 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   arms.E2 ?? "standard"`, never `inert`.
 - GREEN: `sessionTier(arms: Arms): Tier` in the composition; no settings read.
 
-#### LF5.T3 Changed lines during the work (SIZE-2) `[ ] todo`
+#### LF5.T3 Changed lines during the work (SIZE-2) `[x] done`
 - Files: `core/local/size.ts` (new), `core/local/gitcmd.ts` (port `diffNumstatWorktree`, `untrackedLines` if missing); test `lf-tiers-git` (new).
 - RED: real git: 10 added committed + 5 modified uncommitted + an untracked 7-line file + an ignored file → 22 (+ deleted counted); the gate's `sizeOf` unchanged (`local-merge-*` green).
 - GREEN: `workSize(git, wt, base)`.
+- decision (lf56): no `gitcmd.ts` port: `Git.diffStat` (`core/local/git.ts`, D42) already is the worktree numstat plus the
+  untracked lines; `workSize` sums it.
 
 #### LF5.T3a Split files excluded from size (SIZE-2, D85) `[ ] todo`
 - Files: `core/local/size.ts`; test `lf-tiers-git` "split files".
