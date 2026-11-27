@@ -293,6 +293,9 @@ factors with `enabled` by settings.
 | `lf-outcome` ENUMS_V2 | a builder writes `kind: "other"` | the `∈ ENUMS_V2` assertion | [x] |
 | `lf-arms-shell` stage n (LF14–LF18) | a factor drawn without its `enabled` setting | the "without the settings → no arm" case | [ ] |
 | module-eval `localMode.enable` (LF19.T7a) | the option still sets `mode = "local"` | the expected HM-1 b list | [ ] |
+| `lf-session-log` MEAS-3 (R3A.T1) | the shell writes the settings' share instead of the snapshot's | the resume case | [ ] |
+| `lf-split` TREE-15 (R3A.T2) | `splitNow` passes no contract | the `src/other.ts` refusal | [ ] |
+| `lf-e0` MEAS-4 (R3A.T3) | the cloud-only arm's logging plan shares the real plan's `attempts` | the attempt-state case | [ ] |
 
 ## 12. Coverage gap and manual runbooks (owner-run, before any live arm; G1–G10 first)
 
@@ -915,11 +918,11 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - decision (lf56): the crossing is logged by `splitNow` (`core/local/splittool.ts`, port `SplitDeps.crossing`; `split.ts` unchanged):
   stage 100, `lines` = the rendered lines, `budget` = `planLines`, kind `plan`, class `standard` (a split file never counts toward
   the class, D85), turn and call the main's (also for a child's `submit_split`); at exactly `planLines` none. The m7 check below
-  is not implemented (owner decision open).
-- Review LF4 m7 (recorded, needs the owner: S37 is silent): a package node's split (`submit_split`) is not checked against
-  the node's own contract, so a child whose `files` leave the contract's, or that drops its `forbidden`, is accepted and its
-  work is refused only at the node's merge (TREE-14). Proposed RED (`lf-split` "S37 contract"): a split of `auth.form`
-  (files `src/form/**`, forbidden `src/db/**`) with a child `src/other.ts` → refused naming the path; the children inherit
+  is task R3A.T2.
+- Review LF4 m7 (decided (owner, 2026-11-27): yes; implemented by R3A.T2, test `lf-split` "TREE-15"): a package node's split
+  (`submit_split`) was not checked against the node's own contract, so a child whose `files` leave the contract's, or that drops
+  its `forbidden`, was accepted and its work refused only at the node's merge (TREE-14). Now a split of `auth.form` (files
+  `src/form/**`, forbidden `src/db/**`) with a child `src/other.ts` is refused naming the path, and the children inherit
   `forbidden`.
 
 #### LF5.T9 No size refusal at the gate (SIZE-8 a) `[x] done`
@@ -1142,6 +1145,31 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 
 #### LF7.T4 Docs `[ ] todo`
 - Files: `docs/task-router.md` (prerequisites), README prerequisites row (`readme-package` checks it).
+
+### R3 owner additions (2026-11-27)
+
+Three small additions the owner decided on 2026-11-27 (open-questions answer B5 and B10, and "Other improvements" item 1);
+they ride on release R3 (0.5.0). Only T2 changes routing behaviour (a refusal at the split); T1 and T3 add optional
+fields, so no schema bump (§2.4), and the new keys only grow the consumer contract (LOG-4; PE-3 reads them). Factors stay OFF.
+Keep green: KG-R; KG-S for the docs.
+
+#### R3A.T1 `cloudOnlyShare` on the `session` line (B5; spec §2.4, MEAS-3) `[ ] todo`
+- Files: `core/outcome.ts` (`KEYS`, `SessionInput`, `sessionEvent`), `core/shell.ts` (the session line); tests `lf-session-log` "MEAS-1" (its cloud-first expectation grows the key) and "MEAS-3" (new), `lf-default` "NR-2 the session line…" (its expected line grows the key); `docs/outcome-log.md`.
+- Why: without the share on the line a change of `experiments.cloudOnlyShare` is invisible in the data (router 0.4.0 lines do not carry it).
+- RED: a cloud-first session that draws E0 (share 0.1, 0.5 or 1) writes `cloudOnlyShare` equal to the snapshot's share, a number; after a resume with another share the line carries the snapshot's (the draw's), not the settings'; no key on a session outside E0 (legacy local mode, routing off, no enabled cloud member; share 0 writes no line at all); fails first: the builder writes no such key.
+- GREEN: `sessionEvent` takes `cloudOnlyShare?: number` (a `KEYS` entry; a number passes `finish`); the shell passes the snapshot's share when E0 was drawn. A number, so no `ENUMS_V2` entry.
+
+#### R3A.T2 A split stays inside the node's contract (B10, review LF4 m7; spec TREE-15) `[ ] todo`
+- Files: `core/local/split.ts` (`validateSplit` gains the node's contract; `insideGlobs`), `core/local/splittool.ts` (the contract in, `forbidden` inherited); test `lf-split` "TREE-15"; `docs/task-router.md` (the split tool).
+- RED: the split of `auth.form` (contract files `src/form/**`, forbidden `src/db/**`) with a child whose `files` is `src/other.ts` → refused naming the path (`children[0].files: src/other.ts is outside the contract of auth.form (src/form/**)`), through `submit_split` and `split` alike, nothing committed or logged; a child inside (`src/form/a.ts`, `src/form/ui/**`) → accepted and its committed `forbidden` holds `src/db/**` (its own entries after it, no duplicate); a child file inside the node's `forbidden` is refused too; a node without a contract (a root, a node started without `child`) is not checked; fails first: the split is accepted.
+- GREEN: `validateSplit(plan, node, caps, budget?, contract?)`: each `files` entry of a child must lie inside `contract.files` and outside `contract.forbidden`; a plain path is matched by the contract's globs, a glob entry by two probe paths with its wildcards filled (a conservative containment test: a doubtful glob is refused, TREE-14 at the merge stays the backstop); `splitNow` passes `contractOf(tree, node)` and prepends the contract's `forbidden` to each child's before the commit.
+- decision (owner, 2026-11-27): replaces the m7 note of LF5.T8.
+
+#### R3A.T3 Counterfactual logging on the `spawn` line (item 1 of "Other improvements"; spec MEAS-4) `[ ] todo`
+- Files: `core/policy.ts` (the as-used plan for logging, the probe; `ChildBase`), `core/outcome.ts` (`KEYS`, `spawnEvent`), `core/shell.ts` (the spawn line); tests `lf-e0` "MEAS-4" (new), `lf-default` "NR-2 cloud-first lines" (a spawn line grows the keys); `docs/outcome-log.md`, `docs/task-router.md` (E0).
+- Why: a possible per-spawn E0 (v2, pending owner OK) needs to know how often a spawn is *triggered* (the as-used plan picks a local member and it is up) and how often the local server is up. The same fields in both arms let the session-level analysis keep only sessions with at least one trigger. No routing changes.
+- RED: every routed `spawn` line carries `planned` (the member the as-used plan picked, before the E0 filter or any health fallback), `localUp` (the planned member's health, only when it is a `route: "local"` member; no health URL = up) and `triggered` (`true` iff planned is local and up, else `false`); a down probe: `localUp: false`, `triggered: false`, the spawn placed as before; cloud-only arm: the same three values as the as-used arm for the same card and probe, the model it runs on and the order of the router's random draws unchanged, the attempt state untouched; an explicit model or a force: `planned` is what the plan picked; a ticket child's and an unrouted spawn line carry none; fails first: no such keys.
+- GREEN: `createPolicy` computes the as-used plan once for logging (the as-used arm's own plan is it; the cloud-only arm plans again on the unfiltered table, on a copy of the attempt state, replaying the real plan's random draws) and probes the planned local member (the probe is cached per URL); the three values ride on the child's entry to its `spawn` line.
 
 ### LF8 — Contact budgets, the ladder, breakers, spot-checks, batching (design §5.5; gaps 10, 13–17)
 
