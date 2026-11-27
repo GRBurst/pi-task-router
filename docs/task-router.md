@@ -1042,8 +1042,8 @@ gate, the switch and the weights.
 - *The weights.* `weights` has one number per level, in the registry's level
   order (the first level is the default); they are relative, need not sum to
   1, and a 0 never draws its level. Equal weights are the default; a one-hot
-  vector pins every new session to one level, which is how an experiment
-  concludes. Changing the weights starts a new population: the sessions
+  vector pins every new session (for a review factor such as E3, every review
+  of a new session) to one level, which is how an experiment concludes. Changing the weights starts a new population: the sessions
   before it keep theirs, and the arm on each line says what ran, so analysis
   groups by the line's arm, not by the settings. The weights of a session are in its
   `task-router/arms` entry.
