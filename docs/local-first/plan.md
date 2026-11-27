@@ -1074,6 +1074,11 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - Review LF4 m4 (recorded, not fixed in LF4): a crash between a split's commit and its tree op leaves the committed file and no
   op; a retry with the same plan fails "nothing to commit". The driver's split step (and `splittool.ts` `splitNow`) takes a
   node HEAD that already holds the same rendered file as the commit. RED: commit the file, drop the op, split again → `ok`.
+- Review LF4 m9 (recorded, unverified risk): `submit_split` (like `submit_plan`) closes over the main instance's tree store
+  and `pi.sendMessage`; a package child running across a `/reload` would apply its split to the old instance, and the new
+  tree would see it only at the next `session_start`. Verify against pi's reload first (does the old instance's
+  `appendEntry` still reach the session?); if so, resolve the store at call time (a `globalThis` handle of the live instance).
+  RED: harness reload between a package spawn and its `submit_split` → the live tree has the node `split`.
 
 #### LF8.T9 Retry at xhigh (LOC-4) `[ ] todo`
 - Files: `core/local/ladderdrive.ts`, `core/local/package.ts`; test `lf-ladder` "LOC-4".
