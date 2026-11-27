@@ -176,3 +176,12 @@ test("routing off (plan D12): the force is not applied", async () => {
   assert.deepEqual([r.model, r.thinkingLevel], [OPUS, "high"]); // the caller's model and effort, as without a force
   assert.deepEqual(forceLines(h), [["set", "command"]]);
 });
+
+// R3A review L1: the counterfactual's probe is no await between reading a `next:N` force and consuming it
+test("L1: /force X next:1 and two spawns at once: one runs forced, the other routed (the counterfactual's probe does not delay `used`)", async () => {
+  const { h, force } = setup();
+  await force("other/model next:1");
+  const [a, b] = await Promise.all([h.a.spawn({ name: "c1", task: card() }), h.a.spawn({ name: "c2", task: card() })]) as { model: string }[];
+  assert.deepEqual([a!.model, b!.model], ["other/model", QWEN]);
+  assert.deepEqual(forceLines(h), [["set", "command"], ["used", "command"], ["expired", "command"]]);
+});

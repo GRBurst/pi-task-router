@@ -235,12 +235,16 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     const asUsed = cloudOnly ? dry.plan : sp, cloudPlanOk = cloudOnly || dry.plan.ok;
     // R3A review M1: the placement's start member as the as-used arm has it (a cloud-only session's `view` has none)
     const planned = cloudOnly && lf ? placement(card, prof.value, lf) : pl, plannedPlace = planned?.ok ? planned.value.member : undefined;
-    // an as-used plan that fails (a cloud-only session only: the real plan succeeded) picked nothing: untriggered, no `planned`
-    const cf: Counterfactual = asUsed.ok
-      ? await counterfactual(base, { planned: plannedPlace ?? asUsed.value.start.member, chosen: f !== undefined || args.model !== undefined, cloudPlanOk })
-      : { triggered: false };
+    // an as-used plan that fails (a cloud-only session only: the real plan succeeded) picked nothing: untriggered, no `planned`.
+    // The probe is started here and awaited after the child's entry is written (and a `next:N` force consumed): no await between reading
+    // a force and using it (R3A review L1); the spawn line is written later, on the actor's spawn event.
+    const cfP: Promise<Counterfactual> = asUsed.ok
+      ? counterfactual(base, { planned: plannedPlace ?? asUsed.value.start.member, chosen: f !== undefined || args.model !== undefined, cloudPlanOk })
+      : Promise.resolve({ triggered: false });
+    void cfP.catch(() => undefined); // a spawn refused before the await below leaves the probe unobserved
+    const withCf = async () => { const cf = await cfP, c = d.children.get(args.name); if (c) c.cf = cf; };
     const entry: ChildBase = {
-      parent: caller.name, parentSession: caller.sessionId, card, plan, cwd, importance, cf,
+      parent: caller.name, parentSession: caller.sessionId, card, plan, cwd, importance,
       ...(v.unresolved ? { unresolved: true as const } : {}), ...(sp.value.esc ? { esc: sp.value.esc } : {}),
     };
     // Local mode (design §3.1.3, plan D19): the child's tripwires observe every call first and never block; then the local guards
@@ -275,6 +279,7 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
           failover: [], start: { member: "", model: f.model, effort, waitMs: 0 } });
       }
       d.force!.used(args.name);
+      await withCf();
       return result(f.model, effort);
     }
     if (place?.member !== undefined) {
@@ -286,6 +291,7 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
         effort: place.meta.node ? "xhigh" : args.thinkingLevel, pinned: false, failover: [], entry });
       if (!to.ok) return reject(to.errors);
       plan.reasons.push(to.value.why);
+      await withCf();
       return result(to.value.member.model, to.value.effort);
     }
     if (st.pinned && s.contextFit > 0 && need > s.contextFit * M.contextWindow)
@@ -296,6 +302,7 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     });
     if (!to.ok) return reject(to.errors);
     plan.reasons.push(to.value.why);
+    await withCf();
     return result(to.value.member.model, to.value.effort);
   };
 }
