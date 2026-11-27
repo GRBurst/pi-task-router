@@ -1153,6 +1153,12 @@ they ride on release R3 (0.5.0). Only T2 changes routing behaviour (a refusal at
 fields, so no schema bump (§2.4), and the new keys only grow the consumer contract (LOG-4; PE-3 reads them). Factors stay OFF.
 Keep green: KG-R; KG-S for the docs.
 
+Note for E0 v2 (review M2): the spec rows MEAS-3 (the share on the `session` line) and MEAS-4 (the counterfactual on the `spawn`
+line) keep their numbers here; the E0 v2 delta numbers its own rows after them. `cloudOnlyShare` is written only while `e0drawn`
+is true (`core/shell.ts`, the session line: an E0 draw happened at the session start), so LF20.T5 (E0 v2) must widen that gate for
+a v2 session, or its session line loses the share (and T1's test must follow). This plan's `dryPlan` plans on a clone of the
+attempt map it is given and returns it (M3), so a v2 dry plan can build on it.
+
 #### R3A.T1 `cloudOnlyShare` on the `session` line (B5; spec §2.4, MEAS-3) `[x] done`
 - Files: `core/outcome.ts` (`KEYS`, `SessionInput`, `sessionEvent`), `core/shell.ts` (the session line); tests `lf-session-log` "MEAS-1" (its cloud-first expectation grows the key) and "MEAS-3" (new), `lf-default` "NR-2 the session line…" (its expected line grows the key); `docs/outcome-log.md`.
 - Why: without the share on the line a change of `experiments.cloudOnlyShare` is invisible in the data (router 0.4.0 lines do not carry it).
