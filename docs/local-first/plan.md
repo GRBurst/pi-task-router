@@ -1522,6 +1522,9 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
   every local-first line), E3 per review (on its `review` line), the drawn levels change the tier and the
   reviewer; the same session without the settings → no `E2`/`E3` arms, defaults used.
 - GREEN: wire `sessionTier(arms)` (LF5.T2) and `reviewer(...)` (LF6.T6) to the snapshot's arms.
+- Review lf56 m9 (tracked here, not fixed in LF6): E3's per-review draw belongs to this task. Until it lands the gate passes
+  `review: armsFor("session")` (`core/local/merge.ts`, the `reviewer` call), so REV-2 is inert even with E3 enabled and no
+  `review` line carries E3; E3 ships OFF until then.
 
 #### LF14.T2 Docs `[ ] todo`
 - Files: `docs/task-router.md` (running factors: enabling, weights, the owner's gate). Then release R2.
