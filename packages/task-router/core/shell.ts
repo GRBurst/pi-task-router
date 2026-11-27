@@ -366,7 +366,7 @@ export function install(pi: PiLike, deps: Deps) {
   const lm = installLocal(pi, { settings, log, isChild, sessionId: () => sessionId, hash: deps.hash, detect: deps.detect, git: deps.git, onTrip: (t) => { hint = t; render(); },
     api, tickets, hex, now: nowMs, sleep: pd.sleep, onBudget: render, force: force.port, run: deps.run, policyOn: () => off.length > 0,
     placed: (n) => placed.has(n), local: () => profile.current() !== "cloud-first", childCalls: (n) => childTrips.calls(n),
-    ...(settings.localFirst.experimental && { nodes: { tree, localFirst: () => profile.current() === "local-first", caps: () => strategy.treeCaps({}),
+    ...(settings.localFirst.experimental && { nodes: { tree, localFirst: () => profile.current() === "local-first", caps: () => strategy.treeCaps(armMap()),
       strategy, arms: armMap, log: nodeLog } }) });
   // PRO-7 (S34a): a local session registers the local tools and hooks it lacks (a cloud-first default: at its first switch to
   // local-first); the tools whose component the profile turns off leave the active set (pi cannot unregister a tool) and come

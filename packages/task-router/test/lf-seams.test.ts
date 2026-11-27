@@ -45,3 +45,9 @@ test("NR-6 one composition: localFirst(settings) is a Strategy with every part",
   assert.deepEqual(Object.keys(s).sort(), PARTS);
   for (const p of PARTS) assert.equal(typeof s[p], "function", p);
 });
+
+test("the mechanism reads the tree caps with the session's arms (review lf56 nit: E6/E15 draw them)", () => {
+  // the split's caps and the budgets line must agree once a factor draws the caps: never `treeCaps({})`
+  const bad = sources().filter((f) => !f.startsWith(`${STRATEGY}/`) && /treeCaps\(\s*\{\s*\}\s*\)/.test(readFileSync(join(ROOT, f), "utf8")));
+  assert.deepEqual(bad, []);
+});
