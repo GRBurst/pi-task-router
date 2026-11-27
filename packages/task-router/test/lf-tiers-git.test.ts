@@ -1,6 +1,6 @@
 // Local-first plan LF5.T3, T3a (spec SIZE-2, D85): the changed lines of a node during the work, with real git: the worktree's
 // numstat against its base (committed, staged and unstaged, deleted lines too) plus the lines of its untracked files that are
-// not ignored.
+// not ignored; the router's split files (`<plans.dir>/split/**`) never count.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
@@ -28,13 +28,25 @@ test("SIZE-2 committed, uncommitted and untracked lines; ignored files do not co
   mkdirSync(join(r.dir, ".git", "info"), { recursive: true });
   appendFileSync(join(r.dir, ".git", "info", "exclude"), "ignored.log\n");
   writeFileSync(join(wt, "ignored.log"), lines(50, "i")); // ignored: never counted
-  assert.equal(await workSize(git, wt, base), 22);
+  assert.equal(await workSize(git, wt, base, "docs/plans"), 22);
   // deleted lines count too: 2 of the base file's 4 lines removed
   writeFileSync(join(wt, "old.txt"), lines(2, "o"));
-  assert.equal(await workSize(git, wt, base), 24);
+  assert.equal(await workSize(git, wt, base, "docs/plans"), 24);
 });
 
 test("SIZE-2 a failing git measures nothing", async () => {
   const { git, wt } = rig();
-  assert.equal(await workSize(git, wt, "no-such-ref"), 0);
+  assert.equal(await workSize(git, wt, "no-such-ref", "docs/plans"), 0);
+});
+
+test("split files: the router's split plan never counts (D85)", async () => {
+  const { r, git, base, wt } = rig();
+  r.commit("docs/plans/split/auth.json", lines(120, "s"), "split", wt);
+  r.commit("src/code.ts", lines(10, "c"), "code", wt);
+  assert.equal(await workSize(git, wt, base, "docs/plans"), 10);
+  // an untracked split file does not count either; the same name under another path does
+  writeFileSync(join(wt, "docs/plans/split/auth.form.json"), lines(30, "t"));
+  assert.equal(await workSize(git, wt, base, "docs/plans/"), 10);
+  r.commit("docs/other/split/auth.json", lines(5, "x"), "not a split file", wt);
+  assert.equal(await workSize(git, wt, base, "docs/plans"), 15);
 });

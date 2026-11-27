@@ -853,11 +853,13 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - decision (lf56): no `gitcmd.ts` port: `Git.diffStat` (`core/local/git.ts`, D42) already is the worktree numstat plus the
   untracked lines; `workSize` sums it.
 
-#### LF5.T3a Split files excluded from size (SIZE-2, D85) `[ ] todo`
+#### LF5.T3a Split files excluded from size (SIZE-2, D85) `[x] done`
 - Files: `core/local/size.ts`; test `lf-tiers-git` "split files".
 - RED: real git: a node commits a 120-line `<plans.dir>/split/<node>.json` and 10 code lines → `workSize` = 10;
   the same file under another path counts.
 - GREEN: a `:(exclude)<plans.dir>/split/**` pathspec in both numstat calls and the untracked walk.
+- decision (lf56): the numstat is filtered by `isSplitFile` (`core/local/split.ts`, D85's one definition) instead of a
+  pathspec: the same lines, and no second spelling of the rule (`withoutSplits`, `core/local/size.ts`; the gate reuses it).
 
 #### LF5.T4 Start refusal (SIZE-4) `[ ] todo`
 - Files: `core/local/branchtool.ts`; test `lf-start-refusal` (new).
