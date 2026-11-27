@@ -871,6 +871,11 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 #### LF5.T8 Plan budgets (SIZE-10) `[ ] todo`
 - Files: `core/local/split.ts`; test `lf-split` "SIZE-10".
 - RED: a split rendering to 151 lines (`planLines` 150) → accepted + one `crossing` (kind `plan`); 6 children → refused (TREE-2's reason).
+- Review LF4 m7 (recorded, needs the owner: S37 is silent): a package node's split (`submit_split`) is not checked against
+  the node's own contract, so a child whose `files` leave the contract's, or that drops its `forbidden`, is accepted and its
+  work is refused only at the node's merge (TREE-14). Proposed RED (`lf-split` "S37 contract"): a split of `auth.form`
+  (files `src/form/**`, forbidden `src/db/**`) with a child `src/other.ts` → refused naming the path; the children inherit
+  `forbidden`.
 
 #### LF5.T9 No size refusal at the gate (SIZE-8 a) `[ ] todo`
 - Files: `core/local/merge.ts`; test `lf-overcap` (new) "no size refusal".
