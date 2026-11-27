@@ -242,7 +242,14 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
       ? counterfactual(base, { planned: plannedPlace ?? asUsed.value.start.member, chosen: f !== undefined || args.model !== undefined, cloudPlanOk })
       : Promise.resolve({ triggered: false });
     void cfP.catch(() => undefined); // a spawn refused before the await below leaves the probe unobserved
-    const withCf = async () => { const cf = await cfP, c = d.children.get(args.name); if (c) c.cf = cf; };
+    const withCf = async () => {
+      const cf = await cfP, c = d.children.get(args.name);
+      if (c) c.cf = cf;
+      // R3A review L2: a down local member made the as-used attempt fall back as the real selection did: the as-used lineage (the shadow
+      // of a cloud-only session) ran where the real one ran, so a re-spawn's counterfactual escalates from there (`respawn`, `fromRan`)
+      const sh = shadow.get(args.name);
+      if (cloudOnly && cf.localUp === false && c?.member && sh) sh.ranMember = c.member;
+    };
     const entry: ChildBase = {
       parent: caller.name, parentSession: caller.sessionId, card, plan, cwd, importance,
       ...(v.unresolved ? { unresolved: true as const } : {}), ...(sp.value.esc ? { esc: sp.value.esc } : {}),

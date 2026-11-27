@@ -225,7 +225,9 @@ the only ones the cloud-only filter could have changed; the trigger is computed 
 (`localUp` over the spawns whose `planned` is local). An accepted explicit `model` is the plan's member (never triggered); a forced
 spawn (`forced`) logs what routing would have chosen (never triggered). The router plans once more for the line only (no effect on
 routing): in a `cloud-only` session on the full table (the as-used plan), in an `as-used` session on the cloud-only table (is there a
-cloud plan). If, in a `cloud-only` session, the plan for the line fails (the as-used plan picks nothing, for example an explicit
+cloud plan). A re-spawn's (`attemptOf`) counterfactual is a model of the other arm's attempt, not a replay: the other plan keeps its own
+lineage of attempts, and in a `cloud-only` session an attempt whose local member was down is taken to have run where the real one ran.
+If, in a `cloud-only` session, the plan for the line fails (the as-used plan picks nothing, for example an explicit
 cloud model below its level), the line has `triggered: false` and no `planned`. A spawn that is refused has no line. A reader that rejects unknown fields must take the three keys. They are strings and booleans, so
 no `ENUMS_V2` key; `planned` is a member name (a settings key), not an enumerated list.
 

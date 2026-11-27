@@ -389,3 +389,22 @@ test("MEAS-4 an as-used plan that fails in a cloud-only session: triggered false
   assert.equal(p.line?.triggered, false);
   assert.ok(!("planned" in p.line!) && !("localUp" in p.line!), "nothing is known of the as-used pick");
 });
+
+// R3A review L2: a re-spawn after the local member was down: the as-used plan escalates from where the attempt ran (the fallback), so the
+// cloud-only session's logging plan does too, and `planned` is the same in both arms
+test("MEAS-4 a re-spawn after a health fallback: planned is the same in both arms", async () => {
+  const planned: unknown[][] = [];
+  for (const share of [0, 1]) {
+    const { h } = as(share, { profiles: { rd: { ability: "read", tools: "read-only", skills: [], report: "answer" } } }); // read: qwen 0, haiku 1, sonnet 2
+    h.health.health = 0; // the local server is down: the first spawn falls back to a cloud member
+    const t1 = await placed(h, "t1", { task: card({ kind: "rd" }) });
+    accepted(t1.r);
+    assert.deepEqual(cf(t1.line), ["qwen-local", false, false]);
+    h.clock.t += 61_000;
+    const t2 = await placed(h, "t2", { task: card({ kind: "rd", attemptOf: "t1" }) });
+    accepted(t2.r);
+    planned.push([t1.line?.workerMember, cf(t2.line)]);
+  }
+  assert.equal(planned[0]![0], planned[1]![0], "the same fallback ran the first attempt");
+  assert.deepEqual(planned[1], planned[0], "the same counterfactual for the re-spawn");
+});

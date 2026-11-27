@@ -1128,7 +1128,8 @@ once more, on the full table. Either way the second plan is for the line only: a
 private attempt state, the real plan's random draws replayed, so the routing, the
 random stream and the attempt state are what they were without the logging; a
 cloud-only session therefore also probes the local server (at most one probe per
-30 s) when a plan picks a local member. When that second plan fails in a cloud-only session (it picked nothing), the line has
+30 s) when a plan picks a local member. A re-spawn's counterfactual is a model of the other arm's attempt (that plan keeps its own lineage; in a cloud-only session an attempt
+whose local member was down is taken to have run where the real one ran), not a replay. When that second plan fails in a cloud-only session (it picked nothing), the line has
 `triggered: false` and no `planned`. A spawn the cloud-only plan refuses has no line. A ticket
 child's and an unrouted line carry none.
 
