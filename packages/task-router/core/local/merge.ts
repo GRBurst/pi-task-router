@@ -511,7 +511,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     const text = overCap ? overCapReview(facts, s.localFirst.overCapBytes, risk) : reviewInput({ ...facts, maxLines: budget });
     const out = await p.overseer.run({ role: "merge", input: text, cwd: p.branches.facts.mainCheckout.get(repo) ?? repo, worktree: wt.dir,
       submit: verdictSubmit(new Set(paths)), commit, branch, signal: p.signal, ...(overCap && { overCap }),
-      ...(choice && { choice }), ...(line && { line }) });
+      ...(lf && { retryTransient: true }), ...(choice && { choice }), ...(line && { line }) });
     if (!out.ok) {
       const r: MergeReason = out.outcome === "aborted" ? "aborted" : "review-unavailable";
       return done("error", r, out.why ? `${reasonText(r, {})}: ${out.why}` : reasonText(r, {}), commit); // a cap or a full member (L4 note)

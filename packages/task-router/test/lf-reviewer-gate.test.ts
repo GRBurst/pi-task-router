@@ -9,6 +9,7 @@ import { nodeRig } from "./node-rig.ts";
 import { REVISE } from "./merge-rig.ts";
 import { rig as overseerRig, VALID } from "./overseer-rig.ts";
 import type { PolicyGit } from "../core/local/policyfile.ts";
+import type { ReviewerChoice } from "../core/strategy/types.ts";
 
 const text = (n: number, tag: string): string => Array.from({ length: n }, (_, k) => `export const ${tag}${k} = ${k};\n`).join("");
 
@@ -161,4 +162,69 @@ test("REV-10", async () => {
   assert.equal((await y.mergeIt()).status, "merged");
   assert.equal(y.reviews.length, 1);
   assert.deepEqual([y.lines.at(-1)!.class, y.reviews[0]!.choice!.reviewer], ["standard", "haiku"]);
+});
+
+/** The overseer rig on a chosen Opus review; `sleeps` records every sleep but the 2 s polls (the backoffs). */
+function retryRig() {
+  const o = overseerRig();
+  const sleeps: number[] = [], poll = o.d.sleep;
+  o.d.sleep = async (ms) => { if (ms !== 2000) sleeps.push(ms); await poll(ms); };
+  const choice: ReviewerChoice = { reviewer: "opus", binding: true, fresh: true, orthogonal: false };
+  const reviews = () => o.h.lines().filter((l) => l.event === "review").map((l) => [l.attempt, l.member, l.outcome, l.fallback ?? null]);
+  /** The i-th spawn (1-based) fails with `reason` once it runs. */
+  const fail = (reason: string) => (i: number) => o.h.a.emit({ type: "error", name: `ovs-merge-${i}`, reason, ts: 0 });
+  return { ...o, sleeps, choice, reviews, fail };
+}
+
+test("REV-9 retry", async () => {
+  // local-first: a transient error (429/503/overloaded) on the first attempt → a second attempt after 5 s, approve → ok;
+  // never the closed gate
+  for (const reason of ["429 Too Many Requests", "503 Service Unavailable", "Overloaded"]) {
+    const o = retryRig();
+    let failed = 0;
+    o.on.each = async () => {
+      const n = o.h.a.apiSpawns.length;
+      if (n === 1 && !failed++) o.fail(reason)(1);
+      if (n === 2) await o.tool().execute(VALID);
+    };
+    const out = await o.run({ choice: o.choice, retryTransient: true });
+    assert.equal(out.ok, true, reason);
+    assert.deepEqual(o.sleeps, [5000], reason);
+    assert.deepEqual(o.reviews(), [[1, "opus", "error", null], [2, "opus", "approve", null]], reason);
+  }
+  // three transient errors → backoffs 5 s and 20 s, then the existing fallback attempt with `fallback: transient`; its error is
+  // the run's existing `error` outcome (the gate's review-unavailable)
+  const o = retryRig();
+  const seen = new Set<number>();
+  o.on.each = async () => { const n = o.h.a.apiSpawns.length; if (!seen.has(n)) { seen.add(n); o.fail("429 rate limit")(n); } };
+  const out = await o.run({ choice: o.choice, retryTransient: true });
+  assert.deepEqual(out, { ok: false, outcome: "error" });
+  assert.deepEqual(o.sleeps, [5000, 20000]);
+  assert.deepEqual(o.reviews(), [[1, "opus", "error", null], [2, "opus", "error", null], [3, "opus", "error", null],
+    [4, "opus", "error", "transient"]]);
+  // a non-transient error is not retried: the existing second attempt at once
+  const p = retryRig();
+  p.on.each = async () => { const n = p.h.a.apiSpawns.length; if (n === 1 && !seen.has(-1)) { seen.add(-1); p.fail("boom")(1); } if (n === 2) await p.tool().execute(VALID); };
+  assert.equal((await p.run({ choice: p.choice, retryTransient: true })).ok, true);
+  assert.deepEqual(p.sleeps, []);
+  assert.deepEqual(p.reviews(), [[1, "opus", "error", null], [2, "opus", "approve", "error"]]);
+  // legacy local mode: a transient error fails the attempt; the fallback member at once (`local-overseer`)
+  const l = retryRig();
+  l.on.each = async () => { const n = l.h.a.apiSpawns.length; if (n === 1 && !seen.has(-2)) { seen.add(-2); l.fail("429 Too Many Requests")(1); } if (n === 2) await l.tool().execute(VALID); };
+  assert.equal((await l.run()).ok, true);
+  assert.deepEqual(l.sleeps, []);
+  assert.deepEqual(l.reviews(), [[1, "opus", "error", null], [2, "sonnet", "approve", "error"]]);
+});
+
+test("REV-9 retry: the local-first gate asks for the retries; legacy does not", async () => {
+  const x = await gate();
+  x.put({ "src/a.ts": 20 });
+  assert.equal((await x.mergeIt()).status, "merged");
+  assert.equal(x.reviews[0]!.retryTransient, true);
+  // legacy local mode (a branch without a node)
+  const b = await x.start("legacy");
+  x.r.commit("legacy.ts", "a\n", "legacy", b.worktree);
+  assert.equal((await x.merge({ branch: b.branch })).status, "merged");
+  assert.equal(x.reviews.length, 2);
+  assert.equal(x.reviews[1]!.retryTransient, undefined);
 });

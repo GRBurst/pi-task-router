@@ -84,7 +84,9 @@ export type RunResult<T> = { ok: true; value: T; reviewId: string; member: strin
 /** `overCap`: the local-first gate's over-cap review (SIZE-8), on its review lines. `choice`: the local-first gate's reviewer
  *  (REV-1, LF6.T8), which replaces `pickMember` and the Opus budget (CON-11); `line`: its review line's fields (LF6.T7). */
 export type RunArgs<T> = { role: RunRole; input: string; cwd?: string; worktree?: string; submit: SubmitSpec<T>; commit?: string; branch?: string;
-  signal?: AbortSignal; overCap?: boolean; choice?: ReviewerChoice; line?: ReviewFields };
+  signal?: AbortSignal; overCap?: boolean; choice?: ReviewerChoice; line?: ReviewFields;
+  /** Local-first (REV-9): an attempt ended by a transient provider error is retried on its member after a backoff. */
+  retryTransient?: boolean };
 export type OverseerDeps = {
   api(): SubagentsApiV1 | undefined; settings: RouterSettings; tickets: Tickets;
   /** The router's own spawn policy is registered (review F1): without it a ticket reaches no one, so nothing is spawned. */
@@ -149,6 +151,12 @@ const memberEffort = (s: RouterSettings, member: string): ThinkingLevel =>
   member === s.overseer.member ? s.overseer.effort : member === s.overseer.fallbackMember ? s.overseer.fallbackEffort
     : s.models[member]?.efforts.at(-1) ?? s.overseer.effort;
 
+/** REV-9 (LF6.T13): a provider error that passes (a rate limit, an overload, a 503); retried, never a closed gate. */
+export const isTransient = (text: string): boolean =>
+  /\b(?:429|502|503|504|529)\b|overloaded|rate[ _-]?limit|too many requests|service unavailable|temporarily unavailable/i.test(text);
+/** The backoffs before the retries of a transient error (REV-9: at most two retries). */
+export const RETRY_MS = [5000, 20000] as const;
+
 /** Polls between the child's events (D27: the API has no idle event), the verify gate's interval. */
 const POLL_MS = 2000;
 export const REVIEW_TYPE = "task-router/review";
@@ -162,7 +170,7 @@ export function budgetOf(branch: readonly unknown[]): Budget {
   return last ? { opusUsed: last.data.opusUsed, steerUsed: last.data.steerUsed } : { opusUsed: 0, steerUsed: 0 };
 }
 /** `unrouted` (review F1): the spawn succeeded, but not through the router's policy; logged as an `error`, never retried. */
-type Settled<T> = { kind: "ok"; value: T } | { kind: "timeout" | "invalid" | "aborted" | "unrouted" } | { kind: "error"; why?: string };
+type Settled<T> = { kind: "ok"; value: T } | { kind: "timeout" | "invalid" | "aborted" | "unrouted" } | { kind: "error"; why?: string; transient?: true };
 type SpawnApi = SubagentsApiV1 & Required<Pick<SubagentsApiV1, "spawn" | "kill">>;
 /** `dir` is `root` or below it (both absolute). */
 const inside = (dir: string, root: string): boolean => { const p = relative(root, dir); return p !== ".." && !p.startsWith("../") && !isAbsolute(p); };
@@ -206,7 +214,8 @@ export function createOverseer(d: OverseerDeps) {
     const off = a.subscribe((e) => {
       if (!("name" in e) || e.name !== name) return;
       if (e.type === "turn") busy = true;
-      if (e.type === "kill" || e.type === "error") finish({ kind: "error" });
+      if (e.type === "kill") finish({ kind: "error" });
+      if (e.type === "error") finish({ kind: "error", ...(isTransient(e.reason) && { transient: true as const }) });
     });
     const abort = (): void => finish({ kind: "aborted" });
     r.signal?.addEventListener("abort", abort, { once: true });
@@ -291,7 +300,9 @@ export function createOverseer(d: OverseerDeps) {
         return { ok: true, name };
       } finally { d.tickets.revoke(ticket); }
     },
-    /** Design §3.2.2: two attempts (`steer` one), the second on the fallback member (D28); `invalid` is a failed attempt. */
+    /** Design §3.2.2: two attempts (`steer` one), the second on the fallback member (D28); `invalid` is a failed attempt.
+     *  With `retryTransient` (REV-9) an attempt ended by a transient error is retried on its member (`RETRY_MS`); once the
+     *  retries ran out, the second attempt is logged with `fallback: transient`. */
     async run<T>(args: RunArgs<T>): Promise<RunResult<T>> {
       const a = d.api();
       if (!a || !hasSpawnApi(a) || !ready()) return { ok: false, outcome: "error" };
@@ -303,15 +314,9 @@ export function createOverseer(d: OverseerDeps) {
       const s = d.settings.overseer;
       let last: "timeout" | "error" | "invalid" = "error";
       const whys: string[] = [];
-      for (const no of r.role === "steer" ? [1] : [1, 2]) {
-        if (r.signal?.aborted) return { ok: false, outcome: "aborted" };
-        // local-first (LF6.T8): attempt 2 keeps the chosen member (never weaker than the class and size ask for), `fallback: error`
-        const first = no === 1 || r.choice ? pickMember(d.settings, r.role, budget(), r.choice) : undefined;
-        const p = no === 1 ? first! : first && first !== "skip" && first.chosen ? { ...first, fallback: "error" as const }
-          : { member: s.fallbackMember, effort: s.fallbackEffort, fallback: "error" as const };
-        if (p === "skip") return { ok: false, outcome: "skipped" };
-        const model = d.settings.models[p.member]?.model;
-        if (!model) continue;
+      /** One attempt on `p`'s member, held and charged against the Opus budget unless a fallback or chosen, and its line. */
+      const once = async (p: { member: string; effort: ThinkingLevel; fallback?: "budget" | "error" | "transient"; chosen?: true }, model: string,
+        no: number): Promise<Settled<T> & { reviewId: string }> => {
         const steer = r.role === "steer" ? 1 : 0;
         let holding = !p.fallback && !("chosen" in p); // CON-11: a chosen reviewer is outside the Opus budget
         const unhold = (): void => { if (holding) { holding = false; held.opus -= 1; held.steer -= steer; } };
@@ -331,12 +336,34 @@ export function createOverseer(d: OverseerDeps) {
           outcome: o.kind === "ok" ? (v && !approve(v.findings) ? "revise" : "approve") : o.kind === "aborted" || o.kind === "unrouted" ? "error" : o.kind,
           ...(v && { findings: v.findings.length, blocking: v.findings.filter((f) => f.blocking).length, ...(inconsistent(v) && { inconsistent: true }) }),
           commit: r.commit, branch: r.branch, ...(r.overCap && { overCap: true }), ...r.line });
+        return { ...o, reviewId };
+      };
+      const backoff = r.retryTransient ? RETRY_MS : [];
+      let no = 0, retries = 0, gaveUp = false;
+      for (const step of r.role === "steer" ? [1] : [1, 2]) {
+        if (r.signal?.aborted) return { ok: false, outcome: "aborted" };
+        // local-first (LF6.T8): attempt 2 keeps the chosen member (never weaker than the class and size ask for), `fallback: error`
+        const first = step === 1 || r.choice ? pickMember(d.settings, r.role, budget(), r.choice) : undefined;
+        const fallback = gaveUp ? "transient" as const : "error" as const;
+        const p = step === 1 ? first! : first && first !== "skip" && first.chosen ? { ...first, fallback }
+          : { member: s.fallbackMember, effort: s.fallbackEffort, fallback };
+        if (p === "skip") return { ok: false, outcome: "skipped" };
+        const model = d.settings.models[p.member]?.model;
+        if (!model) continue;
+        let o: Settled<T> & { reviewId: string };
+        for (;;) {
+          o = await once(p, model, ++no);
+          if (o.kind !== "error" || !o.transient || !backoff.length) break;
+          if (retries === backoff.length) { gaveUp = true; break; }
+          await d.sleep(backoff[retries++]!);
+          if (r.signal?.aborted) return { ok: false, outcome: "aborted" };
+        }
         if (o.kind === "aborted") return { ok: false, outcome: "aborted" };
         if (o.kind === "unrouted") return { ok: false, outcome: "error" }; // a second attempt would meet the same policy
         if (o.kind !== "ok") { last = o.kind; if (o.kind === "error" && o.why) whys.push(o.why); continue; }
-        d.append(REVIEW_TYPE, { reviewId, role: r.role, member: p.member, ...(r.commit && { commit: r.commit }), verdict: o.value,
+        d.append(REVIEW_TYPE, { reviewId: o.reviewId, role: r.role, member: p.member, ...(r.commit && { commit: r.commit }), verdict: o.value,
           ...(r.submit.name === "submit_verdict" && { approved: approve((o.value as Verdict).findings) }), ts: d.now() });
-        return { ok: true, value: o.value, reviewId, member: p.member, model };
+        return { ok: true, value: o.value, reviewId: o.reviewId, member: p.member, model };
       }
       return { ok: false, outcome: last, ...(whys.length && { why: [...new Set(whys)].join("; ") }) };
     },

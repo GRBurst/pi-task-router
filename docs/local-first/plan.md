@@ -1061,13 +1061,18 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   covers the whole target as REV-8 says ("a dirty target or main"): a node→parent merge with a dirty parent worktree is refused
   `dirty` there too. Step 9 probes again (the checkout may change meanwhile).
 
-#### LF6.T13 Transient errors retried (REV-9 a) `[ ] todo`
+#### LF6.T13 Transient errors retried (REV-9 a) `[x] done`
 - Files: `core/local/overseer.ts`; test `lf-reviewer-gate` "REV-9 retry".
 - RED: local-first, fake API: first attempt `error` with a 429/503/overloaded text → a second attempt after the
   backoff (fake clock), approve → merged; three transient errors → `fallback: "transient"` and the existing
   `error` outcome; the gate is not closed for a transient error on the first attempt (`overseer.ts:194`);
   legacy local mode keeps its behaviour (`local-overseer` green).
 - GREEN: `isTransient(text)` + a retry loop of 3 with backoff 5 s/20 s behind the profile check.
+- decision (lf56): the profile check is `RunArgs.retryTransient`, set by the gate for a local-first node; `isTransient` reads an
+  `error` event's reason (429, 502, 503, 504, 529, overloaded, rate limit, too many requests, service or temporarily
+  unavailable); a spawn refusal is not retried. At most two retries per run (`RETRY_MS` 5 s, 20 s) on the same member, each
+  its own `review` line (`attempt` counts on, no `fallback`); once they ran out, the existing second attempt runs with
+  `fallback: transient` and its failure is the existing `error` outcome. The quota-wait half of REV-9 stays with LF9.T8.
 
 #### LF6.T14 Docs `[ ] todo`
 - Files: `docs/task-router.md` (classes, the policy file and its schema, reviewers), `docs/outcome-log.md`
