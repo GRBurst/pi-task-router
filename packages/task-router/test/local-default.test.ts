@@ -9,8 +9,6 @@ const MAIN = { sessionManager: { getSessionId: () => "s-main" } };
 /** `pi.on` registrations of a default-mode install, recorded on the base commit (one entry per handler). */
 const TODAY_HOOKS = ["before_agent_start", "input", "session_shutdown", "session_start", "session_start", "tool_call", "tool_result", "turn_end", "turn_end", "turn_start"];
 /** A literal copy of today's outcome `KEYS` (core/outcome.ts on the base commit). */
-/** The spawn line's counterfactual keys (router 0.5.0, R3A.T3): the one addition to a default-mode line since the base commit. */
-const SPAWN_CF = new Set(["planned", "localUp", "triggered"]);
 const TODAY_KEYS = new Set([
   "v", "ts", "event", "taskId", "cardHash", "kind", "workerTier", "workerEffort", "reviewTier", "reviewEffort",
   "base", "importance", "reasons", "arm", "sessionId", "parentSessionId", "attemptOf", "from", "to", "reason",
@@ -19,6 +17,8 @@ const TODAY_KEYS = new Set([
   "ability", "level", "draft", "workerLevel", "reviewLevel", "workerMember", "workerModel", "startEffort", "waitMs",
   "fromModel", "toModel", "fromLevel", "toLevel",
 ]);
+/** The spawn line's counterfactual keys (router 0.5.0, R3A.T3): the one addition to a default-mode line since the base commit. */
+const SPAWN_CF = new Set(["planned", "localUp", "triggered"]);
 const settle = () => new Promise((r) => setImmediate(r));
 
 test("default mode: inventory", () => {
