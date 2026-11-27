@@ -20,7 +20,7 @@ const STAGES: readonly Stage[] = [80, 100];
 export const sizeText = (stage: Stage, lines: number, budget: number, reviewer: string): string => stage === 80
   ? `Size: ${lines}/${budget} changed lines (80 %). Finish or plan a split.`
   : `Size: ${lines}/${budget} changed lines (100 %). The reviewer is now ${reviewer}; consider a split.`;
-/** The main's block on a tool result (a package child gets the bare text as a message). */
+/** The block of a stage: the main gets it on a tool result, a package child as a message from the router. */
 export const sizeBlock = (stage: Stage, text: string): string => `<router-hint size="${stage}">${text}</router-hint>`;
 
 /** A stage is reached at `lines ≥ stage % of budget`; each once. The budget is given per observation: a class that turns

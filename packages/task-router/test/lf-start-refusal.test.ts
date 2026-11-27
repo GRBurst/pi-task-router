@@ -1,6 +1,8 @@
 // Local-first plan LF5.T4 (spec SIZE-4, design §5.3): `start_branch` refuses a package whose estimate is above the session
 // tier's budget (`tierBudget(sessionTier, "standard")`); the text names the budget, `maxChildren` and `split`. An `inert` or a
-// `plan` estimate is never refused. It is the only place size blocks: no other tool result is a size refusal. Real git.
+// `plan` estimate is never refused. Size blocks in two places only: here and in the split tool, which refuses such a child
+// (review lf56 M2, `lf-split` "SIZE-4 split children"). The gate never refuses on size (`lf-overcap` "no size refusal") and the
+// size stages never block (`lf-size-hints`); the property below covers the start replies (review lf56 nit). Real git.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SIZE_REFUSAL, startNode, type NodeDeps } from "../core/local/branchtool.ts";
