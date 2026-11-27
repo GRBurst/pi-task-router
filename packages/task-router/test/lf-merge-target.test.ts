@@ -227,3 +227,26 @@ test("TREE-14", async () => {
   const ok = await kid("ok", ["src/ok/a.ts", `${x.settings.plans.dir}/split/auth.ok.json`]);
   assert.equal(ok.status, "merged", ok.detail);
 });
+
+// LF6.T12 (REV-8, D59): local-first refuses a dirty target checkout (main's, a parent node's worktree) before any contact; the
+// legacy gate keeps its order (the review, then main-dirty at the move).
+test("REV-8", async () => {
+  const x = nodeRig();
+  const n = await x.node({ slug: "solo", estimate: { kind: "code", lines: 10 } });
+  x.r.commit("solo.ts", "a\n", "solo", n.worktree);
+  writeFileSync(join(x.r.dir, "scratch"), "s\n");
+  const r = await x.merge({ branch: n.branch });
+  assert.deepEqual([r.status, r.reason, x.reviews.length], ["refused", "main-dirty", 0], r.detail);
+  assert.equal(r.detail, reasonText("main-dirty", { checkout: x.r.dir }));
+  // a node → parent merge with a dirty parent worktree: refused `dirty`, no ticket
+  const y = nodeRig();
+  const { root, child } = await y.shape();
+  writeFileSync(join(root.worktree, "scratch"), "s\n");
+  const c = await y.merge({ branch: child.branch });
+  assert.deepEqual([c.status, c.reason, y.reviews.length], ["refused", "dirty", 0], c.detail);
+  // legacy local mode (a branch without a node): reviewed first, refused at the move
+  const b = await x.start("legacy");
+  x.r.commit("legacy.ts", "a\n", "legacy", b.worktree);
+  const l = await x.merge({ branch: b.branch });
+  assert.deepEqual([l.status, l.reason, x.reviews.length], ["refused", "main-dirty", 1], l.detail);
+});

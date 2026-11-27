@@ -395,6 +395,14 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     const names = open.map((id) => nodeOf(p.nodes!.tree.tree(), id)?.branch ?? id).join(", ");
     return { ...refuse("blocked", x, commit), detail: `${branch} has started children that are not merged: ${names}; merge them first (request_merge)` };
   }
+  // REV-8 (LF6.T12, D59): local-first refuses a dirty target checkout (main's, a parent node's worktree) with the cheap refusals,
+  // before the checks and any contact; the legacy gate finds it at the move (step 9), after the review. Step 9 probes again.
+  if (lf) {
+    const there = (await git.worktrees(repo)).find((w) => w.branch === target.name && !w.prunable);
+    if (there && await git.dirty(there.dir)) {
+      return target.parent ? refuse("dirty", { ...x, worktree: there.dir }, commit) : refuse("main-dirty", { checkout: there.dir }, commit);
+    }
+  }
   // ── plan-bound (L7): the plan at the commit has the approved skeleton ──
   let bound: Bound | undefined;
   if (rec?.plan && p.plans) {

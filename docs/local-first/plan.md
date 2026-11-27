@@ -1052,11 +1052,14 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - decision (lf56): an inert merge has no `reviewId` and records no approval (nothing was reviewed); the audit sample (§5.5) is a
   later stage's.
 
-#### LF6.T12 Cheap refusals first (REV-8) `[ ] todo`
+#### LF6.T12 Cheap refusals first (REV-8) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-merge-target` "REV-8".
 - RED: local-first: a dirty main checkout → refused `main-dirty` with zero tickets issued (overseer rig counts
   spawns); legacy local mode: unchanged order (`local-merge-*` green, NR-7).
 - GREEN: in local-first only, probe main-dirty before step 8 (D59: the legacy gate is not changed).
+- decision (lf56): the probe sits with the cheap refusals (after step 2 and the open-children check, before the checks), and
+  covers the whole target as REV-8 says ("a dirty target or main"): a node→parent merge with a dirty parent worktree is refused
+  `dirty` there too. Step 9 probes again (the checkout may change meanwhile).
 
 #### LF6.T13 Transient errors retried (REV-9 a) `[ ] todo`
 - Files: `core/local/overseer.ts`; test `lf-reviewer-gate` "REV-9 retry".
