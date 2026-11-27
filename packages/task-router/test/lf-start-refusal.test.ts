@@ -46,7 +46,7 @@ test("SIZE-4", async () => {
 test("SIZE-4 the session's tier: E2 large → 300 lines", async () => {
   const r = tempRepo(), settings = parseSettings({ ...LF }).settings;
   const nodes: NodeDeps = { tree: createTreeStore(() => undefined), localFirst: () => true, caps: () => settings.localFirst.tree,
-    strategy: localFirst(settings), arms: () => ({ E2: "large" }), reviewArms: () => [], log: { node() {}, split() {} } };
+    strategy: localFirst(settings), arms: () => ({ E2: "large" }), reviewArms: () => ({}), log: { node() {}, split() {} } };
   const d = { git: createGit(gitRunner("git", r.env)), store: createBranchStore(() => undefined), settings };
   assert.equal((await startNode(d, nodes, { slug: "x", ...est(300) }, r.dir)).ok, true);
   const no = await startNode(d, nodes, { slug: "y", ...est(301) }, r.dir);

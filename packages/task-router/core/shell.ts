@@ -33,7 +33,7 @@ import type { LocalDeps } from "./local/install.ts";
 import type { Trip } from "./local/tripwires.ts";
 import { enabled } from "./members.ts";
 import { createPolicy } from "./policy.ts";
-import { assign } from "./strategy/arms.ts";
+import { armsToMap, assign } from "./strategy/arms.ts";
 import { budgetLine, localFirst } from "./strategy/local-first.ts";
 import { spotCheckDue, spotCheckText } from "./spotcheck.ts";
 import type { Child, PolicyDeps } from "./policy.ts";
@@ -123,7 +123,7 @@ export function install(pi: PiLike, deps: Deps) {
   const sessionArms = (): string[] => [...(e0drawn ? [`E0=${e0}`] : []), ...(armed() ? arms.armsFor("session", sessionId ?? "") : [])].sort();
   const log = createOutcomeLog({ append, now, armed, arms: sessionArms });
   /** The session's arms as a map (S33): what the strategy parts read. */
-  const armMap = (): Record<string, string> => Object.fromEntries(arms.armsFor("session", sessionId ?? "").map((a) => a.split("=") as [string, string]));
+  const armMap = (): Record<string, string> => armsToMap(arms.armsFor("session", sessionId ?? ""));
 
   const nowMs = () => now().getTime();
   const api = deps.api ?? (() => (globalThis as { __subagentsApi_v1?: SubagentsApiV1 }).__subagentsApi_v1);
@@ -369,7 +369,7 @@ export function install(pi: PiLike, deps: Deps) {
     ...(settings.localFirst.experimental && { nodes: { tree, localFirst: () => profile.current() === "local-first", caps: () => strategy.treeCaps(armMap()),
       strategy, arms: armMap, log: nodeLog,
       // LF14.T1: E3's unit is the review: the session's id, the node and the reviewed commit (the same node's same commit keeps its draw)
-      reviewArms: (unit) => arms.armsFor("review", `${sessionId ?? ""}:${unit}`) } }) });
+      reviewArms: (unit) => armsToMap(arms.armsFor("review", `${sessionId ?? ""}:${unit}`)) } }) });
   // PRO-7 (S34a): a local session registers the local tools and hooks it lacks (a cloud-first default: at its first switch to
   // local-first); the tools whose component the profile turns off leave the active set (pi cannot unregister a tool) and come
   // back with it. Nothing changes while the set stays (the legacy local mode, a cloud-first session).

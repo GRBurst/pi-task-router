@@ -14,7 +14,7 @@ export function nodeRig(settings: Record<string, unknown> = {}) {
   const tree = createTreeStore((type, data) => { m.entries.push({ type, data: structuredClone(data) }); });
   const nodeLines: Array<Record<string, unknown>> = [];
   const nodes: NodeDeps = { tree, localFirst: () => true, caps: () => ({ maxDepth: 3, maxChildren: 5, planLines: 150 }),
-    strategy: localFirst(m.settings), arms: () => ({}), reviewArms: () => [], log: { node(i) { nodeLines.push(i); }, split() {} } };
+    strategy: localFirst(m.settings), arms: () => ({}), reviewArms: () => ({}), log: { node(i) { nodeLines.push(i); }, split() {} } };
   const lines: MergeInput[] = [];
   m.ports.nodes = nodes;
   m.ports.policy = policyGit(gitRunner("git", m.r.env)); // CLS-2: the policy file at main's tip

@@ -76,3 +76,7 @@ export const assign = (x: ExperimentsSnapshot, id: FactorId, unit: string, reg: 
  *  E0 is not among them: only an eligible cloud-first session draws it (D93), and the shell adds its arm. */
 export const armsOf = (x: ExperimentsSnapshot, kind: FactorUnit, unit: string, reg: Registry = FACTORS): string[] =>
   Object.values(reg).filter((f) => f.id !== "E0" && f.unit === kind && effective(x, f.id, reg).enabled).map((f) => `${f.id}=${assign(x, f.id, unit, reg)}`).sort();
+
+/** The `id=level` lines of `armsOf` (and of a line's `arms`) as the map the strategy parts read (S33, `Arms`), and back, sorted. */
+export const armsToMap = (lines: readonly string[]): Record<string, string> => Object.fromEntries(lines.map((a) => a.split("=") as [string, string]));
+export const armsToLines = (arms: Readonly<Record<string, string>>): string[] => Object.entries(arms).map(([id, level]) => `${id}=${level}`).sort();

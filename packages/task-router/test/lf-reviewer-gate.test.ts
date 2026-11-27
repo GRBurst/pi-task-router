@@ -328,7 +328,7 @@ test("REV-2 E3 per review", async () => {
   const x = await gate();
   const asked: string[] = [];
   const levels = ["sonnet", "opus"];
-  x.nodes.reviewArms = (unit) => [`E3=${levels[asked.push(unit) - 1]}`];
+  x.nodes.reviewArms = (unit) => ({ E3: levels[asked.push(unit) - 1]! });
   x.nodes.arms = () => ({ E3: "sonnet" }); // a stray session arm: E3 has none, the gate never reads it
   x.put({ "src/a.ts": 100 });
   x.verdicts.push(REVISE);
@@ -341,7 +341,7 @@ test("REV-2 E3 per review", async () => {
   // the draw is made once for a review: its second attempt (the same commit) never asks again
   const y = await gate();
   const units: string[] = [];
-  y.nodes.reviewArms = (unit) => { units.push(unit); return ["E3=sonnet"]; };
+  y.nodes.reviewArms = (unit) => { units.push(unit); return { E3: "sonnet" }; };
   y.put({ "src/a.ts": 100 });
   y.verdicts.push("fail", "fail");
   assert.equal((await y.mergeIt()).status, "error");
@@ -360,7 +360,7 @@ test("REV-2 E3 per review", async () => {
 test("REV-2 E3 unit: a child's review and its parent's, at the same commit, are two draws", async () => {
   const x = nodeRig();
   const units: string[] = [];
-  x.nodes.reviewArms = (unit) => { units.push(unit); return [`E3=${units.length === 1 ? "opus" : "sonnet"}`]; };
+  x.nodes.reviewArms = (unit) => { units.push(unit); return { E3: units.length === 1 ? "opus" : "sonnet" }; };
   const root = await x.node({ slug: "auth", estimate: { kind: "plan", lines: 0 } });
   x.r.commit("docs/auth.md", "one\ntwo\nthree\n", "plan", root.worktree);
   const child = await x.node({ parent: "auth", slug: "form", estimate: { kind: "code", lines: 2 } });
