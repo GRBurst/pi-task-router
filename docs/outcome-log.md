@@ -275,6 +275,6 @@ up: the spawn ran on a cloud member, and the line says the filter changed it (`t
 
 ```jsonl
 {"v":2,"ts":"2026-12-02T09:00:00.000Z","event":"session","taskId":"s-main","profile":"cloud-first","mainModel":"anthropic/claude-opus-5-5","startSet":false,"localMembers":"off","cloudOnlyShare":0.1,"routerVersion":"0.5.0","arms":["E0=cloud-only"]}
-{"v":2,"ts":"2026-12-02T09:01:00.000Z","event":"spawn","taskId":"t1","cardHash":"988975daea7ef376","kind":"implement","workerTier":"qwen","workerEffort":"xhigh","workerMember":"haiku","workerModel":"anthropic/claude-haiku-5-5","planned":"qwen-local","localUp":true,"triggered":true,"sessionId":"s-t1","parentSessionId":"s-main"}
+{"v":2,"ts":"2026-12-02T09:01:00.000Z","event":"spawn","taskId":"t1","cardHash":"988975daea7ef376","kind":"implement","workerTier":"haiku","workerEffort":"medium","workerMember":"haiku","workerModel":"anthropic/claude-haiku-5-5","planned":"qwen-local","localUp":true,"triggered":true,"sessionId":"s-t1","parentSessionId":"s-main"}
 {"v":2,"ts":"2026-12-02T09:05:00.000Z","event":"spawn","taskId":"t2","cardHash":"74e46dd9f1e7dcc2","kind":"lookup","workerTier":"T1","workerEffort":"high","workerMember":"sonnet","workerModel":"anthropic/claude-sonnet-5-5","planned":"sonnet","triggered":false,"sessionId":"s-t2","parentSessionId":"s-main"}
 ```

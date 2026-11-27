@@ -28,3 +28,15 @@ test("M3 dryPlan writes no attempt map it is given; it returns the map it planne
   assert.deepEqual([...first.attempts.keys()], ["old", "a1"], "nor is the returned map written by the next plan");
   assert.deepEqual([...again.attempts.keys()], ["old", "a1", "a2"]);
 });
+
+// R3A review N2: past the real plan's draws the random source is a hash of the task id, the card and the call's index, so a reused agent
+// name does not give every card the same draw
+test("N2 dryPlan's spare draw depends on the card, not on the task id alone", () => {
+  const rnd = { ...settings, randomize: { enabled: true, share: 0.5 } };
+  const randomized = (i: number) => {
+    const r = dryPlan({ settings: rnd, attempts: new Map() }, spawnIn("same-name", card({ files: [`src/f${i}.ts`] })), []);
+    return r.plan.ok && r.plan.value.plan.assigned === "random";
+  };
+  const seen = new Set(Array.from({ length: 40 }, (_, i) => randomized(i)));
+  assert.deepEqual([...seen].sort(), [false, true], "some cards draw under the share, others over it");
+});

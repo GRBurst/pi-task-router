@@ -293,8 +293,9 @@ test("MEAS-4 logging changes no routing: a cloud-only session routes, draws and 
     }
     return { out, draws, h };
   };
-  // the local member sits above every cloud member (write 2): the as-used plan picks it for every card, the cloud-only plan a cheaper
-  // cloud member of a lower level, so a logging plan that touched the router's attempt state would escalate a re-spawn from the wrong level
+  // the local member is as able as the top cloud member (write 2, read 3, like opus) and cheaper: the as-used plan picks it for every card,
+  // the cloud-only plan a cheaper cloud member of a lower level, so a logging plan that touched the router's attempt state would escalate a
+  // re-spawn from the wrong level
   const cloudOnly = await run({ experiments: { cloudOnlyShare: 1 }, models: { "qwen-local": { abilities: { write: 2, read: 3 } } } });
   // the reference has no logging plan of its own: no local member, as used
   const reference = await run({ experiments: { cloudOnlyShare: 0 }, models: { "qwen-local": { model: "" } } });
