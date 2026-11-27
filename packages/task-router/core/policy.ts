@@ -235,9 +235,12 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     const asUsed = cloudOnly ? dry.plan : sp, cloudPlanOk = cloudOnly || dry.plan.ok;
     // R3A review M1: the placement's start member as the as-used arm has it (a cloud-only session's `view` has none)
     const planned = cloudOnly && lf ? placement(card, prof.value, lf) : pl, plannedPlace = planned?.ok ? planned.value.member : undefined;
-    const cf = asUsed.ok ? await counterfactual(base, { planned: plannedPlace ?? asUsed.value.start.member, chosen: f !== undefined || args.model !== undefined, cloudPlanOk }) : undefined;
+    // an as-used plan that fails (a cloud-only session only: the real plan succeeded) picked nothing: untriggered, no `planned`
+    const cf: Counterfactual = asUsed.ok
+      ? await counterfactual(base, { planned: plannedPlace ?? asUsed.value.start.member, chosen: f !== undefined || args.model !== undefined, cloudPlanOk })
+      : { triggered: false };
     const entry: ChildBase = {
-      parent: caller.name, parentSession: caller.sessionId, card, plan, cwd, importance, ...(cf ? { cf } : {}),
+      parent: caller.name, parentSession: caller.sessionId, card, plan, cwd, importance, cf,
       ...(v.unresolved ? { unresolved: true as const } : {}), ...(sp.value.esc ? { esc: sp.value.esc } : {}),
     };
     // Local mode (design §3.1.3, plan D19): the child's tripwires observe every call first and never block; then the local guards

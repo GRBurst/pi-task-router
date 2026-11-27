@@ -377,3 +377,15 @@ test("MEAS-4 triggered: over a card sequence the arms agree, and a spawn trigger
   assert.ok(used.some((x) => x.triggered === true) && used.some((x) => x.triggered === false), "both outcomes occur as used");
   assert.ok(off.some((x) => x.refused) && off.some((x) => !x.refused), "the cloud-only arm refuses some cards, places others");
 });
+
+// R3A review L4: a cloud-only spawn whose as-used plan fails (here an explicit cloud model below the as-used plan's level) still has `triggered`
+test("MEAS-4 an as-used plan that fails in a cloud-only session: triggered false, no planned", async () => {
+  const top = { models: { "qwen-local": { abilities: { write: 2, read: 3 } } } };
+  const HAIKU = "anthropic/claude-haiku-5-5";
+  // as used the explicit model is below the plan's level: refused. In cloud-only the cloud plan (no local member) accepts it.
+  assert.ok("reject" in (await placed(as(0, top).h, "p1", { model: HAIKU })).r, "as used: refused");
+  const p = await placed(as(1, top).h, "p1", { model: HAIKU });
+  accepted(p.r);
+  assert.equal(p.line?.triggered, false);
+  assert.ok(!("planned" in p.line!) && !("localUp" in p.line!), "nothing is known of the as-used pick");
+});

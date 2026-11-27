@@ -76,8 +76,9 @@ const base = (event: string, now: Date, taskId: string) => ({ v: SCHEMA_VERSION,
 export const cardHash = (c: Card): string => createHash("sha256").update(JSON.stringify(c)).digest("hex").slice(0, 16);
 
 /** R3A.T3 (owner): what the as-used plan (before E0's filter and any health fallback) picked: `planned` the member, `localUp` its
- *  `up` (health ∧ ¬blocked ∧ ¬capped) when it is a `route: "local"` member, `triggered` = planned is local and up. */
-export type Counterfactual = { planned: string; localUp?: boolean; triggered: boolean };
+ *  `up` (health ∧ ¬blocked ∧ ¬capped) when it is a `route: "local"` member, `triggered` as `counterfactual` in policy.ts defines it.
+ *  No `planned` when the as-used plan fails in a cloud-only session (nothing picked): `{ triggered: false }`. */
+export type Counterfactual = { planned?: string; localUp?: boolean; triggered: boolean };
 /** `workerTier`/`workerEffort` are the planned leg (RD2); `start` is what the child started on (a routed spawn only; a forced
  *  non-member has no member, so no `workerMember`, plan D10); `forced`: the force it ran under and the routed counterfactual. */
 export const spawnEvent = (i: { now: Date; taskId: string; card: Card; plan: LoggedPlan; start?: Start; sessionId?: string; parentSessionId?: string; attemptOf?: string; unresolved?: boolean; forced?: Forced; cf?: Counterfactual }) =>
