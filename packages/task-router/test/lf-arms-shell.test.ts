@@ -187,6 +187,8 @@ test("stage 1", async () => {
   for (const l of off.h.lines()) assert.deepEqual(l.arms ?? [], [], JSON.stringify(l));
 });
 
+// A pin: `armsOf` already filtered by unit kind (RND-1, RND-4); this is E3 in the shell's session. Seen red by a plant (E3's unit
+// made `session` in the registry: "both levels over 40 reviews" fails), not by the code's history (review lf14 L3).
 test("stage 1: E3 is a draw of the review, never of the session", () => {
   const raw = { ...LF, experiments: { cloudOnlyShare: 0, factors: { E3: { enabled: true } } } };
   const s = treeRig(raw, undefined, { extra: { settings: parseSettings(raw, LATER).settings } });

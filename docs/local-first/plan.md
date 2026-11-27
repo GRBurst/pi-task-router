@@ -1533,7 +1533,8 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
   `review` line carries E3; E3 ships OFF until then.
 - Done (lf14). Tests: `lf-arms-shell` "stage 1" (a harness session over real git: E2 and E3 enabled by settings, a review through the shell's
   overseer; `test/tree-rig.ts` `treeRig` takes `{apiExt, extra}`), `lf-reviewer-gate` "REV-2 E3 per review". RED seen: the Sonnet-drawn review
-  ran `anthropic/claude-opus-5-5` (m9), and a stray session `E3` arm decided the gate's reviewer.
+  ran `anthropic/claude-opus-5-5` (m9), and a stray session `E3` arm decided the gate's reviewer. "stage 1: E3 is a draw of the review, never
+  of the session" is a pin of `armsOf`'s unit kinds (RND-1, RND-4), red only by a plant (E3's registry unit made `session`), as E2's test is.
 - decision (lf14): the E2 half needed no code. `armMap` (the snapshot's session arms, `core/shell.ts`) already feeds `sessionTier` at every
   reader (start refusal, node and merge lines, crossings, brief budgets) since LF5/LF6; `install.ts` did not change. The test pins it.
 - decision (lf14): E3's draw is made by the gate once per review: `NodeDeps.reviewArms?(unit)` (the shell: `armsFor("review", "<sessionId>:<unit>")`),
