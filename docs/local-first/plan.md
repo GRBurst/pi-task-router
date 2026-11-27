@@ -1002,6 +1002,9 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   `classBy` = the classifier's proxies plus `error` (a test reads them from `classify.ts`). `RunRole` = `Role` without the four new
   roles: `PROMPT` and `RunArgs.role` take it until a later stage adds their prompts. The `outcome-log.md` rows gain the fields now
   (◊ footnote), LF6.T14 adds the prose.
+- review lf56 M3 (fixed, owner): `classBy` is a `string[]`; `ARRAY_FIELDS_V2 = ["review.classBy", "merge.classBy"]`
+  (`core/outcome.ts`, append-only like `ENUMS_V2`) names the keys whose `ENUMS_V2` values apply per item; documented in
+  `docs/outcome-log.md` and `AGENTS.md`; pi-economics reads it (PE-2). Test `lf-outcome` "review fields" checks every line by it.
 - Gate-wiring obligations (lane (b) review of LF5.T1–T2, LF6.T1–T6; the tasks that wire `classify`, `readPolicy` and
   `reviewer` into the gate, LF6.T8–T12, honour them):
   1. `actual` for `reviewer` is `tierOfLines(n)` of the combined diff, for every class; never `"inert"` derived from the

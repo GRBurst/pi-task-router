@@ -115,7 +115,7 @@ that input; say so in the commit message:
   `ROLES` (`core/local/overseer.ts`), `REASONS` (`core/local/merge.ts`),
   `TRIGGERS` (`core/local/plan.ts`), `PLAN_TYPE` (`core/local/plans.ts`) and
   `BRANCH_TYPE` (`core/local/branches.ts`); with outcome log v2 also
-  `EVENTS_V2`, `ENUMS_V2` and `FALLBACKS` (`core/outcome.ts`). They only grow;
+  `EVENTS_V2`, `ENUMS_V2`, `ARRAY_FIELDS_V2` and `FALLBACKS` (`core/outcome.ts`). They only grow;
 - the router reads no `__piExperimentsApi_v1` since outcome log v2 (local-first
   NR-3): pi-economics' `iface-experiments-task-router` has nothing left to read;
 - the claim protocol (Rules).

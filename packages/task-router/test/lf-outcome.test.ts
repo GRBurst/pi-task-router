@@ -2,7 +2,7 @@
 // log's closed sets from. Each later builder task adds its builder to `LINES` and its event to `EVENTS_V2`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ENUMS_V2, EVENTS_V2, FALLBACKS, SCHEMA_VERSION, profileEvent, sessionEvent } from "../core/outcome.ts";
+import { ARRAY_FIELDS_V2, ENUMS_V2, EVENTS_V2, FALLBACKS, SCHEMA_VERSION, profileEvent, sessionEvent } from "../core/outcome.ts";
 import { TRIPS } from "../core/local/tripwires.ts";
 import { ROLES } from "../core/local/overseer.ts";
 import { REASONS } from "../core/local/merge.ts";
@@ -153,6 +153,9 @@ test("review fields", async () => {
   const want = ["review.class", "review.tier", "review.actualTier", "review.reviewer", "review.sample", "review.classBy",
     "merge.class", "merge.tier", "merge.actualTier", "merge.classBy"];
   assert.deepEqual(want.filter((k) => !ENUMS_V2[k]), []);
+  // review lf56 M3: the string[] fields of ENUMS_V2 are named (each item is one of the values); every other key is a scalar
+  assert.deepEqual([...ARRAY_FIELDS_V2], ["review.classBy", "merge.classBy"]);
+  assert.deepEqual(ARRAY_FIELDS_V2.filter((k) => !ENUMS_V2[k]), []);
   const enums = new Set(Object.values(ENUMS_V2).flat().map(String));
   const rnd = seeded(707);
   const pick = (k: string) => one(rnd, ENUMS_V2[k]!) as string;
@@ -167,7 +170,10 @@ test("review fields", async () => {
       for (const [key, values] of Object.entries(ENUMS_V2)) {
         const [event, field] = key.split(".") as [string, string];
         if (l.event !== event || !(field in l)) continue;
-        for (const v of [l[field]].flat()) assert.ok(values.includes(v as string), `${key}: ${String(v)}`);
+        // the consumer's rule, read from the exports: an ARRAY_FIELDS_V2 key holds a list of values, any other key one value
+        const list = (ARRAY_FIELDS_V2 as readonly string[]).includes(key);
+        assert.equal(Array.isArray(l[field]), list, `${key}: ${JSON.stringify(l[field])}`);
+        for (const v of list ? l[field] as unknown[] : [l[field]]) assert.ok(values.includes(v as string), `${key}: ${String(v)}`);
       }
     }
     assert.ok((ROLES as readonly string[]).includes(r.role as string) && (FALLBACKS as readonly string[]).includes(r.fallback as string));

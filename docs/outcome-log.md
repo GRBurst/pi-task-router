@@ -52,9 +52,11 @@ events and new values, which need no further bump:
 - the exports a reader takes its lists from instead of copying them:
   `EVENTS_V2` (the events v2 added), `ENUMS_V2` (`"<event>.<field>"` → the
   field's values; only fields v2 added, the values of the v1 fields stay in
-  `TRIPS`, `ROLES`, `REASONS`, `TRIGGERS` and `FALLBACKS`, `review.fallback`).
-  Under `packages/task-router/core/`: `EVENTS_V2`, `ENUMS_V2` and `FALLBACKS`
-  in `outcome.ts`; `TRIPS` in `local/tripwires.ts`, `ROLES` in
+  `TRIPS`, `ROLES`, `REASONS`, `TRIGGERS` and `FALLBACKS`, `review.fallback`),
+  `ARRAY_FIELDS_V2` (the `ENUMS_V2` keys whose field is a `string[]`, such as
+  `review.classBy`: each item is one of the listed values; every other key
+  holds one value). Under `packages/task-router/core/`: `EVENTS_V2`,
+  `ENUMS_V2`, `ARRAY_FIELDS_V2` and `FALLBACKS` in `outcome.ts`; `TRIPS` in `local/tripwires.ts`, `ROLES` in
   `local/overseer.ts`, `REASONS` in `local/merge.ts`, `TRIGGERS` in
   `local/plan.ts`, `PLAN_TYPE` in `local/plans.ts`, `BRANCH_TYPE` in
   `local/branches.ts`; and `FACTORS`
@@ -147,7 +149,7 @@ commit (`git rev-list --max-parents=0 HEAD`, sorted, the first), stable across c
 ◊ Optional, added within v2 (from 0.4.0; no bump: new optional fields and new values). `sessionId` on `review`, `merge`, `plan` and
 `gatebypass`: the main session's id (absent when unknown), as on `hint`. The rest are written by a local-first merge gate only (behind
 `localFirst.experimental`); their values are in `ENUMS_V2` (`review.*`, `merge.*`) and `FALLBACKS`. `class` (`inert` \| `standard`
-\| `elevated`) is the change's risk class and `classBy` (string[]: `risk` \| `ci` \| `policy-edit` \| `gate-config` \| `public-api` \|
+\| `elevated`) is the change's risk class and `classBy` (string[], in `ARRAY_FIELDS_V2`: `risk` \| `ci` \| `policy-edit` \| `gate-config` \| `public-api` \|
 `weakened-tests` \| `coupled` \| `multi-component-config` \| `error`) the proxies that fired (`error`: the class failed closed to
 `elevated`, e.g. an unreadable policy file); `tier` (`small` \| `standard` \| `large` \| `inert`) the session's drawn tier, `actualTier`
 (`small` \| `standard` \| `large` \| `over`) the diff's; `node` the node merged. On a `review`: `reviewer` (`haiku` \| `sonnet` \| `opus`

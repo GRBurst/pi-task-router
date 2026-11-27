@@ -192,7 +192,8 @@ const REVIEWERS = ["haiku", "sonnet", "opus", "qwen"] as const;
 const SAMPLES = ["inert", "ungated", "shadow"] as const;
 /** The classifier's proxies (`core/strategy/classify.ts`) and the gate's fail-closed `error` (S38, CLS-2). */
 const CLASS_BY = ["risk", "ci", "policy-edit", "gate-config", "public-api", "weakened-tests", "coupled", "multi-component-config", "error"] as const;
-/** Every v2 enumerated field's values, by `"<event>.<field>"` (LOG-4); the lists only grow. */
+/** Every v2 enumerated field's values, by `"<event>.<field>"` (LOG-4); the lists only grow. A key in `ARRAY_FIELDS_V2` is a
+ *  `string[]` field: each of its items is one of the values; every other key holds one value. */
 export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = {
   "session.profile": PROFILES,
   "session.localMembers": LOCAL_MEMBERS,
@@ -217,6 +218,8 @@ export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = 
   "merge.actualTier": ACTUAL_TIERS,
   "merge.classBy": CLASS_BY,
 };
+/** The `ENUMS_V2` keys whose field is a `string[]` (review lf56 M3): its values apply per item. Append-only, like `ENUMS_V2`. */
+export const ARRAY_FIELDS_V2: readonly string[] = ["review.classBy", "merge.classBy"];
 export type SessionInput = { now: Date; sessionId: string; profile: (typeof PROFILES)[number]; mainModel: string; startSet: boolean;
   localMembers?: (typeof LOCAL_MEMBERS)[number]; routerVersion: string };
 /** A session's start (MEAS-1): `taskId` is the session id; the profile, the main's model, whether a start set was
