@@ -5,6 +5,8 @@ import type { MergeInput } from "../core/outcome.ts";
 import { createTreeStore } from "../core/local/treestore.ts";
 import { localFirst } from "../core/strategy/local-first.ts";
 import { mergeRig } from "./merge-rig.ts";
+import { gitRunner } from "../core/local/git.ts";
+import { policyGit } from "../core/local/policyfile.ts";
 
 /** The merge rig with a work tree: `node(input)` starts a node by start_branch's local-first path, `lines` the merge lines. */
 export function nodeRig(settings: Record<string, unknown> = {}) {
@@ -15,6 +17,7 @@ export function nodeRig(settings: Record<string, unknown> = {}) {
     strategy: localFirst(m.settings), arms: () => ({}), log: { node(i) { nodeLines.push(i); }, split() {} } };
   const lines: MergeInput[] = [];
   m.ports.nodes = nodes;
+  m.ports.policy = policyGit(gitRunner("git", m.r.env)); // CLS-2: the policy file at main's tip
   m.ports.log = (i) => { lines.push(i); };
   const node = async (input: Record<string, unknown>) => {
     const res = await startNode({ git: m.git, store: m.store, settings: m.settings }, nodes, { goal: "do it", check: "true", ...input }, m.r.dir);

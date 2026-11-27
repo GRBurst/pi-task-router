@@ -160,3 +160,25 @@ test("PRO-10", () => {
     assert.deepEqual(rest, b.profile, JSON.stringify(b));
   }
 });
+
+// LF6.T7 gate-wiring obligations 2 and 6 (wired by LF6.T8): the classifier's paths are repository-relative (no leading `/` or
+// `./`, no trailing `/`, no `.` or `..` segment), else `policy-edit` and the split filter silently miss; the tiers are positive
+// integers with small ≤ standard ≤ large (`tierOfLines` assumes it). A bad value is a problem and keeps the default.
+test("gate paths and tiers", () => {
+  const ok = parseSettings({ plans: { dir: "doc/plans" }, localFirst: { policyFile: "cfg/policy.json", tiers: { small: 10, standard: 10, large: 20 } } });
+  assert.deepEqual(ok.problems, []);
+  const d = parseSettings({}).settings;
+  for (const bad of ["./docs/plans", "docs/plans/", "/abs/plans", "", "docs/../x", "docs//plans", "."]) {
+    const a = parseSettings({ plans: { dir: bad } });
+    assert.deepEqual([a.settings.plans.dir, a.problems.length], [d.plans.dir, 1], `plans.dir ${bad}: ${a.problems}`);
+    assert.ok(a.problems[0]!.startsWith("plans.dir: "), a.problems[0]);
+    const b = parseSettings({ localFirst: { policyFile: bad } });
+    assert.deepEqual([b.settings.localFirst.policyFile, b.problems.length], [d.localFirst.policyFile, 1], `policyFile ${bad}: ${b.problems}`);
+    assert.ok(b.problems[0]!.startsWith("localFirst.policyFile: "), b.problems[0]);
+  }
+  for (const tiers of [{ small: 0 }, { small: 1.5 }, { standard: -1 }, { small: 200 }, { large: 100 }, { standard: 400 }]) {
+    const r = parseSettings({ localFirst: { tiers } });
+    assert.deepEqual([r.settings.localFirst.tiers, r.problems.length], [d.localFirst.tiers, 1], `${JSON.stringify(tiers)}: ${r.problems}`);
+    assert.ok(r.problems[0]!.startsWith("localFirst.tiers: "), r.problems[0]);
+  }
+});

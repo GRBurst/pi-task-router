@@ -4,7 +4,9 @@
 import { basename } from "node:path";
 import type { Runner } from "../gate.ts";
 import type { Card, RouterSettings } from "../types.ts";
-import type { MergeInput } from "../outcome.ts";
+import type { MergeInput, ReviewFields } from "../outcome.ts";
+import type { Classification, ReviewerChoice } from "../strategy/types.ts";
+import { type PolicyGit, readPolicy, settingsPolicy } from "./policyfile.ts";
 import type { Finding } from "./verdict.ts";
 import type { BranchRecord, BranchStore } from "./branches.ts";
 import { type Git, quotePath, type Stat } from "./git.ts";
@@ -184,6 +186,8 @@ export type MergePorts = {
   plans?: PlanStore;
   /** The work tree (local-first, TREE-7): a node merges into its parent node's branch; absent: every branch into the main branch. */
   nodes?: Pick<NodeDeps, "tree" | "log" | "strategy" | "arms">;
+  /** The policy file's reader (local-first, CLS-2): `policyGit` over the runner `git` is built on; absent: the class fails closed. */
+  policy?: PolicyGit;
 };
 /** Where a merge goes (TREE-7 a): the parent node's branch and tip (`parent`), else the main branch. */
 export type Target = { name: string; sha: string; parent?: Node };
@@ -197,7 +201,8 @@ export async function targetOf(git: Pick<Git, "sha">, repo: string, tree: Tree |
   return sha === undefined ? undefined : { name: parent.branch, sha, parent };
 }
 /** What the pipeline learned before it returned, for the `merge` line. */
-type Seen = { branch?: string; nLines?: number; nFiles?: number; base?: string; target?: string; repo?: string; repoId?: string };
+type Seen = { branch?: string; nLines?: number; nFiles?: number; base?: string; target?: string; repo?: string; repoId?: string }
+  & Pick<MergeInput, "class" | "classBy" | "tier" | "actualTier" | "node">;
 /** A repository's id on the merge line (LOG-1): its root commit's first 12 hex, asked once per git port and repository. */
 const roots = new WeakMap<Git, Map<string, string>>();
 async function repoIdOf(git: Git, repo: string): Promise<string | undefined> {
@@ -251,7 +256,8 @@ export async function requestMerge(p: MergePorts, input: Input, cwd: string): Pr
     const named = seen.branch ?? (typeof input.branch === "string" ? input.branch : "");
     p.log?.({ branch: branchName(named) ? named : "", outcome: r.status === "error" ? "failed" : r.status,
       reason: r.reason, commit: r.commit, nLines: seen.nLines, nFiles: seen.nFiles, reviewId: r.reviewId, pushed: r.pushed,
-      base: seen.base, target: seen.target, repo: seen.repo, repoId: seen.repoId });
+      base: seen.base, target: seen.target, repo: seen.repo, repoId: seen.repoId,
+      class: seen.class, classBy: seen.classBy, tier: seen.tier, actualTier: seen.actualTier, node: seen.node });
   } catch { /* the line is best effort */ }
   return r;
 }
@@ -326,6 +332,19 @@ function regressionTasks(s: RouterSettings, b: Bound, branches: readonly BranchR
   return pool.filter((x) => merged.has(x.id) && !own.has(x.id));
 }
 const opened = (id: string | undefined): string => (id === undefined ? "" : ` (trigger ${id} is open)`);
+
+/** The local-first gate's class (LF6.T7 obligations 2–5; CLS-1, CLS-2): by the policy file at the main branch's tip, for a
+ *  node→parent merge too (a policy edit governs only once it is on main), the router's split files dropped, `inertChecked` = a
+ *  configured extra check exists (they all passed: a failing one refused). An unreadable policy or a missing reader fails closed
+ *  here, in one place: elevated, `classBy: ["error"]` (the classifier does the same for its own errors). */
+const FAIL_CLOSED: Classification = { cls: "elevated", inertLike: false, why: ["error"] };
+async function classOf(p: MergePorts, repo: string, mainSha: string, st: Stat, inertChecked: boolean): Promise<Classification> {
+  const s = p.settings, policyFile = s.localFirst.policyFile, plansDir = s.plans.dir;
+  if (!p.policy || !p.nodes) return FAIL_CLOSED;
+  const read = await readPolicy(p.policy, repo, mainSha, policyFile, settingsPolicy(s)).catch((e: unknown) => ({ error: String(e) }));
+  if ("error" in read) return FAIL_CLOSED;
+  return p.nodes.strategy.classify(st, read.policy, { glob: globMatch, plansDir, isSplit: (x) => isSplitFile(plansDir, x), policyFile, inertChecked });
+}
 
 async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): Promise<MergeResult | "moved"> {
   const s = p.settings, g = s.mergeGate, git = p.git;
@@ -445,6 +464,15 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   const red: Red = bound ? (bound.tasks.some((x) => x.vacuousCheck) ? "passed" : "failed")
     : g.redRun && rec?.check ? await redRun(p, repo, target.sha, rec.check) : "skipped"; // TREE-7 c: at the target
   if (p.signal?.aborted) return aborted(commit);
+  // ── local-first (LF6.T8): the class, after the checks (CLS-3); the reviewer by the class and the diff's actual tier (REV-1) ──
+  let choice: ReviewerChoice | undefined, line: ReviewFields | undefined;
+  if (lf) {
+    const lfs = p.nodes!.strategy, arms = p.nodes!.arms(), c = await classOf(p, repo, main.sha, st, g.extraChecks.length > 0);
+    const actualTier = lfs.tierOfLines(z.lines), tier = lfs.sessionTier(arms);
+    choice = lfs.reviewer({ cls: c.cls, actual: actualTier, inertLike: c.inertLike, review: arms });
+    Object.assign(seen, { class: c.cls, classBy: c.why, tier, actualTier, node: self!.id });
+    line = { class: c.cls, classBy: c.why, tier, actualTier, ...(choice.reviewer !== "none" && { reviewer: choice.reviewer }), binding: choice.binding };
+  }
   // ── 7 approval reuse: (repo, branch, commit, tree) ──
   const tree = await git.tree(repo, commit);
   if (tree === undefined) return gitError(`cannot read the tree of ${commit}`, commit);
@@ -468,7 +496,8 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     const facts = { goal, summary: input.summary, invariants, checks, red, risky: paths.filter(risk), stat: st, base: target.sha, commit, diff };
     const text = overCap ? overCapReview(facts, s.localFirst.overCapBytes, risk) : reviewInput({ ...facts, maxLines: budget });
     const out = await p.overseer.run({ role: "merge", input: text, cwd: p.branches.facts.mainCheckout.get(repo) ?? repo, worktree: wt.dir,
-      submit: verdictSubmit(new Set(paths)), commit, branch, signal: p.signal, ...(overCap && { overCap }) });
+      submit: verdictSubmit(new Set(paths)), commit, branch, signal: p.signal, ...(overCap && { overCap }),
+      ...(choice && choice.reviewer !== "none" && { choice }), ...(line && { line }) });
     if (!out.ok) {
       const r: MergeReason = out.outcome === "aborted" ? "aborted" : "review-unavailable";
       return done("error", r, out.why ? `${reasonText(r, {})}: ${out.why}` : reasonText(r, {}), commit); // a cap or a full member (L4 note)

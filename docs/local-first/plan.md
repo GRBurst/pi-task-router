@@ -1017,10 +1017,19 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   6. Settings: validate `localFirst.tiers` positive integers with small ≤ standard ≤ large (`tierOfLines` assumes it);
      `mergeGate.inertGlobs` is a string list (spec §2.1).
 
-#### LF6.T8 The gate uses the choice (REV-1) `[ ] todo`
+#### LF6.T8 The gate uses the choice (REV-1) `[x] done`
 - Files: `core/local/overseer.ts`, `core/local/merge.ts`; test `lf-reviewer-gate` (new) "REV-1".
 - RED: overseer rig: class standard, 200 lines → the ticket's member = `localFirst.reviewers.opus`; legacy local mode keeps `pickMember` (`local-overseer` green).
 - GREEN: `pickMember` takes a `ReviewerChoice` in local-first.
+- decision (lf56): `RunArgs` gains `choice` (the `ReviewerChoice`) and `line` (the review line's fields); `pickMember(s, role, b, choice)`
+  maps it through `localFirst.reviewers` (`qwen` → `local`), effort = `overseer.effort` for `overseer.member`, `fallbackEffort` for
+  `fallbackMember`, else the member's highest; a chosen reviewer is outside the Opus budget (CON-11), and attempt 2 keeps the chosen
+  member (`fallback: error`), never a weaker one. The gate classes after the checks and the red run (obligation 3: `inertChecked` =
+  ≥ 1 configured `extraChecks` entry), in `classOf` (`merge.ts`), the one fail-closed place (obligation 4): no reader, an unreadable
+  policy → `{elevated, inertLike: false, why: ["error"]}`; the reader is `MergePorts.policy` (`policyGit` over install's runner,
+  `LocalDeps.policyGit` a seam; the node rig reads the real repository, `lf-reviewer-gate` fakes the base and git failures). The
+  review's arms are the session's (`arms()`) until a per-review draw exists. Obligations 2 and 6 are `validateLocal` rules
+  (`lf-settings` "gate paths and tiers"). A `none` choice (inert) runs the legacy pick until LF6.T11.
 
 #### LF6.T9 Advisory reviews (REV-4) `[ ] todo`
 - Files: `core/local/merge.ts`; test `lf-reviewer-gate` "REV-4".

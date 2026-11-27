@@ -5,7 +5,8 @@ import { isAbsolute, relative } from "node:path";
 import type { ChildTool, PolicyResult, SubagentsApiV1 } from "../api.ts";
 import type { Guard, SyncGuard } from "../toolguard.ts";
 import type { RouterSettings, ThinkingLevel } from "../types.ts";
-import type { ReviewInput } from "../outcome.ts";
+import type { ReviewFields, ReviewInput } from "../outcome.ts";
+import type { ReviewerChoice, ReviewerName } from "../strategy/types.ts";
 import type { ForcePort } from "../forceinstall.ts";
 import type { Schema } from "./schema.ts";
 import { approve, inconsistent, VERDICT_SCHEMA, validateVerdict, type Verdict } from "./verdict.ts";
@@ -80,9 +81,10 @@ export type RunResult<T> = { ok: true; value: T; reviewId: string; member: strin
 /** LD14 (review F5): `cwd` is the child session's (default `base()`, the main checkout), never inside `worktree`, the tree under
  *  review, which the brief names by its absolute path: pi loads AGENTS.md and project settings from the cwd, and a branch must
  *  not write its reviewer's instructions. */
-/** `overCap`: the local-first gate's over-cap review (SIZE-8), on its review lines. */
+/** `overCap`: the local-first gate's over-cap review (SIZE-8), on its review lines. `choice`: the local-first gate's reviewer
+ *  (REV-1, LF6.T8), which replaces `pickMember` and the Opus budget (CON-11); `line`: its review line's fields (LF6.T7). */
 export type RunArgs<T> = { role: RunRole; input: string; cwd?: string; worktree?: string; submit: SubmitSpec<T>; commit?: string; branch?: string;
-  signal?: AbortSignal; overCap?: boolean };
+  signal?: AbortSignal; overCap?: boolean; choice?: ReviewerChoice; line?: ReviewFields };
 export type OverseerDeps = {
   api(): SubagentsApiV1 | undefined; settings: RouterSettings; tickets: Tickets;
   /** The router's own spawn policy is registered (review F1): without it a ticket reaches no one, so nothing is spawned. */
@@ -131,12 +133,21 @@ export const verdictSubmit = (targets?: ReadonlySet<string>): SubmitSpec<Verdict
 
 /** The member for a run's first attempt (design §3.2.2 step 1): the Opus member while the budget lasts, else the fallback;
  *  a `steer` is skipped instead (it also needs `steerBudget`). */
-export function pickMember(s: RouterSettings, role: Role, b: Budget):
-  { member: string; effort: ThinkingLevel; fallback?: "budget" } | "skip" {
+export function pickMember(s: RouterSettings, role: Role, b: Budget, choice?: ReviewerChoice):
+  { member: string; effort: ThinkingLevel; fallback?: "budget"; chosen?: true } | "skip" {
+  if (choice && choice.reviewer !== "none") { const member = reviewerMember(s, choice.reviewer); return { member, effort: memberEffort(s, member), chosen: true }; }
   const room = b.opusUsed < s.overseer.budget && (role !== "steer" || b.steerUsed < s.overseer.steerBudget);
   if (room) return { member: s.overseer.member, effort: s.overseer.effort };
   return role === "steer" ? "skip" : { member: s.overseer.fallbackMember, effort: s.overseer.fallbackEffort, fallback: "budget" };
 }
+
+/** LF6.T8: the member `localFirst.reviewers` names for a reviewer (`qwen` → `local`). */
+export const reviewerMember = (s: RouterSettings, r: ReviewerName): string => s.localFirst.reviewers[r === "qwen" ? "local" : r];
+/** decision (lf56): a chosen member's effort: the overseer's effort for its member, the fallback effort for its fallback member,
+ *  else the member's highest effort. */
+const memberEffort = (s: RouterSettings, member: string): ThinkingLevel =>
+  member === s.overseer.member ? s.overseer.effort : member === s.overseer.fallbackMember ? s.overseer.fallbackEffort
+    : s.models[member]?.efforts.at(-1) ?? s.overseer.effort;
 
 /** Polls between the child's events (D27: the API has no idle event), the verify gate's interval. */
 const POLL_MS = 2000;
@@ -294,16 +305,19 @@ export function createOverseer(d: OverseerDeps) {
       const whys: string[] = [];
       for (const no of r.role === "steer" ? [1] : [1, 2]) {
         if (r.signal?.aborted) return { ok: false, outcome: "aborted" };
-        const p = no === 1 ? pickMember(d.settings, r.role, budget()) : { member: s.fallbackMember, effort: s.fallbackEffort, fallback: "error" as const };
+        // local-first (LF6.T8): attempt 2 keeps the chosen member (never weaker than the class and size ask for), `fallback: error`
+        const first = no === 1 || r.choice ? pickMember(d.settings, r.role, budget(), r.choice) : undefined;
+        const p = no === 1 ? first! : first && first !== "skip" && first.chosen ? { ...first, fallback: "error" as const }
+          : { member: s.fallbackMember, effort: s.fallbackEffort, fallback: "error" as const };
         if (p === "skip") return { ok: false, outcome: "skipped" };
         const model = d.settings.models[p.member]?.model;
         if (!model) continue;
         const steer = r.role === "steer" ? 1 : 0;
-        let holding = !p.fallback;
+        let holding = !p.fallback && !("chosen" in p); // CON-11: a chosen reviewer is outside the Opus budget
         const unhold = (): void => { if (holding) { holding = false; held.opus -= 1; held.steer -= steer; } };
         if (holding) { held.opus += 1; held.steer += steer; }
         const charge = (): void => {
-          if (p.fallback) return;
+          if (p.fallback || "chosen" in p) return;
           unhold();
           d.budget.opusUsed += 1;
           if (r.role === "steer") d.budget.steerUsed += 1;
@@ -316,7 +330,7 @@ export function createOverseer(d: OverseerDeps) {
         d.log.review({ reviewId, role: r.role, member: p.member, model, attempt: no, durationMs: d.now() - t0, fallback: p.fallback,
           outcome: o.kind === "ok" ? (v && !approve(v.findings) ? "revise" : "approve") : o.kind === "aborted" || o.kind === "unrouted" ? "error" : o.kind,
           ...(v && { findings: v.findings.length, blocking: v.findings.filter((f) => f.blocking).length, ...(inconsistent(v) && { inconsistent: true }) }),
-          commit: r.commit, branch: r.branch, ...(r.overCap && { overCap: true }) });
+          commit: r.commit, branch: r.branch, ...(r.overCap && { overCap: true }), ...r.line });
         if (o.kind === "aborted") return { ok: false, outcome: "aborted" };
         if (o.kind === "unrouted") return { ok: false, outcome: "error" }; // a second attempt would meet the same policy
         if (o.kind !== "ok") { last = o.kind; if (o.kind === "error" && o.why) whys.push(o.why); continue; }

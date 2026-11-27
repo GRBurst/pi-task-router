@@ -18,6 +18,7 @@ import { nodeOf, nodeOfBranch, openIn, openParents } from "./tree.ts";
 import type { Node } from "./tree.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { createGit, gitRunner } from "./git.ts";
+import { type PolicyGit, policyGit } from "./policyfile.ts";
 import type { Git } from "./git.ts";
 import { block, createHintEngine } from "./hints.ts";
 import { createChildSizes, createSizeHints, sizeBlock } from "./sizehints.ts";
@@ -62,6 +63,8 @@ export type LocalDeps = {
   run?: Runner;
   /** The git port (default: the real one); a test seam. */
   git?: Git;
+  /** The policy file's reader (default: over the real git runner); a test seam (LF6.T8). */
+  policyGit?: PolicyGit;
   /** After every budget change and rebuild (the status line, design §2.5). */
   onBudget?(): void;
   /** A file's hash; undefined when it cannot be read (§3.1.4). Default: sha256 of its bytes. */
@@ -115,7 +118,9 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     policyOn: d.policyOn, force: d.force, warn: (text) => console.warn(text), base: () => base ?? process.cwd(),
     append: (type, data) => { pi.appendEntry?.(type, data); if (type === BUDGET_TYPE) d.onBudget?.(); },
   });
-  const git = d.git ?? createGit(gitRunner());
+  const runner = gitRunner(), git = d.git ?? createGit(runner);
+  /** CLS-2 (LF6.T7 obligation 4): the policy file's reader, over the runner `createGit` is built on. */
+  const policy = d.policyGit ?? policyGit(runner);
   const branches = createBranchStore((type, data) => pi.appendEntry?.(type, data));
   /** Merge approvals (design §3.4.3), rebuilt from the session at `start`. */
   const approvals = createApprovals((type, data) => pi.appendEntry?.(type, data));
@@ -306,7 +311,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
         (typeof i.branch === "string" && i.branch !== "" ? i.branch.replace(/^refs\/heads\//, "") : branches.active()?.branch) ?? "")?.profile === "local-first";
       const gated = (i: { branch?: string }): { plans?: PlanStore } => (lfNode(i) ? activeSet(s, true) : act()).plans ? { plans } : {};
       register(requestMergeTool((signal, input) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,
-        append: appendRef, tmp: redTmp, fixer: handle.fixer, log: gateLog.merge, ...gated(input),
+        append: appendRef, tmp: redTmp, fixer: handle.fixer, log: gateLog.merge, policy, ...gated(input),
         exclusive, fixerGone, ...(d.nodes && { nodes: d.nodes }), ...(signal && { signal }) }), () => ready), gateOn);
     }
     // plan_request and amend_plan (design §3.5.2, §3.5.4) while plans are active (D40); submit_plan is the plan author's child tool.

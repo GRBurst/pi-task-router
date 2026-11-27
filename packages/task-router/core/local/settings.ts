@@ -42,6 +42,10 @@ const LISTS: [string, (xs: unknown[]) => boolean, string][] = [
   ["mergeGate.inertGlobs", (xs) => xs.every(isStr), "must be a list of strings"],
   ["plans.publicApiGlobs", (xs) => xs.every(isStr), "must be a list of strings"],
 ];
+/** LF6.T7 obligation 2: paths the classifier compares with a diff's paths (`policy-edit`, the split filter) are repository-relative
+ *  as git prints them: no leading `/` or `./`, no trailing `/`, no empty, `.` or `..` segment. */
+const REL_PATHS = ["plans.dir", "localFirst.policyFile"];
+const relPath = (x: unknown): boolean => isStr(x) && x.split("/").every((seg) => seg !== "" && seg !== "." && seg !== "..");
 /** pi's built-in tools that change files (`overseer.tools` may hold none of them). */
 const WRITERS = ["bash", "edit", "write"];
 /** A member reference and the effort paired with it. */
@@ -66,6 +70,12 @@ export function validateLocal(s: RouterSettings, base: RouterSettings, problems:
     if (top !== undefined && !(v > 0 && v <= top)) reset(path, `must be a number in (0, ${top}]`);
   }
   for (const [path, ok, why] of LISTS) if (!ok(get(s, path) as unknown[])) reset(path, why);
+  for (const path of REL_PATHS) if (!relPath(get(s, path))) reset(path, "must be a repository-relative path (no leading / or ./, no trailing /)");
+  // LF6.T7 obligation 6: `tierOfLines` assumes positive integers in order
+  const t = s.localFirst.tiers, pos = (n: number): boolean => Number.isInteger(n) && n > 0;
+  if (!(pos(t.small) && pos(t.standard) && pos(t.large) && t.small <= t.standard && t.standard <= t.large)) {
+    reset("localFirst.tiers", "must be positive integers with small ≤ standard ≤ large");
+  }
   // An overseer audits and must not write (design §3.2, P13 Q11): its tools are read-only.
   const writer = s.overseer.tools.find((t) => WRITERS.includes(t));
   if (writer !== undefined) reset("overseer.tools", `${writer} can write`);
