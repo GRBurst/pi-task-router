@@ -298,3 +298,12 @@ test("REV-9 retry: the local-first gate asks for the retries; legacy does not", 
   assert.equal(x.reviews.length, 2);
   assert.equal(x.reviews[1]!.retryTransient, undefined);
 });
+
+test("REV-9 attempt numbers count the steps, then the retries (review lf56 nit)", async () => {
+  // legacy local mode: a first member without a model is skipped; the fallback's line is attempt 2, as before LF6.T13
+  const o = retryRig();
+  o.h.router.settings.models[o.h.router.settings.overseer.member]!.model = "";
+  o.on.each = async () => { await o.tool().execute(VALID); };
+  assert.equal((await o.run()).ok, true);
+  assert.deepEqual(o.reviews(), [[2, "sonnet", "approve", "error"]]);
+});

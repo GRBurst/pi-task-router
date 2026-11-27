@@ -1106,6 +1106,8 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - review lf56 m3 (fixed): when the second attempt would rerun the same member (a chosen reviewer, local-first), the last retry
   ends the run: its line has `fallback: transient`, the run returns the existing `error` (three attempts, never a third retry).
   A second attempt on another member (no choice) keeps `fallback: transient`. Test `lf-reviewer-gate` "REV-9 retry".
+- review lf56 nit (fixed): `attempt` = the step plus the retries so far, so a skipped step (a member without a model) keeps
+  its number as before LF6.T13 (D59: legacy's fallback after a skipped first member is attempt 2). Test "REV-9 attempt numbers".
 
 #### LF6.T14 Docs `[x] done`
 - Files: `docs/task-router.md` (classes, the policy file and its schema, reviewers), `docs/outcome-log.md`

@@ -341,7 +341,7 @@ export function createOverseer(d: OverseerDeps) {
         return { ...o, reviewId };
       };
       const backoff = r.retryTransient ? RETRY_MS : [];
-      let no = 0, retries = 0, gaveUp = false;
+      let retries = 0, gaveUp = false;
       for (const step of r.role === "steer" ? [1] : [1, 2]) {
         if (r.signal?.aborted) return { ok: false, outcome: "aborted" };
         // local-first (LF6.T8): attempt 2 keeps the chosen member (never weaker than the class and size ask for), `fallback: error`
@@ -357,7 +357,7 @@ export function createOverseer(d: OverseerDeps) {
         let o: Settled<T> & { reviewId: string };
         for (;;) {
           const spent = backoff.length > 0 && retries === backoff.length;
-          o = await once(p, model, ++no, spent && ends);
+          o = await once(p, model, step + retries, spent && ends); // the step, then the retries (a skipped step keeps its number)
           if (o.kind !== "error" || !o.transient || !backoff.length) break;
           if (spent) { gaveUp = true; break; }
           await d.sleep(backoff[retries++]!);
