@@ -44,6 +44,11 @@ test("TREE-11 builders", () => {
     { v: SCHEMA_VERSION, ts: NOW.toISOString(), event: "split", taskId: "auth", node: "auth", reason: "choice", children: 3, depth: 0,
       planLines: 42 },
   );
+  // review lf56 m5: the main session's id when known (as on the gate's lines, owner's decision PA Q1)
+  assert.equal(nodeEvent({ now: NOW, node: "auth", depth: 0, kind: "plan", fanout: 0, outcome: "started", tier: "standard", profile: "local-first",
+    sessionId: "s-main" } as never).sessionId, "s-main");
+  assert.equal(splitEvent({ now: NOW, node: "auth", reason: "choice", children: 3, depth: 0, planLines: 42, sessionId: "s-main" } as never).sessionId,
+    "s-main");
   assert.deepEqual(lacking(EVENTS_V2, ["node", "split"]), []);
   assert.deepEqual([ENUMS_V2["node.kind"], ENUMS_V2["node.outcome"], ENUMS_V2["split.reason"]], [KINDS, OUTCOMES, REASONS]);
 });
@@ -64,7 +69,7 @@ test("TREE-11 text-free and closed", () => {
         ? ["v", "ts", "event", "taskId", "depth", "kind", "fanout", "outcome", "tier", "profile"]
         : ["v", "ts", "event", "taskId", "node", "reason", "children", "depth", "planLines"];
       assert.deepEqual(want.filter((k) => !(k in l)), [], `${l.event} lacks fields`);
-      const allowed = new Set([...want, "parent", "class"]);
+      const allowed = new Set([...want, "parent", "class", "sessionId"]);
       assert.deepEqual(Object.keys(l).filter((k) => !allowed.has(k)), [], `${l.event} has extra fields`);
     }
 });

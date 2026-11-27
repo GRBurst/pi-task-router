@@ -105,7 +105,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   /** The main session's cwd, the main checkout (LD14; L6 may take L5's repository root instead). */
   let base: string | undefined;
   /** LF6.T7 (owner's decision PA Q1): the review, merge, plan and gatebypass lines carry the main session's id (absent when
-   *  unknown). */
+   *  unknown); the crossing lines too (review lf56 m5). */
   const sid = <T extends { sessionId?: string }>(i: T): T => ({ ...i, sessionId: i.sessionId ?? d.sessionId() });
   const gateLog = {
     review: (i: Parameters<LocalDeps["log"]["review"]>[0]) => d.log.review(sid(i)),
@@ -413,7 +413,8 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   const pending = new Map<string, Omit<CallRecord, "turn">>(); // toolCallId → the call's record so far
   let ring: CallRecord[] = [], queue: Delivery[] = [], sized: string[] = [];
   // SIZE-5 (local-first): the main's active node gets the size stages 80 %/100 % instead of the legacy one-stage monitor
-  const stages = d.nodes && createSizeHints({ settings: s, strategy: d.nodes.strategy, arms: d.nodes.arms, now: d.now, log: d.log });
+  const stages = d.nodes && createSizeHints({ settings: s, strategy: d.nodes.strategy, arms: d.nodes.arms, now: d.now,
+    log: { crossing: (i) => d.log.crossing(sid(i)) } }); // the main session's id (review lf56 m5)
   const tree = d.nodes?.tree;
   /** SIZE-10: a split above `planLines`, at the main's turn and call. */
   const crossing = (n: Node, lines: number, budget: number): void => stages?.plan(n, lines, budget, { turn, call });

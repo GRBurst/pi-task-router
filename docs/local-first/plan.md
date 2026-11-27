@@ -883,6 +883,9 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - decision (lf56): `kind` is the work kind = the node's estimate kind `code | plan | inert` (design §5.3 "the work kind"; SIZE-10's
   `kind plan`), not the node kind; `estimate` its lines; `tier` ∈ S31 `Tier`; `class` ∈ `RiskClass`. Consumer-visible (PE-2):
   `crossing.stage` [80, 100], `crossing.kind`, `crossing.tier`, `crossing.class`.
+- decision (lf56-fix, review m5): `kind: plan` has one meaning, a split above `planLines` (SIZE-10): a `plan` estimate gets no
+  work stages (LF5.T6). `crossing`, `node` and `split` carry the optional `sessionId` (the main session's, as on the gate's lines,
+  owner's decision PA Q1); a package child's crossing carries the main's id, whose router measures it.
 
 #### LF5.T6 Main hints 80 %/100 % (SIZE-5 main, SIZE-6) `[x] done`
 - Files: `core/local/sizehints.ts` (new), `core/local/install.ts`; test `lf-size-hints` "SIZE-5 main", "SIZE-6".
@@ -890,7 +893,8 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: `createSizeStages(budget)` → `observe(lines) → (80|100)[]`, once per stage per node.
 - decision (lf56): a stage is reached at `lines ≥ stage % × budget`; `observe(lines, budget)` takes the budget per observation
   (`tierBudget(sessionTier, class)`: a class that turns elevated caps it); the class is the settings policy's of the worktree's files
-  with `inertChecked: false` (never inert during the work; the gate classifies again at merge); an `inert` estimate has no stages;
+  with `inertChecked: false` (never inert during the work; the gate classifies again at merge); an `inert` estimate has no stages
+  (lf56-fix, review m5: nor a `plan` estimate);
   `sinceStartMs` counts from the node's first measurement. The main's hint is a `<router-hint size="80|100">` block on the next
   tool result (`sizeBlock`), not a trip: no `hint` line. Both stages fire at once when a write jumps over both.
 

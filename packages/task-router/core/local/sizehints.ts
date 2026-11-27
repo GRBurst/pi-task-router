@@ -1,7 +1,7 @@
 // The size stages (local-first spec SIZE-5, SIZE-6, design §5.3, plan S48): at 80 % and at 100 % of a node's budget, once per
 // stage per node, one hint (S48's pinned texts, never a block) and one `crossing` line. The budget is the drawn tier's
 // (`tierBudget(sessionTier, class)`), the class the settings policy's of the worktree's files (the gate classifies again with
-// the policy file at merge); an `inert` estimate has no budget. The main measures after its writes (`install.ts`), a package
+// the policy file at merge); an `inert` or `plan` estimate has no work stages. The main measures after its writes (`install.ts`), a package
 // child on its turns (`childtrips.ts`, D68).
 import { globMatch } from "../glob.ts";
 import type { CrossingInput } from "../outcome.ts";
@@ -65,7 +65,9 @@ export function createSizeHints(d: SizeHintDeps): {
         depth: n.depth, kind: "plan", turn: at.turn, call: at.call, sinceStartMs: now - k.first });
     },
     observe(n, st, at) {
-      if (n.estimate.kind === "inert") return [];
+      // an inert estimate has no budget; a plan estimate no work stages, so a crossing of kind plan is only a split above
+      // planLines (`plan` above, SIZE-10; review lf56 m5)
+      if (n.estimate.kind !== "code") return [];
       const now = d.now(), k = track(n.id, now);
       const files = withoutSplits(st, plansDir), lines = linesOf(files), arms = d.arms();
       const c = d.strategy.classify(files, settingsPolicy(s), ctx);

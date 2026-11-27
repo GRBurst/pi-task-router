@@ -238,24 +238,27 @@ export const profileEvent = (i: ProfileInput) =>
 export type NodeOutcome = (typeof NODE_OUTCOMES)[number];
 export type SplitReason = (typeof SPLIT_REASONS)[number];
 export type NodeLogInput = { now: Date; node: string; parent?: string; depth: number; kind: (typeof NODE_KINDS)[number]; fanout: number;
-  outcome: NodeOutcome; tier: string; class?: string; profile: (typeof ROUTING_PROFILES)[number] };
-/** A node's state change (TREE-11, spec §2.4): `taskId` is the node id; `fanout` its split's child count (0 unsplit). */
+  outcome: NodeOutcome; tier: string; class?: string; profile: (typeof ROUTING_PROFILES)[number]; sessionId?: string };
+/** A node's state change (TREE-11, spec §2.4): `taskId` is the node id; `fanout` its split's child count (0 unsplit); `sessionId`
+ *  the main session's (review lf56 m5, as on the gate's lines). */
 export const nodeEvent = (i: NodeLogInput) =>
   finish({ ...base("node", i.now, i.node), parent: i.parent, depth: i.depth, kind: i.kind, fanout: i.fanout, outcome: i.outcome,
-    tier: i.tier, class: i.class, profile: i.profile });
-export type SplitLogInput = { now: Date; node: string; reason: SplitReason; children: number; depth: number; planLines: number };
+    tier: i.tier, class: i.class, profile: i.profile, sessionId: i.sessionId });
+export type SplitLogInput = { now: Date; node: string; reason: SplitReason; children: number; depth: number; planLines: number; sessionId?: string };
 /** A split (TREE-11, spec §2.4): `taskId` and `node` are the split node; never the plan's text, only its counts. */
 export const splitEvent = (i: SplitLogInput) =>
-  finish({ ...base("split", i.now, i.node), node: i.node, reason: i.reason, children: i.children, depth: i.depth, planLines: i.planLines });
+  finish({ ...base("split", i.now, i.node), node: i.node, reason: i.reason, children: i.children, depth: i.depth, planLines: i.planLines,
+    sessionId: i.sessionId });
 
 export type CrossingInput = { now: Date; node: string; stage: (typeof STAGES)[number]; lines: number; budget: number; estimate: number;
   tier: (typeof TIERS)[number]; class: (typeof CLASSES)[number]; depth: number; kind: (typeof WORK_KINDS)[number]; turn: number; call: number;
-  sinceStartMs: number };
+  sinceStartMs: number; sessionId?: string };
 /** A size stage (SIZE-6, spec §2.4): `taskId` and `node` are the node; the changed lines against the drawn tier's budget, the
- *  estimate (its lines) and its kind, the class and depth, and when (the turn, the call, the time since the node was first measured). */
+ *  estimate (its lines) and its kind, the class and depth, and when (the turn, the call, the time since the node was first measured);
+ *  `sessionId` the main session's, whose router measures (review lf56 m5). */
 export const crossingEvent = (i: CrossingInput) =>
   finish({ ...base("crossing", i.now, i.node), node: i.node, stage: i.stage, lines: i.lines, budget: i.budget, estimate: i.estimate, tier: i.tier,
-    class: i.class, depth: i.depth, kind: i.kind, turn: i.turn, call: i.call, sinceStartMs: i.sinceStartMs });
+    class: i.class, depth: i.depth, kind: i.kind, turn: i.turn, call: i.call, sinceStartMs: i.sinceStartMs, sessionId: i.sessionId });
 
 export const serializeEvent = (e: OutcomeEvent): string => `${JSON.stringify(e)}\n`;
 

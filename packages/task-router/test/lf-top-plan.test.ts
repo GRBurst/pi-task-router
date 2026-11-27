@@ -35,6 +35,8 @@ test("TREE-12 local", async () => {
   assert.deepEqual(s.h.lines().filter((l) => l.event === "split").map((l) => [l.taskId, l.node, l.reason, l.children, l.depth, l.planLines]),
     [["auth", "auth", "choice", 2, 0, planLines]]);
   assert.deepEqual(s.nodes().map((l) => [l.taskId, l.outcome, l.fanout]), [["auth", "started", 0], ["auth", "split", 2]]);
+  // review lf56 m5: the main session's id
+  assert.deepEqual(s.h.lines().filter((l) => l.event === "split" || l.event === "node").map((l) => l.sessionId), ["s-main", "s-main", "s-main"]);
   // a second split of the same node is refused, and changes nothing
   const again = await s.call("split", { node: "auth", ...PLAN });
   assert.deepEqual([again.isError, again.content[0]!.text], [true, "node auth is split: only an active node splits"]);

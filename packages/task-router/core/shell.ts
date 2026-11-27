@@ -354,6 +354,11 @@ export function install(pi: PiLike, deps: Deps) {
     const sid = ctx?.sessionManager?.getSessionId?.() ?? sessionId;
     return !!sid && (api()?.list() ?? []).some((a) => a.sessionId === sid && a.name !== "main");
   };
+  // review lf56 m5: the node and split lines carry the main session's id, as the gate's lines do (owner's decision PA Q1)
+  const nodeLog = {
+    node: (i: Parameters<typeof log.node>[0]) => log.node({ ...i, sessionId: i.sessionId ?? sessionId }),
+    split: (i: Parameters<typeof log.split>[0]) => log.split({ ...i, sessionId: i.sessionId ?? sessionId }),
+  };
   // LD3 (design §2.4): local mode replaces the nudge with hints; its steer messages would interrupt a local main mid-task.
   installNudge(pi, { settings, isChild, enabled: () => active && !isLocal(settings) });
   // Hints (design §3.1, plan S12): in local mode, or anywhere with hints "on"; the status line names the last hint (plan Q5).
@@ -362,7 +367,7 @@ export function install(pi: PiLike, deps: Deps) {
     api, tickets, hex, now: nowMs, sleep: pd.sleep, onBudget: render, force: force.port, run: deps.run, policyOn: () => off.length > 0,
     placed: (n) => placed.has(n), local: () => profile.current() !== "cloud-first", childCalls: (n) => childTrips.calls(n),
     ...(settings.localFirst.experimental && { nodes: { tree, localFirst: () => profile.current() === "local-first", caps: () => strategy.treeCaps({}),
-      strategy, arms: armMap, log } }) });
+      strategy, arms: armMap, log: nodeLog } }) });
   // PRO-7 (S34a): a local session registers the local tools and hooks it lacks (a cloud-first default: at its first switch to
   // local-first); the tools whose component the profile turns off leave the active set (pi cannot unregister a tool) and come
   // back with it. Nothing changes while the set stays (the legacy local mode, a cloud-first session).

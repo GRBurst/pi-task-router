@@ -20,6 +20,10 @@ test("builder", () => {
   assert.deepEqual(line, { v: SCHEMA_VERSION, ts: NOW.toISOString(), event: "crossing", taskId: "auth.form", node: "auth.form", stage: 80,
     lines: 130, budget: 150, estimate: 60, tier: "standard", class: "standard", depth: 1, kind: "code", turn: 4, call: 17, sinceStartMs: 90_000 });
   assert.ok((EVENTS_V2 as readonly string[]).includes("crossing"));
+  // review lf56 m5: the main session's id when known
+  assert.equal(crossingEvent({ now: NOW, node: "a", stage: 80, lines: 1, budget: 1, estimate: 1, tier: "standard", class: "standard", depth: 0,
+    kind: "code", turn: 0, call: 0, sinceStartMs: 0, sessionId: "s-main" } as never).sessionId, "s-main");
+  assert.ok(!("sessionId" in line), "absent when unknown");
   // every field of spec §2.4, every enumerated one within its ENUMS_V2 list, no free text copied
   const rnd = seeded(505), one = <T>(xs: readonly T[]): T => xs[rnd(xs.length)]!;
   const enums = new Set(Object.values(ENUMS_V2).flat().map(String));
@@ -88,10 +92,15 @@ test("SIZE-6", async () => {
   assert.ok(c[0]!.call < c[1]!.call && c[0]!.sinceStartMs <= c[1]!.sinceStartMs, JSON.stringify(c));
   const enums = new Set(Object.values(ENUMS_V2).flat().map(String));
   for (const l of c) assert.deepEqual(textFree(l, enums), []);
+  for (const l of c) assert.equal(l.sessionId, "s-main", "the main session's id (review lf56 m5)");
   // an inert estimate has no budget: no stage
   const i = await mainRig(LF, { lines: 10, kind: "inert" });
   assert.deepEqual(await i.write(900), []);
   assert.deepEqual(i.crossings(), []);
+  // review lf56 m5: a plan estimate has no work stages either; its only crossing is a split above planLines (SIZE-10)
+  const p = await mainRig(LF, { lines: 0, kind: "plan" });
+  assert.deepEqual(await p.write(900), []);
+  assert.deepEqual(p.crossings(), []);
 });
 
 test("SIZE-5 stages", () => {
@@ -137,4 +146,5 @@ test("SIZE-5 child", async () => {
   assert.deepEqual(c.map((l) => [l.node, l.stage, l.lines, l.budget, l.estimate, l.tier, l.class, l.depth, l.kind, l.turn]),
     [["auth.form", 80, 130, 150, 60, "standard", "standard", 1, "code", 2], ["auth.form", 100, 160, 150, 60, "standard", "standard", 1, "code", 4]]);
   for (const l of c) assert.deepEqual(FIELDS.filter((f) => !(f in l)), [], JSON.stringify(l));
+  for (const l of c) assert.equal(l.sessionId, "s-main", "the main session's id, the measuring router's (review lf56 m5)");
 });

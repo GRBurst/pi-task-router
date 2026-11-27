@@ -214,8 +214,8 @@ split files (`<plans.dir>/split/**`) never.
   `plan` and `inert` estimates are never refused. A split refuses a `code`
   child above that budget, naming the child and the budget, so a recorded
   package always starts. These two are the only places size blocks.
-- *Hints at 80 % and 100 %.* While `hints` is on, the main's active node is
-  measured after each write in its worktree and a package child's node on each
+- *Hints at 80 % and 100 %.* While `hints` is on, the main's active node with
+  a `code` estimate is measured after each write in its worktree and a package child's node on each
   of the child's turns. Each stage fires once per node: `Size: <n>/<b> changed
   lines (80 %). Finish or plan a split.` and `Size: <n>/<b> changed lines
   (100 %). The reviewer is now <reviewer>; consider a split.` The main gets it
@@ -226,7 +226,8 @@ split files (`<plans.dir>/split/**`) never.
   lines against the budget, the estimate, the tier, the class, the depth, the
   work kind, and when (turn, call, time since the node was first measured). A
   split whose rendered plan is longer than `localFirst.tree.planLines` is
-  accepted and logged as a `crossing` of kind `plan`; one with more than
+  accepted and logged as a `crossing` of kind `plan` (the only crossings of
+  that kind: a `plan` or `inert` estimate has no work stages); one with more than
   `maxChildren` children is refused.
 - *At the gate.* The local-first `request_merge` never refuses on size: the
   reviewer follows the actual lines. A diff above `large`, or one longer than
