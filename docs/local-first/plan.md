@@ -1046,9 +1046,11 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   run nor a configured extra check ran. The detail names the class's proxies. Tests whose elevated changes had a vacuous `true`
   check (`lf-overcap` SIZE-8, `lf-reviewer-gate` REV-1) now give a real one. Reversible; reported to the owner.
 
-#### LF6.T11 Inert merges (REV-10) `[ ] todo`
+#### LF6.T11 Inert merges (REV-10) `[x] done`
 - Files: `core/local/merge.ts`; test `lf-reviewer-gate` "REV-10".
 - RED: inert + passing extra check → merged without a ticket, `merge.class = "inert"`; no configured check → standard path (CLS-3).
+- decision (lf56): an inert merge has no `reviewId` and records no approval (nothing was reviewed); the audit sample (§5.5) is a
+  later stage's.
 
 #### LF6.T12 Cheap refusals first (REV-8) `[ ] todo`
 - Files: `core/local/merge.ts`; test `lf-merge-target` "REV-8".

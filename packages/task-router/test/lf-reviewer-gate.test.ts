@@ -145,3 +145,20 @@ test("REV-3", async () => {
   assert.deepEqual(ok.reviews[0]!.choice, { reviewer: "opus", binding: true, fresh: true, orthogonal: true });
   assert.deepEqual(ok.lines.at(-1)!.classBy, ["risk"]);
 });
+
+test("REV-10", async () => {
+  // inert (docs only) with a configured extra check that passes → merged without a ticket, `merge.class = inert`
+  const x = await gate({ mergeGate: { extraChecks: ["true"] } });
+  x.put({ "docs/guide.md": 5, "NOTICE": 2 });
+  const r = await x.mergeIt();
+  assert.equal(r.status, "merged", r.detail);
+  assert.equal(x.reviews.length, 0);
+  assert.equal(r.reviewId, undefined);
+  assert.deepEqual([x.lines.at(-1)!.class, x.lines.at(-1)!.classBy], ["inert", []]);
+  // no configured extra check: not inert (CLS-3), the standard path (inert-like, small: Haiku advisory)
+  const y = await gate();
+  y.put({ "docs/guide.md": 5 });
+  assert.equal((await y.mergeIt()).status, "merged");
+  assert.equal(y.reviews.length, 1);
+  assert.deepEqual([y.lines.at(-1)!.class, y.reviews[0]!.choice!.reviewer], ["standard", "haiku"]);
+});

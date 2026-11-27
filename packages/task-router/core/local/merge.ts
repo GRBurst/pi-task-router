@@ -483,7 +483,8 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   if (tree === undefined) return gitError(`cannot read the tree of ${commit}`, commit);
   const key: ApprovalKey = { repo, branch, commit, tree };
   let reviewId = p.approvals.find(key);
-  if (reviewId === undefined) {
+  // REV-10 (LF6.T11): an inert change (every file inert, a configured extra check passed) merges without a review
+  if (reviewId === undefined && choice?.reviewer !== "none") {
     // ── 8 review: the merge overseer in the main checkout, the worktree by its absolute path (LD14) ──
     const globs = riskGlobsOf(s), paths = st.map((f) => f.path), budget = diffBudget(g);
     // SIZE-8 (local-first): above `large`, or a diff longer than the budget, is an over-cap review of the whole diff's riskiest hunks
@@ -502,7 +503,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     const text = overCap ? overCapReview(facts, s.localFirst.overCapBytes, risk) : reviewInput({ ...facts, maxLines: budget });
     const out = await p.overseer.run({ role: "merge", input: text, cwd: p.branches.facts.mainCheckout.get(repo) ?? repo, worktree: wt.dir,
       submit: verdictSubmit(new Set(paths)), commit, branch, signal: p.signal, ...(overCap && { overCap }),
-      ...(choice && choice.reviewer !== "none" && { choice }), ...(line && { line }) });
+      ...(choice && { choice }), ...(line && { line }) });
     if (!out.ok) {
       const r: MergeReason = out.outcome === "aborted" ? "aborted" : "review-unavailable";
       return done("error", r, out.why ? `${reasonText(r, {})}: ${out.why}` : reasonText(r, {}), commit); // a cap or a full member (L4 note)
