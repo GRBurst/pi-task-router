@@ -860,6 +860,8 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: a `:(exclude)<plans.dir>/split/**` pathspec in both numstat calls and the untracked walk.
 - decision (lf56): the numstat is filtered by `isSplitFile` (`core/local/split.ts`, D85's one definition) instead of a
   pathspec: the same lines, and no second spelling of the rule (`withoutSplits`, `core/local/size.ts`; the gate reuses it).
+- review lf56 M1 (fixed): the local-first gate's size (`actualTier`, `overCap`, `merge.nLines`/`nFiles`) is
+  `sizeOf(withoutSplits(st, plans.dir))` (`core/local/merge.ts`); test `lf-reviewer-gate` "SIZE-2 the gate's size drops the split files".
 
 #### LF5.T4 Start refusal (SIZE-4) `[x] done`
 - Files: `core/local/branchtool.ts`; test `lf-start-refusal` (new).

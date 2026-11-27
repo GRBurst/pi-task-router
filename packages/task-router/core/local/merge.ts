@@ -24,6 +24,7 @@ import { mergedUnits, type PlanStore } from "./plans.ts";
 import type { NodeDeps, RouterTool } from "./branchtool.ts";
 import { contractOf, nodeLine, nodeOf, nodeOfBranch, openChildren, parentOf, refFormatOk, type Node, type Tree } from "./tree.ts";
 import { isSplitFile } from "./split.ts";
+import { withoutSplits } from "./size.ts";
 import { cutBytes, fileHunks, overCapInput } from "./overcap.ts";
 
 export const REASONS = ["main-branch", "dirty", "behind", "fixer-running", "abandoned", "blocked", "size", "scope",
@@ -412,10 +413,10 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   /** Opens a trigger for this branch's unit; its id. */
   const trigger = (b: Bound, kind: "non-whitelisted" | "over-budget" | "regression"): string | undefined => p.plans?.open(b.rec.slug, kind, b.id);
   // ── 3 size (a tick-only plan change counts toward none; a plan-bound branch by its plan budget); local-first never refuses
-  //    on size (SIZE-8): the reviewer follows the actual size ──
+  //    on size (SIZE-8): the reviewer follows the actual size, without the router's split files (SIZE-2, D85) ──
   const st = await git.numstat(repo, target.sha, commit); // TREE-7 b: the size against the target
   if (st === undefined) return gitError(`cannot diff ${target.name}...${commit}`, commit);
-  const z = sizeOf(st, bound?.file, bound?.tick !== undefined), lim = budgetOf(s, bound);
+  const z = sizeOf(lf ? withoutSplits(st, s.plans.dir) : st, bound?.file, bound?.tick !== undefined), lim = budgetOf(s, bound);
   seen.nLines = z.lines;
   seen.nFiles = z.files;
   if (!lf && (z.lines > lim.lines || z.files > lim.files)) {

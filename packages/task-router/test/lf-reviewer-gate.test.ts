@@ -57,6 +57,21 @@ test("REV-1", async () => {
   assert.equal(legacy.h.lines().find((l) => l.event === "review")!.fallback, "budget");
 });
 
+test("SIZE-2 the gate's size drops the split files (D85)", async () => {
+  // review lf56 M1: a 200-line split file of the router's plus 10 code lines is a small change: the tier, the reviewer and nLines
+  const x = await gate();
+  x.put({ "docs/plans/split/feat.json": 200, "src/a.ts": 10 });
+  const r = await x.mergeIt();
+  assert.equal(r.status, "merged", r.detail);
+  assert.deepEqual([x.reviews[0]!.line!.actualTier, x.reviews[0]!.choice!.reviewer, x.reviews[0]!.overCap], ["small", "sonnet", undefined]);
+  assert.deepEqual([x.lines.at(-1)!.actualTier, x.lines.at(-1)!.nLines, x.lines.at(-1)!.nFiles], ["small", 10, 1]);
+  // the same file under another path counts
+  const y = await gate();
+  y.put({ "docs/other/feat.json": 200, "src/a.ts": 10 });
+  assert.equal((await y.mergeIt()).status, "merged");
+  assert.deepEqual([y.lines.at(-1)!.actualTier, y.lines.at(-1)!.nLines], ["large", 210]);
+});
+
 test("REV-1 the policy at main's tip", async () => {
   // a policy file on main marks src/pay/** risky; a node's change there is elevated, classed by main's policy (CLS-2)
   const x = await gate();
