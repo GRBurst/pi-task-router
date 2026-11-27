@@ -515,12 +515,14 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
     const out = await p.overseer.run({ role: "merge", input: text, cwd: p.branches.facts.mainCheckout.get(repo) ?? repo, worktree: wt.dir,
       submit: verdictSubmit(new Set(paths)), commit, branch, signal: p.signal, ...(overCap && { overCap }),
       ...(lf && { retryTransient: true }), ...(choice && { choice }), ...(line && { line }) });
-    if (!out.ok) {
+    // REV-4 (LF6.T9; review lf56 m2): an advisory reviewer's verdict is logged (`binding: false`) and never blocks, nor does its
+    // failure (timeout, invalid, error: the merge has no review id and records no approval); an Esc still aborts
+    const advisory = choice?.binding === false;
+    if (!out.ok && (out.outcome === "aborted" || !advisory)) {
       const r: MergeReason = out.outcome === "aborted" ? "aborted" : "review-unavailable";
       return done("error", r, out.why ? `${reasonText(r, {})}: ${out.why}` : reasonText(r, {}), commit); // a cap or a full member (L4 note)
     }
-    // REV-4 (LF6.T9): an advisory reviewer's verdict is logged (`binding: false`) and never blocks
-    if (!approve(out.value.findings) && (choice?.binding ?? true)) {
+    if (out.ok && !approve(out.value.findings) && !advisory) {
       // Review F8: a branch without a record (D40) gets a hand-made one, which holds its counts and is never active.
       const now = p.branches.get(repo, branch) ?? { repo, branch, worktree: wt.dir, base: target.sha, state: "active" as const, rejections: 0, fixerRuns: 0, handmade: true as const };
       const rej: BranchRecord = { ...now, rejections: now.rejections + 1 }, findings = out.value.findings.map(findingLine);
@@ -546,8 +548,10 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
       p.branches.update(rej);
       return { status: "revise", detail: REVISE_TEXT, ...answer };
     }
-    reviewId = out.reviewId;
-    p.approvals.add(key, reviewId);
+    if (out.ok) {
+      reviewId = out.reviewId;
+      p.approvals.add(key, reviewId);
+    }
   }
   // ── 9 merge: fast-forward only (LD7), so main's tree is the reviewed and checked one ──
   if ((await git.sha(wt.dir, "HEAD")) !== commit) return "moved";

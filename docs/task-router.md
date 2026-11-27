@@ -279,7 +279,8 @@ and fallback member.
   the E3 factor draws it (Opus while E3 is off); `large` and above get Opus.
   `localFirst.reviewers` names the member for each (`haiku`, `sonnet`,
   `opus`, `local`); a chosen reviewer does not spend the Opus budget, and
-  its second attempt keeps the member. An advisory verdict never blocks.
+  its second attempt keeps the member. An advisory verdict never blocks, nor
+  does an advisory review that fails (the merge then has no review id).
 - *Order.* Cheap refusals come first: a dirty target checkout (`main-dirty`
   for the main branch, `dirty` for a parent node) is refused before any
   check or review.

@@ -130,6 +130,22 @@ test("REV-4", async () => {
   assert.deepEqual([y.reviews[0]!.choice!.reviewer, y.reviews[0]!.choice!.binding], ["sonnet", true]);
 });
 
+test("REV-4 an advisory review that fails never blocks (review lf56 m2)", async () => {
+  // Haiku could not run (timeout, invalid, error): the inert-like change merges without a review id and records no approval
+  const x = await gate();
+  x.put({ "docs/guide.md": 5 });
+  x.verdicts.push("fail");
+  const r = await x.mergeIt();
+  assert.deepEqual([r.status, r.reviewId, x.reviews[0]!.choice!.binding], ["merged", undefined, false], r.detail);
+  assert.deepEqual([x.lines.at(-1)!.outcome, x.lines.at(-1)!.reviewId], ["merged", undefined]);
+  // a binding reviewer that fails still leaves review-unavailable
+  const y = await gate();
+  y.put({ "src/a.ts": 5 });
+  y.verdicts.push("fail");
+  const b = await y.mergeIt();
+  assert.deepEqual([b.status, b.reason], ["error", "review-unavailable"], b.detail);
+});
+
 test("REV-3", async () => {
   // elevated (riskGlobs `**/auth/**`): Opus in a fresh session plus the orthogonal check, the red run and the extra checks
   const real = "test -f src/auth/a.ts"; // fails at the target, passes on the branch: not vacuous
