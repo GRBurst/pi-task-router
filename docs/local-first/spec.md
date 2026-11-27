@@ -239,7 +239,7 @@ actor's spawn-policy API) and whose member table has at least one enabled cloud 
 |---|---|---|---|
 | E0 | session (sessionId), cloud-first only, eligible (§2.8) | `as-used`, `cloud-only` (weight = `cloudOnlyShare`) | 0.3.0 |
 | E2 | session | `standard`, `small`, `large` | 0.4.0 |
-| E3 | review (review id), standard tier | `opus`, `sonnet` | 0.4.0 |
+| E3 | review (session id, node, reviewed commit: one draw for every attempt and re-request of that commit, not the review id, which is minted per attempt; plan decision lf14), standard tier | `opus`, `sonnet` | 0.4.0 |
 | E12 | package child (node id + attempt) | `xhigh`, `medium` | 0.5.0 |
 | E13 | package child, medium arm | `unbounded`, `16k`, `32k` | 0.5.0 |
 | E4 | session | `off`, `on` | 0.6.0 |

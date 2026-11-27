@@ -7,7 +7,8 @@ import { draw, pick } from "./draw.ts";
 export type FactorId =
   | "E0" | "E2" | "E3" | "E12" | "E13" | "E4" | "E5" | "E6" | "E7" | "E8" | "E9" | "E10" | "E11"
   | "E14c" | "E14m" | "E14f" | "E14b" | "E15" | "E16" | "E17" | "E18";
-/** What one draw is for: its unit's id is the draw's `unit` (a session id, a review id, a node id, …). */
+/** What one draw is for: its unit's id is the draw's `unit` (a session id, a node id, a review's session id + node + reviewed
+ *  commit, …). A review's unit is not its review id: that is minted per attempt, after the reviewer is chosen (plan decision lf14). */
 export type FactorUnit = "session" | "review" | "child" | "request" | "node" | "package" | "ladder";
 export interface Factor {
   id: FactorId; unit: FactorUnit; levels: readonly string[]; weights: readonly number[];
