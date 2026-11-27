@@ -1066,6 +1066,9 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 #### LF8.T8 The ladder driver `[ ] todo`
 - Files: `core/local/ladderdrive.ts` (new), `core/local/install.ts`; test `lf-ladder-shell` (new) "driver".
 - RED: a trip or a red gate check on a node → `strategy.ladder` consulted, op `ladder`, one `ladder` line; the step's action invoked through injected ports (fakes record them).
+- Review LF4 m4 (recorded, not fixed in LF4): a crash between a split's commit and its tree op leaves the committed file and no
+  op; a retry with the same plan fails "nothing to commit". The driver's split step (and `splittool.ts` `splitNow`) takes a
+  node HEAD that already holds the same rendered file as the commit. RED: commit the file, drop the op, split again → `ok`.
 
 #### LF8.T9 Retry at xhigh (LOC-4) `[ ] todo`
 - Files: `core/local/ladderdrive.ts`, `core/local/package.ts`; test `lf-ladder` "LOC-4".

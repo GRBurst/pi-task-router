@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { T0_ALL, accepted, card, harness, provideSkills } from "./harness.ts";
 import { seeded } from "./rand.ts";
 import { defaults } from "../core/settings.ts";
+import { profileFor } from "../core/profile.ts";
 import type { Card, T2 } from "../core/types.ts";
 import { assign } from "../core/strategy/arms.ts";
 import { draw, pick } from "../core/strategy/draw.ts";
@@ -180,7 +181,8 @@ test("E0 via registry", () => {
 test("MEAS-2 profile switch", async () => {
   const cs = cards(40);
   const run = async (share: number, id: string, sw: boolean) => {
-    const { h, c } = e0({ experiments: { cloudOnlyShare: share }, localFirst: { experimental: true } }, id);
+    // review m6: a placement override (scout: cloud) the comparison must follow
+    const { h, c } = e0({ experiments: { cloudOnlyShare: share }, localFirst: { experimental: true }, profiles: { scout: { localFirst: { placement: "cloud" } } } }, id);
     if (sw) await h.f.commands.get("profile")!.handler("local-first", c);
     provideSkills(h, SKILLS);
     const models: string[] = [];
@@ -190,7 +192,7 @@ test("MEAS-2 profile switch", async () => {
       h.clock.t += 61_000;
     }
     return { models, sessions: sessionLines(h).map((l) => l.localMembers), arms: h.f.entries.filter((e) => e.type === "task-router/arms").length,
-      profile: h.router.profile.current() };
+      profile: h.router.profile.current(), settings: h.router.settings };
   };
   const off = await run(1, "s-off", true);
   assert.equal(off.profile, "local-first");
@@ -199,7 +201,8 @@ test("MEAS-2 profile switch", async () => {
   const used = await run(0.1, "s-main", true), plain = await run(0.1, "s-main", false);
   assert.deepEqual([used.sessions, used.arms], [["on"], 1]);
   // as-used stays as-used: today's routing, but for the cards local-first places on its start member by their kind (PRO-10 b, LF4.T12)
-  const byKind = (k: Card) => !k.t2.length && !["review", "plan"].includes(k.kind);
+  const local = (kind: string) => { const p = profileFor(kind, used.settings); return p.ok && p.value.localFirst?.placement === "local"; };
+  const byKind = (k: Card) => !k.t2.length && local(k.kind);
   assert.deepEqual(used.models, plain.models.map((m, i) => (byKind(cs[i]!) ? LOCAL[0] : m)), "as-used stays as-used");
-  assert.ok(used.models.some((m) => LOCAL.includes(m)));
+  assert.ok(cs.some(byKind) && cs.some((k) => !byKind(k)), "both placements exercised");
 });
