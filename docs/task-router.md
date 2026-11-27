@@ -153,9 +153,25 @@ child's session is done there, anything larger is split first.
   tool `submit_split` and the do-or-split rule: it does its package, or it
   submits a split of it (`split`'s input without `node`, for its own node)
   and ends; the router tells the main, which starts the new children. Only
-  the main starts children. A package child never reaches a remote: its
-  shell's `git push`, `remote`, `fetch`, `pull`, `clone` and `ls-remote`
-  are refused. A card without `package` goes to the start member when its
+  the main starts children. A package child's shell runs only local git
+  subcommands, an allow-list (`LOCAL_GIT` in
+  `packages/task-router/core/local/package.ts`: `status`, `diff`, `log`,
+  `show`, `add`, `commit`, `restore`, `checkout`, `switch`, `branch`,
+  `reset`, `stash`, `mv`, `rm`, `grep`, `merge`, `rebase`, … and the read
+  commands such as `rev-parse`, `ls-files`, `merge-base`, `cat-file`,
+  `blame`). The router refuses every other git subcommand (`push`, `fetch`,
+  `pull`, `remote`, `clone`, `ls-remote`, `archive`, `send-email`,
+  `submodule`, `subtree`, `lfs`, `config`, `worktree`, a user alias, an
+  external `git-x`), a `-c` other than `user.name`, `user.email`,
+  `commit.gpgsign` and `color.*`, `--exec-path`, `rebase --exec`,
+  `grep -O`, a computed command or git subcommand (`git $(…)`,
+  `… | xargs git`), git where it cannot read it, and the remote tools `gh`,
+  `glab`, `hub`, `ssh`, `scp`, `sftp` and `rsync`. This is a command filter,
+  not a boundary: a script or program the child writes and runs
+  (`bash ./push.sh`, `make push`, a test that shells out) and other network
+  tools (`curl`) are not read by it. The boundary is the sandbox the children
+  run in and that they hold no credentials for a remote; review and
+  spot-checks catch the rest. A card without `package` goes to the start member when its
   kind's placement is `local` (its output is not gated), else it is routed as
   in cloud-first, and so is every `t2` card. Cloud-first ignores `package`.
 - *Merges.* `request_merge` merges a node into its parent node's branch, the

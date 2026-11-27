@@ -88,6 +88,26 @@ test("R26", async () => {
   }
   // its work in its worktree is not
   for (const cmd of ["git status", "git add -A", "git commit -qm 'form'", `git -C ${worktree} diff`, "npm test"]) assert.equal(await g(cmd), undefined, cmd);
+  // review M3: only local git subcommands run; the review's probes (aliases, computed subcommands, git's remote-reaching
+  // subcommands and helpers, the forges' and the remote copy tools) are refused by the package guard
+  for (const cmd of ["git -c alias.p=push p origin x", "git p", "git config alias.p push", "git $(echo push)", "c=push; git $c origin",
+    "echo push | xargs git", "git submodule update --remote", "git subtree push --prefix=x origin y", "git lfs push origin x",
+    "git send-email x.patch", "git archive --remote=https://x.invalid/r.git HEAD", "gh pr create", "gh repo sync", "glab mr create",
+    "hub push", "ssh x.invalid", "scp a x.invalid:b", "rsync -a . x.invalid:r", "git -c core.fsmonitor=./x.sh status",
+    "git --exec-path=./bin status", "git rebase -x ./push.sh lm/auth", "git rebase -ix ./push.sh lm/auth", "git grep -O./push.sh x", "/usr/lib/git-core/git-push origin x", "$(echo gh) pr create",
+    "bash -c 'gh pr create'", "echo x | xargs gh pr create", "git status; git worktree add ../w"]) {
+    const why = await g(cmd);
+    assert.ok(typeof why === "string" && why.includes("(R26)"), `${cmd}: ${why}`);
+  }
+  // the local git work of a package (package.ts LOCAL_GIT), with a -c that runs nothing
+  for (const cmd of ["git log --oneline -3", "git show HEAD", "git restore x", "git checkout -- x", "git branch -a", "git rev-parse HEAD",
+    "git ls-files", "git grep -n foo", "git stash", "git reset --hard", "git mv a b", "git rm a", "git merge-base HEAD lm/auth",
+    "git cat-file -p HEAD", "git blame x", "git -c user.name=u -c user.email=u commit -qm x", "git rebase lm/auth"]) {
+    assert.equal(await g(cmd), undefined, cmd);
+  }
+  // a filter, not a boundary: a script or a program the child writes and runs is not read (docs/task-router.md: the sandbox
+  // and children without credentials are the boundary)
+  for (const cmd of ["bash ./push.sh", "make push", "curl -s https://x.invalid"]) assert.equal(await g(cmd), undefined, cmd);
   // a child that is no package keeps today's guard: no remote rule
   const plain = accepted(await spawn(s.h, "p2", card({ kind: "review" }))) as Placed;
   assert.equal(await plain.toolGuard?.("bash", { command: "git fetch" }), undefined);
