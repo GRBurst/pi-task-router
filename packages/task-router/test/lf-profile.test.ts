@@ -290,3 +290,20 @@ test("PRO-6 guard", async () => {
   for (const id of ["auth.form", "auth"]) assert.equal(s.h.router.tree.apply({ op: "state", node: id, state: "merged" }), undefined);
   assert.deepEqual(await blocks(s.r.dir), []);
 });
+
+// Review m5 (PRO-6): request_merge({branch}) takes the gate of the branch it merges, not of the active one: after the switch a
+// hand-made branch (no node) merges under cloud-first's gate (no plans) while the active node's merge keeps local-first's.
+test("PRO-6 named branch", async () => {
+  const FILE = "docs/plans/p.md";
+  const s = treeRig(LF, (dir) => [{ type: "task-router/plan", data: { slug: "p", repo: dir, file: FILE, skeletonHash: "h", approvedBy: "u", triggers: [] } }]);
+  const node = await s.start({ slug: "tidy", goal: "tidy up", check: "true", estimate: { kind: "code", lines: 5 } });
+  s.r.commit(FILE, "x\n", "touch the plan", node.details.worktree);
+  const hand = `${s.r.base}/hand`;
+  s.r.git(["worktree", "add", "-q", "-b", "hand", hand, "main"]);
+  s.r.commit(FILE, "y\n", "touch the plan by hand", hand);
+  await s.h.f.commands.get("profile")!.handler("cloud-first", s.ctx);
+  const named = await s.call("request_merge", { branch: "hand" });
+  assert.notEqual(named.details.reason, "plan-changed", named.content[0]!.text);
+  const own = await s.call("request_merge", {});
+  assert.deepEqual([own.details.status, own.details.reason], ["refused", "plan-changed"]);
+});

@@ -529,9 +529,9 @@ export const REQUEST_MERGE_SCHEMA = {
 export const mergeText = (r: MergeResult): string =>
   [`status: ${r.status}${r.reason ? ` (${r.reason})` : ""}`, r.detail, ...(r.findings ?? [])].join("\n");
 
-/** `request_merge` (main session only): `ports(signal)` gives the pipeline its ports for one call, `ready` the session_start work
+/** `request_merge` (main session only): `ports(signal, input)` gives the pipeline its ports for one call, `ready` the session_start work
  *  it waits for. Invalid input is refused before anything runs; `isError` only for that and `status: "error"` (D48). */
-export function requestMergeTool(ports: (signal: AbortSignal | undefined) => MergePorts, ready: () => Promise<void> = async () => undefined): RouterTool {
+export function requestMergeTool(ports: (signal: AbortSignal | undefined, input: Input) => MergePorts, ready: () => Promise<void> = async () => undefined): RouterTool {
   return {
     name: "request_merge",
     label: "Request merge",
@@ -543,7 +543,7 @@ export function requestMergeTool(ports: (signal: AbortSignal | undefined) => Mer
       if (bad.length) return errorReply(`invalid input: ${bad.join("; ")}`);
       await ready();
       const sig = signal instanceof AbortSignal ? signal : undefined;
-      const r = await requestMerge(ports(sig), params as Input, typeof ctx?.cwd === "string" ? ctx.cwd : process.cwd());
+      const r = await requestMerge(ports(sig, params as Input), params as Input, typeof ctx?.cwd === "string" ? ctx.cwd : process.cwd());
       return { content: [{ type: "text", text: mergeText(r) }], details: r, ...(r.status === "error" && { isError: true }) };
     },
   };

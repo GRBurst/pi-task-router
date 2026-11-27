@@ -285,10 +285,12 @@ export function installLocal(pi: Pi, d: LocalDeps) {
     // PRO-6: a node merges under the profile it started in, so an open local-first node keeps request_merge and its gate after
     // a switch to cloud-first
     if (x.mergeGate) {
-      const lfNode = (): boolean => !!d.nodes && nodeOfBranch(d.nodes.tree.tree(), branches.active()?.branch ?? "")?.profile === "local-first";
-      const gated = (): { plans?: PlanStore } => (lfNode() ? activeSet(s, true) : act()).plans ? { plans } : {};
-      register(requestMergeTool((signal) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,
-        append: appendRef, tmp: redTmp, fixer: handle.fixer, log: (i) => d.log.merge(i), ...gated(),
+      // review m5: the node of the branch the call merges (given, else the active one), not the active branch's
+      const lfNode = (i: { branch?: string }): boolean => !!d.nodes && nodeOfBranch(d.nodes.tree.tree(),
+        (typeof i.branch === "string" && i.branch !== "" ? i.branch.replace(/^refs\/heads\//, "") : branches.active()?.branch) ?? "")?.profile === "local-first";
+      const gated = (i: { branch?: string }): { plans?: PlanStore } => (lfNode(i) ? activeSet(s, true) : act()).plans ? { plans } : {};
+      register(requestMergeTool((signal, input) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,
+        append: appendRef, tmp: redTmp, fixer: handle.fixer, log: (i) => d.log.merge(i), ...gated(input),
         exclusive, fixerGone, ...(d.nodes && { nodes: d.nodes }), ...(signal && { signal }) }), () => ready), gateOn);
     }
     // plan_request and amend_plan (design §3.5.2, §3.5.4) while plans are active (D40); submit_plan is the plan author's child tool.
