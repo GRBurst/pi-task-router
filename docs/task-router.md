@@ -211,8 +211,9 @@ split files (`<plans.dir>/split/**`) never.
   ≤ <maxChildren> children.`
 - *Start refusal.* `start_branch` refuses a `code` estimate above the session
   tier's budget; the text names the budget, `maxChildren` and how to split.
-  `plan` and `inert` estimates are never refused. This is the only place size
-  blocks.
+  `plan` and `inert` estimates are never refused. A split refuses a `code`
+  child above that budget, naming the child and the budget, so a recorded
+  package always starts. These two are the only places size blocks.
 - *Hints at 80 % and 100 %.* While `hints` is on, the main's active node is
   measured after each write in its worktree and a package child's node on each
   of the child's turns. Each stage fires once per node: `Size: <n>/<b> changed

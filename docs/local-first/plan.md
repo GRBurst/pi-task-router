@@ -869,6 +869,10 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: compare with `strategy.tierBudget(sessionTier, "standard")`.
 - decision (lf56): `NodeDeps` gains `strategy` (the shell's composition) and `arms()` (the session's arms map); the refusal
   also applies to a split's package whose recorded estimate is above the budget (a third production file: `core/shell.ts` wires them).
+- review lf56 M2 (fixed, owner: refuse at the split, keep the child refusal): `validateSplit(plan, node, caps, budget)` refuses a
+  `code` child whose estimate is above `tierBudget(sessionTier, "standard")`, naming the child and the budget
+  (`children[i].estimate: <slug>: …`); `splitNow` passes the session tier's budget. The child-start refusal stays as a backstop
+  (a split recorded otherwise). Test `lf-split` "SIZE-4 split children above the budget".
 
 #### LF5.T5 `crossing` builder (SIZE-6 a) `[x] done`
 - Files: `core/outcome.ts`; test `lf-size-hints` (new) "builder".

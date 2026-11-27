@@ -30,7 +30,8 @@ test("SIZE-4", async () => {
     const r = await start({ slug, ...p });
     assert.equal(r.isError, undefined, `${slug}: ${r.content[0]!.text}`);
   }
-  // a package of a split brings its estimate: above the budget it is refused too
+  // a package of a split brings its estimate: above the budget it is refused too (a backstop: the split tool refuses such a child
+  // already, review lf56 M2, `lf-split` "SIZE-4 split children"; this split is applied to the store directly)
   assert.equal(s.h.router.tree.apply({ op: "split", node: "req", plan: { summary: "s", children: [
     { slug: "a", goal: "g", files: ["a.ts"], estimate: { lines: 200, kind: "code" }, check: "true" },
     { slug: "b", goal: "g", files: ["b.ts"], estimate: { lines: 20, kind: "code" }, check: "true" }] } }), undefined);

@@ -16,8 +16,12 @@ const text = (x: unknown): x is string => typeof x === "string" && x.length > 0 
 /** A relative path without a `..` segment. */
 const relativePath = (f: unknown): boolean => typeof f === "string" && f !== "" && !f.startsWith("/") && !/^[A-Za-z]:/.test(f) && !f.split(/[\\/]/).includes("..");
 
-/** S37: every violation's reason, in order; [] = valid. `node`: the node the plan splits (undefined: unknown). */
-export function validateSplit(plan: unknown, node: Node | undefined, caps: Caps): string[] {
+/** SIZE-4 at the split (review lf56 M2): the session tier's package budget; a `code` child above it is refused here, where the
+ *  split can still change, since its start would be refused (`start_branch`) and a split node cannot split again. */
+export type SplitBudget = { lines: number; tier: string };
+/** S37: every violation's reason, in order; [] = valid. `node`: the node the plan splits (undefined: unknown); `budget`: the
+ *  package budget a code child's estimate must not exceed (absent: no size rule). */
+export function validateSplit(plan: unknown, node: Node | undefined, caps: Caps, budget?: SplitBudget): string[] {
   const out: string[] = [];
   const p = isObj(plan) ? plan : {};
   if (!text(p.summary)) out.push(`summary: must be 1 to ${MAX_TEXT} characters`);
@@ -44,6 +48,9 @@ export function validateSplit(plan: unknown, node: Node | undefined, caps: Caps)
     const e = isObj(c.estimate) ? c.estimate : {};
     if (!(Number.isInteger(e.lines) && (e.lines as number) >= 0 && KINDS.includes(e.kind as string))) {
       out.push(`${at}.estimate: lines must be an integer >= 0 and kind ${KINDS.join(" | ")}`);
+    } else if (budget && e.kind === "code" && (e.lines as number) > budget.lines) {
+      out.push(`${at}.estimate: ${typeof c.slug === "string" ? c.slug : "?"}: the estimate of ${e.lines as number} changed lines is above the package `
+        + `budget of ${budget.lines} changed lines (tier ${budget.tier}); give it less work (more children) or the kind plan (it splits again)`);
     }
     if (typeof c.check !== "string" || c.check.trim() === "") out.push(`${at}.check: must not be empty`);
   });

@@ -106,6 +106,24 @@ const sized = (node: string, n: number): SplitPlan => {
   return p;
 };
 
+test("SIZE-4 split children above the budget (review lf56 M2)", async () => {
+  // a code child whose estimate is above the session tier's package budget is refused at the split, naming the child and the
+  // budget (its start would be refused, and a split node cannot split again); at the budget, inert and plan children pass
+  const kids = [kid("big", { estimate: { lines: 151, kind: "code" } }), kid("fits", { estimate: { lines: 150, kind: "code" } }),
+    kid("docs", { estimate: { lines: 900, kind: "inert" } }), kid("sub", { estimate: { lines: 900, kind: "plan" } })];
+  const r = validateSplit(plan({ children: kids }), root(), CAPS, { lines: 150, tier: "standard" });
+  assert.equal(r.length, 1, JSON.stringify(r));
+  assert.ok(r[0]!.startsWith("children[0].estimate: big: ") && r[0]!.includes("151 changed lines") && r[0]!.includes("budget of 150 changed lines (tier standard)"), r[0]);
+  assert.deepEqual(validateSplit(plan({ children: kids }), root(), CAPS), [], "no budget given: no size rule");
+  // the split tool gives the session tier's budget: refused, nothing committed or logged
+  const s = treeRig();
+  await s.start({ slug: "req", goal: "the parser", check: "true", estimate: { lines: 0, kind: "plan" } });
+  const no = await s.call("split", { node: "req", ...plan({ children: [kid("big", { estimate: { lines: 151, kind: "code" } })] }) } as never);
+  assert.equal(no.isError, true);
+  assert.ok(no.content[0]!.text.startsWith("children[0].estimate: big: "), no.content[0]!.text);
+  assert.deepEqual(s.h.lines().filter((l) => l.event === "split"), []);
+});
+
 test("SIZE-10", async () => {
   // above planLines: accepted, one crossing of kind plan against planLines
   const s = treeRig();

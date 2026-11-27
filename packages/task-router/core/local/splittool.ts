@@ -54,7 +54,9 @@ const splitNode = (d: SplitDeps, id: string | undefined, p: Record<string, unkno
   serial(d.nodes.tree, () => splitNow(d, id === undefined ? undefined : nodeOf(d.nodes.tree.tree(), id), p));
 async function splitNow(d: SplitDeps, n: Node | undefined, p: Record<string, unknown>): Promise<Result<Split>> {
   const plan = { summary: p.summary, children: p.children };
-  const caps = d.nodes.caps(), why = validateSplit(plan, n, caps);
+  // SIZE-4 (review lf56 M2): a code child above the session tier's package budget is refused here, not at its start
+  const tier = d.nodes.strategy.sessionTier(d.nodes.arms()), budget = { lines: d.nodes.strategy.tierBudget(tier, "standard"), tier };
+  const caps = d.nodes.caps(), why = validateSplit(plan, n, caps, budget);
   if (why.length > 0) return { ok: false, errors: [why.join("; ")] };
   const norm = normalizeSplit(plan as SplitPlan);
   const c = await commitSplit(d.git, n!.worktree, d.settings.plans.dir, n!.id, norm);
