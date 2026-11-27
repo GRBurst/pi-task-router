@@ -45,7 +45,13 @@ const LISTS: [string, (xs: unknown[]) => boolean, string][] = [
 /** LF6.T7 obligation 2: paths the classifier compares with a diff's paths (`policy-edit`, the split filter) are repository-relative
  *  as git prints them: no leading `/` or `./`, no trailing `/`, no empty, `.` or `..` segment. */
 const REL_PATHS = ["plans.dir", "localFirst.policyFile"];
-const relPath = (x: unknown): boolean => isStr(x) && x.split("/").every((seg) => seg !== "" && seg !== "." && seg !== "..");
+/** Review lf56 m8 (legacy accepted `./x`, `x/`, `x//y`): normalised to that form (empty and `.` segments dropped); undefined
+ *  for an absolute path, a `..` segment or nothing left. */
+const relPath = (x: unknown): string | undefined => {
+  if (!isStr(x) || x.startsWith("/")) return undefined;
+  const segs = x.split("/").filter((seg) => seg !== "" && seg !== ".");
+  return segs.length > 0 && !segs.includes("..") ? segs.join("/") : undefined;
+};
 /** pi's built-in tools that change files (`overseer.tools` may hold none of them). */
 const WRITERS = ["bash", "edit", "write"];
 /** A member reference and the effort paired with it. */
@@ -70,7 +76,11 @@ export function validateLocal(s: RouterSettings, base: RouterSettings, problems:
     if (top !== undefined && !(v > 0 && v <= top)) reset(path, `must be a number in (0, ${top}]`);
   }
   for (const [path, ok, why] of LISTS) if (!ok(get(s, path) as unknown[])) reset(path, why);
-  for (const path of REL_PATHS) if (!relPath(get(s, path))) reset(path, "must be a repository-relative path (no leading / or ./, no trailing /)");
+  for (const path of REL_PATHS) {
+    const rel = relPath(get(s, path));
+    if (rel === undefined) reset(path, "must be a repository-relative path (not absolute, no .. segment, not empty)");
+    else set(s, path, rel);
+  }
   // LF6.T7 obligation 6: `tierOfLines` assumes positive integers in order
   const t = s.localFirst.tiers, pos = (n: number): boolean => Number.isInteger(n) && n > 0;
   if (!(pos(t.small) && pos(t.standard) && pos(t.large) && t.small <= t.standard && t.standard <= t.large)) {

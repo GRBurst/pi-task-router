@@ -168,7 +168,13 @@ test("gate paths and tiers", () => {
   const ok = parseSettings({ plans: { dir: "doc/plans" }, localFirst: { policyFile: "cfg/policy.json", tiers: { small: 10, standard: 10, large: 20 } } });
   assert.deepEqual(ok.problems, []);
   const d = parseSettings({}).settings;
-  for (const bad of ["./docs/plans", "docs/plans/", "/abs/plans", "", "docs/../x", "docs//plans", "."]) {
+  // review lf56 m8: what legacy accepted is normalised as git prints paths, in every profile, without a problem
+  for (const [given, want] of [["./docs/plans", "docs/plans"], ["docs/plans/", "docs/plans"], ["docs//plans", "docs/plans"], ["./docs/./plans/", "docs/plans"]]) {
+    const a = parseSettings({ plans: { dir: given }, localFirst: { policyFile: `${given}/p.json` } });
+    assert.deepEqual([a.settings.plans.dir, a.settings.localFirst.policyFile, a.problems], [want, `${want}/p.json`, []], given);
+  }
+  // only an absolute path, a `..` segment or nothing at all is reset
+  for (const bad of ["/abs/plans", "", "docs/../x", ".", "..", "./"]) {
     const a = parseSettings({ plans: { dir: bad } });
     assert.deepEqual([a.settings.plans.dir, a.problems.length], [d.plans.dir, 1], `plans.dir ${bad}: ${a.problems}`);
     assert.ok(a.problems[0]!.startsWith("plans.dir: "), a.problems[0]);
