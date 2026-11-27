@@ -139,7 +139,12 @@ on `review` lines; the node id on `node` and `split` lines; the branch on `merge
 while E0 is drawn (it agrees with `localMembers`: `cloud-only` = `off`); a `session` line without `localMembers` has no
 `arms`. A local-first session (later releases) will carry it on every line, `[]` included. Legacy local mode never does. A gate `review` line
 (each attempt) also carries its review's own factors, the review-unit ones (E3, from 0.4.0), drawn once per reviewed commit of a node: its `arms` are the
-session's and the review's, sorted.
+session's and the review's, sorted. E3's unit is the review, not the line: its id is (`sessionId`, `branch`, `commit`) of the
+line (a node has one branch; the `merge` line's `node` maps it to the node id). One `review` line is written per overseer attempt
+(`attempt`; a transient retry is another line), and the same commit asked again writes lines with new `taskId`s and the same draw,
+so several `review` lines can form one unit. An analysis counts units (distinct `sessionId`, `branch`, `commit`) and clusters by
+node and session, never counts lines or `taskId`s; `merge.reviewId` and `merge.commit` join a unit to its merge. No field was added
+for this: a `review` line already carries `sessionId`, `branch` and `commit`.
 The levels of `arms` are the session's own, from its snapshot (`task-router/arms`, `docs/task-router.md`, "The snapshot"), not
 the `FACTORS` of a later release.
 

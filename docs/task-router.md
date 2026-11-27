@@ -1061,7 +1061,9 @@ commit: a REVISE and a new commit is a new review with a new draw, while the
 same commit asked again (a retry after an unavailable reviewer) keeps its
 draw. A parent's review of the commit its last child merged into it (a
 fast-forward) is a review of its own, with its own draw. The arm is on
-each `review` line of that review, beside the session's, and on no other
+each `review` line of that review (an attempt, a retry and a re-request of the
+same commit are several lines with one draw: count units, `sessionId` +
+`branch` + `commit` of the line, not lines), beside the session's, and on no other
 line; it is on every gate review whatever its class and size, but the level
 changes the reviewer only for a standard-class change of `actualTier:
 standard`, so an analysis of E3 keeps the lines with that `class` and
