@@ -172,7 +172,7 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
   const cloud: PolicyDeps = { ...base, settings: { ...base.settings, models } };
   const reject = (errors: string[]) => ({ reject: errors.join("; ") });
   // R3A.T3: the attempt state of the logging plan in a cloud-only session (the as-used plan's own), never the router's
-  const shadow: AttemptState = new Map();
+  let shadow: AttemptState = new Map();
   return async (args, caller: Caller) => {
     const cloudOnly = base.cloudOnly?.() === true, d = cloudOnly ? cloud : base, s = d.settings;
     // D25 (design §3.2.2 step 3): the router's own spawn first, whatever routing and a force say; an unknown ticket is no card field.
@@ -226,7 +226,8 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     const failover = (st.pinned ? leg.filter((m) => cappedLvl(m) >= cappedLvl(M)) : leg).map((m) => m.name);
     // R3A.T3 (owner): the as-used plan's pick for the spawn line: this plan's own, or in a cloud-only session a dry plan on the full table
     // (a private attempt store, the real plan's draws replayed); it never changes the routing below
-    const asUsed = cloudOnly ? dryPlan({ settings: base.settings, attempts: shadow }, spIn, draws) : sp;
+    let asUsed: ReturnType<typeof planSpawn> = sp;
+    if (cloudOnly) { const dry = dryPlan({ settings: base.settings, attempts: shadow }, spIn, draws); asUsed = dry.plan; shadow = dry.attempts; }
     const cf = asUsed.ok ? await counterfactual(base, place?.member ?? asUsed.value.start.member) : undefined;
     const entry: ChildBase = {
       parent: caller.name, parentSession: caller.sessionId, card, plan, cwd, importance, ...(cf ? { cf } : {}),

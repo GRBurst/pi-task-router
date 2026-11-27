@@ -49,11 +49,13 @@ export function planSpawn(d: PlanDeps, i: SpawnIn): Result<SpawnPlan> {
   return acc.ok ? { ok: true, value: { plan, start: acc.value, ...(att.value.esc ? { esc: att.value.esc } : {}), cands } } : acc;
 }
 
-/** R3A.T3: `planSpawn` for the spawn line only (what the as-used plan would pick in a cloud-only session). `d.attempts` is a private
- *  store, never the router's; the random source replays `draws` (the real plan's, in order), then a hash of the task id and the call's
- *  index: the real plan's routing and the router's random stream are untouched. */
-export function dryPlan(d: Omit<PlanDeps, "rng">, i: SpawnIn, draws: readonly number[]): Result<SpawnPlan> {
+/** R3A.T3: `planSpawn` for the spawn line only (what another table's plan would pick). It plans on a copy of `d.attempts` and returns
+ *  that copy, so no map the caller owns is written (R3A review M3); the policy keeps the copy as the lineage of that other plan. The
+ *  random source replays `draws` (the real plan's, in order), then a hash of the task id and the call's index: the real plan's routing
+ *  and the router's random stream are untouched. */
+export function dryPlan(d: Omit<PlanDeps, "rng">, i: SpawnIn, draws: readonly number[]): { plan: Result<SpawnPlan>; attempts: AttemptState } {
+  const attempts: AttemptState = new Map([...d.attempts].map(([k, v]) => [k, { ...v }]));
   const spare = (k: number): number => createHash("sha256").update(`dry-plan\0${i.taskId}\0${k}`).digest().readUIntBE(0, 6) / 2 ** 48;
   let k = 0;
-  return planSpawn({ ...d, rng: () => (k < draws.length ? draws[k++]! : spare(k++)) }, i);
+  return { plan: planSpawn({ ...d, attempts, rng: () => (k < draws.length ? draws[k++]! : spare(k++)) }, i), attempts };
 }
