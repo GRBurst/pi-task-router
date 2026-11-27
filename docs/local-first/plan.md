@@ -1074,7 +1074,7 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   its own `review` line (`attempt` counts on, no `fallback`); once they ran out, the existing second attempt runs with
   `fallback: transient` and its failure is the existing `error` outcome. The quota-wait half of REV-9 stays with LF9.T8.
 
-#### LF6.T14 Docs `[ ] todo`
+#### LF6.T14 Docs `[x] done`
 - Files: `docs/task-router.md` (classes, the policy file and its schema, reviewers), `docs/outcome-log.md`
   (fields, `FALLBACKS`). Then LF14 and release R2 (local-first still behind `experimental`, D81).
 

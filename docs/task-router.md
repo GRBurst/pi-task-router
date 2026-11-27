@@ -235,6 +235,60 @@ split files (`<plans.dir>/split/**`) never.
   bytes in all; the riskiest file is cut when it alone does not fit. Its
   `review` line says `overCap: true`. The legacy gate still refuses `size`.
 
+### Classes and reviewers (local-first)
+
+The local-first merge gate classes the change and picks its reviewer from
+the class and the diff's actual size (local-first plan LF6; the design:
+`docs/local-first/design.md` §5.4). The legacy gate keeps its Opus budget
+and fallback member.
+
+- *Classes.* A change is `inert`, `standard` or `elevated`; a mixed change
+  takes its highest file's class. It is `elevated` when a proxy fires: a
+  `riskGlobs` match (`risk`), CI or infrastructure (`ci`), the policy file
+  itself (`policy-edit`), the gate's own configuration (`.pi/**`,
+  `**/task-router*.json`: `gate-config`), a public API (`public-api`), a
+  test file with more lines deleted than added (`weakened-tests`), three or
+  more code files across two or more components (`coupled`), config files in
+  two or more components (`multi-component-config`). It is `inert` only
+  when every file matches `inertGlobs` and `mergeGate.extraChecks` holds at
+  least one check, all of them passing; agent instructions (`AGENTS.md`,
+  `CLAUDE.md`, `.pi/`, `skills/`, `prompts/`) and plans are never inert.
+  Everything else is `standard`. Split files (`<plans.dir>/split/**`)
+  never count. Any error classes the change `elevated` (`classBy: error`).
+- *The policy file.* `localFirst.policyFile` (default
+  `.pi/task-router-policy.json`, a repository-relative path) is read at the
+  tip of the main branch, never from the branch under review, so a branch
+  cannot grade itself; a node merged into its parent reads it there too. It is
+  a JSON object with the optional keys `inertGlobs`, `testGlobs`, `ciGlobs`,
+  `riskGlobs`, `configGlobs`, `publicApiGlobs` (lists of globs) and
+  `componentDepth` (an integer ≥ 1, the directories that name a component);
+  a key it omits keeps the settings' value. Without the file the gate uses the
+  settings (`mergeGate.inertGlobs`, `riskGlobs`, `plans.publicApiGlobs`,
+  built-in test, CI and config globs, `componentDepth` 1). A malformed file,
+  an unknown key, a base that does not resolve or a failing git is an error,
+  so the change is `elevated`.
+- *Reviewers.* The stronger of what the class and the actual tier ask for:
+  `inert` merges without a review once its checks passed; `elevated` gets
+  Opus plus an orthogonal check: the gate refuses (`check`) before any
+  review when the red run passed at the target too (the check may be
+  vacuous), or when no red run ran and `mergeGate.extraChecks` is empty; a `small` diff gets Sonnet (Haiku, advisory, when
+  it holds only tests and inert files); `standard` gets Opus or Sonnet as
+  the E3 factor draws it (Opus while E3 is off); `large` and above get Opus.
+  `localFirst.reviewers` names the member for each (`haiku`, `sonnet`,
+  `opus`, `local`); a chosen reviewer does not spend the Opus budget, and
+  its second attempt keeps the member. An advisory verdict never blocks.
+- *Order.* Cheap refusals come first: a dirty target checkout (`main-dirty`
+  for the main branch, `dirty` for a parent node) is refused before any
+  check or review.
+- *Transient errors.* A review attempt ended by a transient provider error
+  (429, 503, an overload, a rate limit) is retried on the same member after
+  5 s, then 20 s; when both retries fail too, the second attempt runs with
+  `fallback: transient` and its failure leaves the gate's usual
+  `review-unavailable`.
+- *Lines.* The `review` and `merge` lines carry `class`, `classBy`,
+  `tier`, `actualTier` (and `reviewer`, `binding` on a review, `node` on
+  a merge); see `docs/outcome-log.md`.
+
 ## Local mode
 
 The milestones L1–L7 below, then a reference (switch, settings, tools, session
