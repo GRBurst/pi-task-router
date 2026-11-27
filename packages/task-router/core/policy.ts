@@ -228,7 +228,9 @@ export function createPolicy(base: PolicyDeps): SpawnPolicy {
     // (a private attempt store, the real plan's draws replayed); it never changes the routing below
     let asUsed: ReturnType<typeof planSpawn> = sp;
     if (cloudOnly) { const dry = dryPlan({ settings: base.settings, attempts: shadow }, spIn, draws); asUsed = dry.plan; shadow = dry.attempts; }
-    const cf = asUsed.ok ? await counterfactual(base, place?.member ?? asUsed.value.start.member) : undefined;
+    // R3A review M1: the placement's start member as the as-used arm has it (a cloud-only session's `view` has none)
+    const planned = cloudOnly && lf ? placement(card, prof.value, lf) : pl, plannedPlace = planned?.ok ? planned.value.member : undefined;
+    const cf = asUsed.ok ? await counterfactual(base, plannedPlace ?? asUsed.value.start.member) : undefined;
     const entry: ChildBase = {
       parent: caller.name, parentSession: caller.sessionId, card, plan, cwd, importance, ...(cf ? { cf } : {}),
       ...(v.unresolved ? { unresolved: true as const } : {}), ...(sp.value.esc ? { esc: sp.value.esc } : {}),

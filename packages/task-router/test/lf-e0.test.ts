@@ -309,3 +309,19 @@ test("MEAS-4 logging changes no routing: a cloud-only session routes, draws and 
   assert.deepEqual(cloudOnly.h.lines().filter((l) => l.event === "escalate").map((l) => [l.taskId, l.toLevel]),
     reference.h.lines().filter((l) => l.event === "escalate").map((l) => [l.taskId, l.toLevel]), "the same escalations");
 });
+
+// R3A review M1: after `/profile local-first` a local-kind card is placed on the start member in both arms; `planned` is that member in both.
+test("MEAS-4 after /profile local-first: planned is the placement's start member in both arms", async () => {
+  const seen: unknown[][] = [];
+  for (const share of [0, 1]) {
+    const { h, c } = as(share, { localFirst: { experimental: true } });
+    await h.f.commands.get("profile")!.handler("local-first", c);
+    provideSkills(h, SKILLS);
+    // a critical card: the table's own plan picks a cloud member, the placement still the start member
+    const p = await placed(h, "m1", { task: card({ importance: "critical" }) });
+    accepted(p.r);
+    assert.equal(p.line?.workerMember === "qwen-local", share === 0, `share ${share}: where it ran`);
+    seen.push(cf(p.line));
+  }
+  assert.deepEqual(seen, [["qwen-local", true, true], ["qwen-local", true, true]]);
+});
