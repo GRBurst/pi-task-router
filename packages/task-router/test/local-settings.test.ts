@@ -28,7 +28,7 @@ const DESIGN = JSON.parse(`{
   "worktrees": { "enabled": "auto", "root": "../{repo}.worktrees", "branchPrefix": "lm/", "removeAfterMerge": true },
   "mergeGate": {
     "enabled": "auto", "mainBranches": ["main", "master"],
-    "maxDiffLines": 150, "maxDiffFiles": 6, "extraChecks": [], "redRun": true,
+    "maxDiffLines": 150, "maxDiffFiles": 6, "extraChecks": [], "inertGlobs": ["**/*.md", "**/*.txt", "**/*.rst", "**/LICENSE", "**/NOTICE"], "redRun": true,
     "rejectionsBeforeFixer": 2, "fixerMember": "sonnet", "fixerEffort": "high", "fixerRounds": 1,
     "push": false, "remote": "origin"
   },
@@ -166,7 +166,7 @@ test("RANGE: errorSimilarity in (0, 1], contextPercent in (0, 100]", () => {
   }
 });
 
-test("LIST: mainBranches non-empty strings; tools non-empty; extraChecks and publicApiGlobs strings", () => {
+test("LIST: mainBranches non-empty strings; tools non-empty; extraChecks, inertGlobs and publicApiGlobs strings", () => {
   const cases: [string, unknown, string][] = [
     ["mergeGate.mainBranches", [], "must be a non-empty list of non-empty strings"],
     ["mergeGate.mainBranches", ["main", ""], "must be a non-empty list of non-empty strings"],
@@ -174,6 +174,7 @@ test("LIST: mainBranches non-empty strings; tools non-empty; extraChecks and pub
     ["overseer.tools", [], "must be a non-empty list of strings"],
     ["overseer.tools", ["read", 1], "must be a non-empty list of strings"],
     ["mergeGate.extraChecks", [{}], "must be a list of strings"],
+    ["mergeGate.inertGlobs", [1], "must be a list of strings"],
     ["plans.publicApiGlobs", [null], "must be a list of strings"],
   ];
   for (const [p, v, why] of cases) {
@@ -181,7 +182,7 @@ test("LIST: mainBranches non-empty strings; tools non-empty; extraChecks and pub
     assert.deepEqual(r.problems, [kept(p, why)], `${p} = ${JSON.stringify(v)}`);
     assert.deepEqual(at(r.settings, p), at(defaults(), p));
   }
-  for (const [p, v] of [["mergeGate.mainBranches", ["trunk"]], ["overseer.tools", ["read"]], ["mergeGate.extraChecks", ["make lint"]], ["plans.publicApiGlobs", ["src/api/**"]]] as const) {
+  for (const [p, v] of [["mergeGate.mainBranches", ["trunk"]], ["overseer.tools", ["read"]], ["mergeGate.extraChecks", ["make lint"]], ["mergeGate.inertGlobs", ["docs/**"]], ["plans.publicApiGlobs", ["src/api/**"]]] as const) {
     const r = parseSettings(one(p, v));
     assert.deepEqual([r.problems, at(r.settings, p)], [[], v], p);
   }

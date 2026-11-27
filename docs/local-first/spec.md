@@ -52,6 +52,7 @@ Unknown keys and invalid values go to the problem list (today's rule) and take t
 | `localFirst.breakers` | `{sameTest, diffApply, verify, turns}` | `{3, 2, 2, plans.taskTurns}` | §5.5 |
 | `localFirst.localQueue` | `{enabled, affinitySec, mainHoldSec, hookTimeoutSec}` | `{true, 10, 600, 600}` | §5.7, §8; `mainHoldSec` bounds a main's hold when its hook has no abort signal; `hookTimeoutSec` → the actor's `hookTimeoutMs` (§2.6) |
 | `localFirst.policyFile` | repository-relative path | `".pi/task-router-policy.json"` | §5.4; schema below |
+| `mergeGate.inertGlobs` | list of anchored globs (a list of strings; exists beside `mergeGate.extraChecks`) | `["**/*.md", "**/*.txt", "**/*.rst", "**/LICENSE", "**/NOTICE"]` | §5.4; MGS §2.1: the globs of an inert change; the classifier's fallback when the base holds no policy file (CLS-2, CLS-3) |
 | `localFirst.e17ShadowShare` | number in (0, 1] | 0.5 (owner, Q25, 2026-11-26) | §5.5, §6 E17 (REV-11) |
 | `localFirst.quotaFallback` | `{maxCloud, q5hOpenEnded}` | `{2, 0.8}` | §5.6 |
 | `localFirst.overCapBytes` | integer | `60000` | §5.3 |
@@ -64,7 +65,7 @@ never invent levels. The size-hint stages (80 %, 100 %) and the depth/fan-out ca
 
 Policy file (`localFirst.policyFile`, read at the base commit, CLS-2): JSON `{inertGlobs?, testGlobs?,
 ciGlobs?, riskGlobs?, configGlobs?, publicApiGlobs?, componentDepth?}`, each `*Globs` a string array of
-anchored globs, `componentDepth` an integer ≥ 1 (default 1: a component = the first path segment). An
+anchored globs, `componentDepth` an integer ≥ 1 (default 1: a component = the first `componentDepth` directories of a path; a root file has none). An
 absent key takes the settings' value (`mergeGate.inertGlobs`, `riskGlobs`, `plans.publicApiGlobs`, built-in
 test/CI/config globs); unknown keys or a parse error → every change classed elevated (`classBy: error`).
 

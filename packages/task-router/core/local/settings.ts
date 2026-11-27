@@ -39,6 +39,7 @@ const LISTS: [string, (xs: unknown[]) => boolean, string][] = [
   ["mergeGate.mainBranches", (xs) => xs.length > 0 && xs.every((x) => isStr(x) && x !== ""), "must be a non-empty list of non-empty strings"],
   ["overseer.tools", (xs) => xs.length > 0 && xs.every(isStr), "must be a non-empty list of strings"],
   ["mergeGate.extraChecks", (xs) => xs.every(isStr), "must be a list of strings"],
+  ["mergeGate.inertGlobs", (xs) => xs.every(isStr), "must be a list of strings"],
   ["plans.publicApiGlobs", (xs) => xs.every(isStr), "must be a list of strings"],
 ];
 /** pi's built-in tools that change files (`overseer.tools` may hold none of them). */

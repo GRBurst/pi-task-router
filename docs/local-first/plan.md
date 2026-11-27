@@ -81,7 +81,7 @@ Shape of the diff:
 | D86 | Consumer contract per release: `ENUMS_V2` (`core/outcome.ts`, `{"<event>.<field>": values}`) beside `EVENTS_V2`; PE-n (§15.2) before every release that adds events, enum values or fields (orchestrator's call) | pi-economics' `contract.ts` validates closed sets (`event` `oneOf`, `fallback` literal); a release would fail its `log-contract` | r1: commit messages as the contract (review M2) |
 | D87 | E17 measurement: while E17 is enabled, the shadow share in both E17 strata = `localFirst.e17ShadowShare` (default 0.5, equal per arm, owner Q25; other units keep `spotCheckShare`); batched reviews (E4) are never in E17; the harm rule is pre-registered in pi-economics (PA-4, spec §2.7); the switch is the owner's settings (orchestrator's call; δ 3/5 pp and the rate 0.5: owner, Q25) | a 0.1 shadow dilutes detection below any usable rule (review M4) | r1: a Wald 5 pp rule at 10 % (unsound) |
 | D88 | API 3 is required for local-first: the module asserts it and the runtime refuses local-first below it (one notice, cloud-first), except under `localFirst.experimental` (a degraded preview, XR-2) | one rule for both install paths; no data from a half profile | r1: the module asserts while the runtime degrades (review m9) |
-| D89 | Classifier proxies (X41): the policy file holds `{inertGlobs, testGlobs, ciGlobs, riskGlobs, configGlobs, publicApiGlobs, componentDepth}`; a component = the first `componentDepth` path segments (default 1; a `packages/*` monorepo sets 2); every proxy that fired is logged (`classBy` on `merge` and `review`) | "settable in the policy file" made true; single-top-dir monorepos covered; misclassing is measurable | top-level directories only (never fires in `packages/…`) |
+| D89 | Classifier proxies (X41): the policy file holds `{inertGlobs, testGlobs, ciGlobs, riskGlobs, configGlobs, publicApiGlobs, componentDepth}`; a component = the first `componentDepth` directories of a path (a root file's component is ""; default 1; a `packages/*` monorepo sets 2); every proxy that fired is logged (`classBy` on `merge` and `review`) | "settable in the policy file" made true; single-top-dir monorepos covered; misclassing is measurable | top-level directories only (never fires in `packages/…`) |
 | D90 | Ungated local output (CON-8 ii) = children placed local by kind (PRO-10 b, `meta.ungated`), never package children; the artifact = the child's final report as delivered to the main (X44); the shadow reviewer gets the brief, the report and read-only tools | defines the unit and the payload | sampling package children (their gate already reviews them) |
 | D91 | quota-wait contract (QW-1) is router-proposed: events on `pi.events` channel `quota-wait:v1` (design §5.6's `quota-wait:*`), detection and the current waits through `globalThis.__quotaWait_v1 = {version: 1, waits()}` | reconciles the design and the draft; the router needs no subscribe API | two subscription paths |
 | D92 | `core/strategy/local-first.ts` (the composition) is a shared file: a lane adds its parts there only in one wiring task, serialised with the other lanes (§15.1) | parallel lanes do not collide on it | each part task edits it |
@@ -248,13 +248,13 @@ factors with `enabled` by settings.
 | `lf-merge-target` | target = the main branch | TREE-7 | [x] |
 | `lf-tree-log` | `split` line without `depth` | TREE-11 | [x] |
 | `lf-top-plan` | the root split stored on the main branch | TREE-12 | [x] |
-| `lf-tiers` | elevated not capped | SIZE-1 | [ ] |
+| `lf-tiers` | elevated not capped | SIZE-1 | [x] |
 | `lf-tiers-git` | untracked files not counted | SIZE-2 | [ ] |
 | `lf-start-refusal` | inert estimates refused | SIZE-4 | [ ] |
 | `lf-size-hints` | the guard returns `{block: true}` at 100 % | SIZE-5 | [ ] |
 | `lf-overcap` | the riskiest hunk exceeds `overCapBytes` | SIZE-8 | [ ] |
-| `lf-classify` / `lf-classify-git` | the policy read from the branch tip | CLS-2 | [ ] |
-| `lf-reviewer` | `min` instead of `max` strength | REV-1 property | [ ] |
+| `lf-classify` / `lf-classify-git` | the policy read from the branch tip | CLS-2 | [x] |
+| `lf-reviewer` | `min` instead of `max` strength | REV-1 property | [x] |
 | `lf-reviewer-gate` | the advisory verdict blocks | REV-4 | [ ] |
 | `lf-contacts` / `-shell` | the counter not persisted | CON-2 after resume | [ ] |
 | `lf-ladder` | split offered after a child merged | TREE-10 | [ ] |
@@ -411,12 +411,18 @@ is not a violation: one `crossing` (kind `plan`).
 elevated iff `riskGlobs` ∪ `ciGlobs` (default `.github/**`, `.gitlab-ci.yml`, `flake.nix`, `flake.lock`,
 `**/Dockerfile`) ∪ gate config (`policyFile`, `.pi/**`, `**/task-router*.json`) ∪ `plans.publicApiGlobs`
 match; or a test-glob file with `deleted > added` or deleted (weakened tests); or ≥ 3 changed code files in ≥ 2
-top-level components (coupled, X41); or config files (`*.json`, `*.toml`, `*.yaml`, `*.yml`, `*.nix`) in ≥ 2
-components (multi-component config). inert iff MGS §2.1 (`inertGlobs`, its exclusions) and ≥ 1
+top-level components (coupled, X41); or config files (`**/*.json`, `**/*.toml`, `**/*.yaml`, `**/*.yml`, `**/*.nix`: a glob is
+anchored, so `**/` reaches below the root) in ≥ 2 components (multi-component config). inert iff MGS §2.1 (`inertGlobs`, its exclusions) and ≥ 1
 `extraChecks` entry passes (CLS-3). inert-like iff every file inert, or every file in `testGlobs` ∪
 `inertGlobs`. Policy (D89) = `{inertGlobs, testGlobs, ciGlobs, riskGlobs, configGlobs, publicApiGlobs,
 componentDepth}` from `git show <base>:<policyFile>`, absent → settings (`componentDepth` 1); a parse error →
-elevated. A component = the first `componentDepth` segments of a path. The file list excludes
+elevated. A component = the first `componentDepth` directories of a path (a root file's is ""). Built-in defaults, constants in
+`core/local/policyfile.ts` behind `settingsPolicy(s)` (not settings keys; the policy file overrides them): `testGlobs`
+`**/test/**`, `**/tests/**`, `**/__tests__/**`, `**/*.test.*`, `**/*_test.*`, `**/*.spec.*`; `ciGlobs` as above plus `.ci/**`;
+`configGlobs` as above; `inertGlobs` = the setting `mergeGate.inertGlobs` (MGS §2.1's list). One kind per file: a config file
+under a test glob is a test, not config; instruction and plan files are code for `coupled` (never inert, never inert-like).
+Only a proven absence of the policy file falls back to the settings: an unresolvable base, a git failure, a directory or
+symlink at the path → error (elevated); the file is read at the sha the base resolved to. The file list excludes
 `<plans.dir>/split/**` (D85); an empty list → inert-like. Result `why: string[]` = every proxy that fired
 (`risk`, `ci`, `gate-config`, `public-api`, `weakened-tests`, `coupled`, `multi-component-config`,
 `policy-edit`, `error`), logged as `classBy`.
@@ -425,10 +431,15 @@ elevated. A component = the first `componentDepth` segments of a path. The file 
 
 | actual \ class | inert | standard | elevated |
 |---|---|---|---|
-| inert / inert-like | none (inert) / haiku advisory (E17: qwen advisory) | — | opus + orthogonal |
-| small | sonnet binding (E17: qwen binding) | sonnet | opus + orthogonal |
-| standard | — | E3: opus \| sonnet | opus + orthogonal |
-| large, over | — | opus (over: `overCap`) | opus + orthogonal |
+| inert | none (inert) | sonnet binding (read as small: no model-declared exemption) | opus + orthogonal |
+| small | none (inert) | sonnet binding (E17: qwen binding); inert-like: haiku advisory (E17: qwen advisory) | opus + orthogonal |
+| standard | none (inert) | E3: opus \| sonnet | opus + orthogonal |
+| large, over | none (inert) | opus (over: `overCap`) | opus + orthogonal |
+
+LF6 review M1 (the cells were "small/inert = sonnet binding" and "—"): the class `inert` gets no review at any size
+(design §5.3 "inert: unlimited, only for the inert class", REV-10), and a non-inert class with `actual = inert` is read as
+`small`, never an exemption (MGS §2.1, design §5.4: errors fail closed). `reviewer` normalises both itself, so a caller
+may pass `tierOfLines(n)` for every class. The advisory Haiku (E17 qwen) is the class `standard` at `small` with `inertLike`.
 
 **S40 — ladder** (`core/strategy/ladder.ts`)
 
@@ -824,12 +835,12 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 
 ### LF5 — Size tiers and hints (design §5.3; gaps 6, 7)
 
-#### LF5.T1 Tiers (SIZE-1) `[ ] todo`
+#### LF5.T1 Tiers (SIZE-1) `[x] done`
 - Files: `core/strategy/tiers.ts` (new), `core/strategy/local-first.ts`; test `lf-tiers` (new) "SIZE-1".
 - RED: the table; property: `tierBudget(t, "elevated") ≤ 150` ∀t; `tierOfLines` monotone; inert = `Infinity`.
 - GREEN: constants from settings (`localFirst.tiers`).
 
-#### LF5.T2 Session tier (SIZE-3) `[ ] todo`
+#### LF5.T2 Session tier (SIZE-3) `[x] done`
 - Files: `core/strategy/local-first.ts`; test `lf-tiers` "SIZE-3".
 - RED: arms `{E2: "large"}` → `large`; E2 absent → `standard`; property: ∀ levels of E2, `sessionTier(arms) =
   arms.E2 ?? "standard"`, never `inert`.
@@ -898,36 +909,36 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 
 ### LF6 — Classes and reviewers (design §5.4; gaps 8, 9, 11, 12)
 
-#### LF6.T1 Classifier rules (CLS-1) `[ ] todo`
+#### LF6.T1 Classifier rules (CLS-1) `[x] done`
 - Files: `core/strategy/classify.ts` (new), `core/strategy/local-first.ts`; test `lf-classify` (new).
 - RED: one case per S38 rule; mixed changes → the highest; a thrown glob error → elevated; `why` lists every
   proxy that fired (`classBy`, D89), sorted; `componentDepth: 2` makes `packages/a/x.nix` +
   `packages/b/y.nix` multi-component, depth 1 does not.
 
-#### LF6.T1a Split files are router-owned (CLS-1, D85) `[ ] todo`
+#### LF6.T1a Split files are router-owned (CLS-1, D85) `[x] done`
 - Files: `core/strategy/classify.ts`; test `lf-classify` "split files".
 - RED: a change set of `<plans.dir>/split/n1.json` only → `inertLike`, not elevated by the `plans.dir` config
   rule; with one code file → the code file's class.
 - GREEN: drop `<plans.dir>/split/**` from the list before the rules.
 
-#### LF6.T2 Inert needs a check (CLS-3) `[ ] todo`
+#### LF6.T2 Inert needs a check (CLS-3) `[x] done`
 - Files: `core/strategy/classify.ts`; test `lf-classify` "CLS-3".
 - RED: inert files without a configured passing `extraChecks` entry → standard.
 
-#### LF6.T3 Inert-like (CLS-4) `[ ] todo`
+#### LF6.T3 Inert-like (CLS-4) `[x] done`
 - Files: `core/strategy/classify.ts`; test `lf-classify` "CLS-4".
 - RED: tests + docs only → `inertLike`; one code file → not.
 
-#### LF6.T4 Policy from the base (CLS-2) `[ ] todo`
+#### LF6.T4 Policy from the base (CLS-2) `[x] done`
 - Files: `core/local/policyfile.ts` (new); test `lf-classify-git` (new).
 - RED: real git: the branch edits `policyFile` to mark everything inert → classed elevated, by the base's policy; no file → settings; malformed → elevated.
 - GREEN: `git show <base>:<policyFile>`.
 
-#### LF6.T5 Reviewer table (REV-1, SIZE-7) `[ ] todo`
+#### LF6.T5 Reviewer table (REV-1, SIZE-7) `[x] done`
 - Files: `core/strategy/reviewer.ts` (new), `core/strategy/local-first.ts`; test `lf-reviewer` (new).
 - RED: S39 table cases; property REV-1 over random (class, actual, inertLike); SIZE-7: drawn tier small, actual 200 lines → opus.
 
-#### LF6.T6 E3 for standard (REV-2) `[ ] todo`
+#### LF6.T6 E3 for standard (REV-2) `[x] done`
 - Files: `core/strategy/reviewer.ts`; test `lf-reviewer` "REV-2".
 - RED: review arms `{E3: "sonnet"}` → sonnet; absent → opus.
 
@@ -939,6 +950,26 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - GREEN: spec §2.4's `review` and `merge` fields; `ROLES` gains `spot`, `fit`, `corrective`, `integration`
   (X37d snapshot grows); exported `FALLBACKS = ["budget", "error", "local-unavailable", "transient"]` (D86;
   consumer-visible: PE-2).
+- Gate-wiring obligations (lane (b) review of LF5.T1–T2, LF6.T1–T6; the tasks that wire `classify`, `readPolicy` and
+  `reviewer` into the gate, LF6.T8–T12, honour them):
+  1. `actual` for `reviewer` is `tierOfLines(n)` of the combined diff, for every class; never `"inert"` derived from the
+     start estimate's `kind` (`reviewer` itself reads class `inert` as no review and a non-inert class's `"inert"` as small).
+  2. `ctx = {glob: globMatch, plansDir: settings.plans.dir, policyFile: settings.localFirst.policyFile, inertChecked}`;
+     validate both paths as repository-relative, no `./`, no trailing `/` (else `policy-edit` and the split filter
+     silently miss). `ClassifyContext` is in `core/strategy/types.ts`; the gate imports no strategy part (NR-6).
+  3. `inertChecked` = at least one configured `mergeGate.extraChecks` entry, all passing (a failing one refuses `check`
+     anyway): classify after the checks, or classify with "configured" and keep the refusal.
+  4. `readPolicy` `{error}` (unresolvable base, git failure, directory/symlink at the path, malformed file) → the gate
+     builds `{cls: "elevated", inertLike: false, why: ["error"]}` in one place; `classBy: ["error"]` is logged on `review`
+     and `merge`; a gate test pins it for a malformed file, an unresolvable base and a git failure (CLS-2). The fallback
+     policy is `settingsPolicy(settings)`; `PolicyGit` = `policyGit(run)` from the runner `createGit` is built on (`install.ts`
+     keeps it), a fake in the gate's tests.
+  5. Which base (owner's/orchestrator's decision): in node→parent merges (D65) the merge policy is read at the main
+     branch's tip, not at the node's or the parent's: conservative, a policy change takes effect only once it is on main,
+     so a policy edit committed on a parent branch outside a gate never governs its children. For a merge into main the
+     base is main's tip.
+  6. Settings: validate `localFirst.tiers` positive integers with small ≤ standard ≤ large (`tierOfLines` assumes it);
+     `mergeGate.inertGlobs` is a string list (spec §2.1).
 
 #### LF6.T8 The gate uses the choice (REV-1) `[ ] todo`
 - Files: `core/local/overseer.ts`, `core/local/merge.ts`; test `lf-reviewer-gate` (new) "REV-1".

@@ -124,7 +124,7 @@ export function defaults(): Settings {
     worktrees: { enabled: "auto", root: "../{repo}.worktrees", branchPrefix: "lm/", removeAfterMerge: true },
     mergeGate: {
       enabled: "auto", mainBranches: ["main", "master"],
-      maxDiffLines: 150, maxDiffFiles: 6, extraChecks: [], redRun: true,
+      maxDiffLines: 150, maxDiffFiles: 6, extraChecks: [], inertGlobs: ["**/*.md", "**/*.txt", "**/*.rst", "**/LICENSE", "**/NOTICE"], redRun: true,
       rejectionsBeforeFixer: 2, fixerMember: "sonnet", fixerEffort: "high", fixerRounds: 1,
       push: false, remote: "origin",
     },

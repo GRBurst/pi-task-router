@@ -16,6 +16,20 @@ export type ContactKind = "review" | "plan-review" | "integration" | "corrective
 export interface FileFact { path: string; added: number; deleted: number }
 /** The classifier's proxies (D89, S38): the policy file at the base commit, else the settings. */
 export interface Policy { inertGlobs: string[]; testGlobs: string[]; ciGlobs: string[]; riskGlobs: string[]; configGlobs: string[]; publicApiGlobs: string[]; componentDepth: number }
+/** What `classify` needs besides the files and the policy: settings-level constants, a call-time fact and the matcher (the
+ *  composition passes `globMatch`, `core/glob.ts`: a strategy part imports nothing outside `core/strategy/`, NR-6). */
+export interface ClassifyContext {
+  /** `plans.dir`: its files are never inert (a plan rewrite goes through a code review, MGS §2.1). */
+  plansDir: string;
+  /** `localFirst.policyFile`: an edit of it is `policy-edit`. */
+  policyFile: string;
+  /** CLS-3: a configured `mergeGate.extraChecks` entry exists and passes (the branch's own check does not count). */
+  inertChecked: boolean;
+  /** Anchored glob match: `**\/` any leading directories, `**` anything, `*` within a segment. */
+  glob: (glob: string, path: string) => boolean;
+}
+/** The classifier's result: the class, whether the change is inert-like (CLS-4), every proxy that fired (`classBy`). */
+export interface Classification { cls: RiskClass; inertLike: boolean; why: string[] }
 /** What a node's contact points read (S49, S50). */
 export interface NodeFacts { depth: number; kind: NodeKind; children: number; cls: RiskClass }
 export type LadderStep = "retry-xhigh" | "split" | "corrective" | "handoff" | "steer" | "stop";
@@ -36,7 +50,7 @@ export interface Strategy {
   tierBudget(t: Tier, c: RiskClass): number;
   tierOfLines(lines: number): Exclude<Tier, "inert"> | "over";
   treeCaps(a: Arms): { maxDepth: number; maxChildren: number; planLines: number };
-  classify(files: readonly FileFact[], p: Policy): { cls: RiskClass; inertLike: boolean; why: string[] };
+  classify(files: readonly FileFact[], p: Policy, ctx: ClassifyContext): Classification;
   reviewer(i: { cls: RiskClass; actual: Tier | "over"; inertLike: boolean; review: Arms }): ReviewerChoice;
   points(n: NodeFacts, a: Arms): { planReview: boolean; integrationReview: boolean; rounds: number };
   ladder(s: LadderState, a: Arms): LadderStep | "wait";

@@ -160,7 +160,9 @@ export type OverseerSettings = {
 };
 export type WorktreeSettings = { enabled: Toggle; root: string; branchPrefix: string; removeAfterMerge: boolean };
 export type MergeGateSettings = {
-  enabled: Toggle; mainBranches: string[]; maxDiffLines: number; maxDiffFiles: number; extraChecks: string[]; redRun: boolean;
+  enabled: Toggle; mainBranches: string[]; maxDiffLines: number; maxDiffFiles: number; extraChecks: string[];
+  /** Local-first CLS-3: the globs of an inert change (MGS §2.1); the classifier's fallback when the base holds no policy file. */
+  inertGlobs: string[]; redRun: boolean;
   rejectionsBeforeFixer: number; fixerMember: string; fixerEffort: ThinkingLevel; fixerRounds: number; push: boolean; remote: string;
 };
 export type PlanSettings = {
