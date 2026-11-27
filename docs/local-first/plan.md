@@ -940,8 +940,9 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   and caps of S41 from the composition (`sessionTier(arms)`, as SIZE-3) instead of `standard` and the settings. The package brief
   has the line after `forbidden`.
 
-#### LF5.T12 Docs `[ ] todo`
+#### LF5.T12 Docs `[x] done`
 - Files: `docs/task-router.md` (tiers, hints, crossings, the start refusal, over-cap reviews).
+- decision (lf56): `docs/outcome-log.md` gains the `crossing` row here (the event LF5 adds); the review fields follow in LF6.T14.
 
 ### LF6 — Classes and reviewers (design §5.4; gaps 8, 9, 11, 12)
 

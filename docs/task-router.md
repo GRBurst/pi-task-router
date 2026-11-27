@@ -195,6 +195,46 @@ child's session is done there, anything larger is split first.
   protected like the main branch: the git guard blocks committing or merging
   into it directly, in the main session and in children.
 
+### Size: tiers, hints and crossings (local-first)
+
+A local-first package is sized in changed lines (local-first plan LF5; the
+design: `docs/local-first/design.md` §5.3): added plus deleted lines of the
+node's worktree against its base, untracked files counted, the router's
+split files (`<plans.dir>/split/**`) never.
+
+- *Tiers.* `localFirst.tiers` gives the budgets `small` (60), `standard`
+  (150) and `large` (300); the class `inert` has none. The session's tier is
+  `standard` until the E2 factor draws it. An elevated package's budget is
+  never above `standard`'s.
+- *Budgets at the start.* The main's section and every package brief carry one
+  line: `Budgets: package ≤ <b> changed lines; split ≤ <planLines> lines,
+  ≤ <maxChildren> children.`
+- *Start refusal.* `start_branch` refuses a `code` estimate above the session
+  tier's budget; the text names the budget, `maxChildren` and how to split.
+  `plan` and `inert` estimates are never refused. This is the only place size
+  blocks.
+- *Hints at 80 % and 100 %.* While `hints` is on, the main's active node is
+  measured after each write in its worktree and a package child's node on each
+  of the child's turns. Each stage fires once per node: `Size: <n>/<b> changed
+  lines (80 %). Finish or plan a split.` and `Size: <n>/<b> changed lines
+  (100 %). The reviewer is now <reviewer>; consider a split.` The main gets it
+  as a `<router-hint size="80|100">` block on its next tool result, a child as
+  a message from the router. A hint never blocks, kills or pauses. (The legacy
+  local mode keeps its one-stage `over-size` hint.)
+- *Crossings.* Each stage writes one `crossing` line: the node, the stage, the
+  lines against the budget, the estimate, the tier, the class, the depth, the
+  work kind, and when (turn, call, time since the node was first measured). A
+  split whose rendered plan is longer than `localFirst.tree.planLines` is
+  accepted and logged as a `crossing` of kind `plan`; one with more than
+  `maxChildren` children is refused.
+- *At the gate.* The local-first `request_merge` never refuses on size: the
+  reviewer follows the actual lines. A diff above `large`, or one longer than
+  the review's line budget, is an over-cap review: the reviewer reads the
+  numstat, the checks' output and the hunks of the riskiest files (risk rules
+  first, then the most changed lines) within `localFirst.overCapBytes` (60000)
+  bytes in all; the riskiest file is cut when it alone does not fit. Its
+  `review` line says `overCap: true`. The legacy gate still refuses `size`.
+
 ## Local mode
 
 The milestones L1–L7 below, then a reference (switch, settings, tools, session
