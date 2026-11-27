@@ -227,3 +227,18 @@ test("stage 1: a child's review and its parent's are two draws", async () => {
   }
   assert.equal(pairs.size, 4);
 });
+
+// LF14 review L1 (plan decision 5, PRO-6): a node still open after a switch to cloud-first keeps its gate and its E3 draw (the
+// reviewer obeys the level), but the lines of a cloud-first session carry no arms (S33): the unit is lost to the analysis, not
+// mislabelled; whether a node outlives a switch does not depend on its review's draw, so what is lost is unbiased.
+test("stage 1: a node open after a switch to cloud-first still obeys its E3 draw, its lines carry no arms", async () => {
+  const a = stage1({ E3: { enabled: true, weights: [0, 1] } });
+  const f = await a.node("feat", 100);
+  await a.h.f.commands.get("profile")!.handler("cloud-first", a.ctx);
+  assert.equal(a.h.router.profile.current(), "cloud-first");
+  assert.equal((await a.merge(f.branch)).status, "merged");
+  assert.deepEqual(a.models(), [MODEL.sonnet], "the gate still draws and obeys E3");
+  const [review] = a.lines("review") as Record<string, any>[];
+  assert.equal(review!.reviewer, "sonnet");
+  for (const l of a.h.lines().filter((x) => x.event === "review" || x.event === "merge")) assert.equal("arms" in l, false, JSON.stringify(l));
+});

@@ -1070,7 +1070,9 @@ standard`, so an analysis of E3 keeps the lines with that `class` and
 `actualTier`. The 100 % size hint names the reviewer the defaults give (it
 is sent before the commit that E3's draw needs). A node that is still open
 after a switch to cloud-first keeps its gate and its E3 draw, but its lines
-carry no arms.
+carry no arms. Such a review is missing from the analysis, and that loss is
+unbiased: whether a node outlives a switch does not depend on its review's
+draw.
 
 **E0, the cloud-only reference.** At a cloud-first `session_start`, while
 the snapshot's `cloudOnlyShare` is above 0, the router draws the session's

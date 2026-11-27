@@ -1551,7 +1551,9 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
 - decision (lf14): the 100 % size hint names the reviewer as `reviewer(...)` gives it for the session's arms, i.e. the default (Opus at the
   standard tier): the draw needs the commit, which does not exist yet. Advisory text; left as is.
 - decision (lf14): a node that outlives a switch to cloud-first (PRO-6) still draws and obeys E3 at its gate, but its lines carry no arms (S33: `arms`
-  iff the session is local-first now), session arms included.
+  iff the session is local-first now), session arms included. The unit is lost to the analysis, unbiased (whether a node outlives a switch
+  does not depend on the review's draw). Pinned by `lf-arms-shell` "stage 1: a node open after a switch to
+  cloud-first …" (review lf14 L1; the alternative, no E3 draw once the session is cloud-first, was planted and seen to fail it).
 
 #### LF14.T2 Docs `[x] done`
 - Files: `docs/task-router.md` (running factors: enabling, weights, the owner's gate). Then release R2.
