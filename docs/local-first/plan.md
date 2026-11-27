@@ -868,12 +868,15 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - decision (lf56): `NodeDeps` gains `strategy` (the shell's composition) and `arms()` (the session's arms map); the refusal
   also applies to a split's package whose recorded estimate is above the budget (a third production file: `core/shell.ts` wires them).
 
-#### LF5.T5 `crossing` builder (SIZE-6 a) `[ ] todo`
+#### LF5.T5 `crossing` builder (SIZE-6 a) `[x] done`
 - Files: `core/outcome.ts`; test `lf-size-hints` (new) "builder".
 - RED: `crossingEvent({...})` → a line with every spec §2.4 `crossing` field, `event ∈ EVENTS_V2`, every
   enumerated field's value ∈ its `ENUMS_V2` list (`stage`, `kind`, `tier`, `class`), no prompt text (`text-free`);
   fails first: no builder, `crossing ∉ EVENTS_V2`.
 - GREEN: the builder; `EVENTS_V2` += `crossing`; `ENUMS_V2.crossing` = its enums.
+- decision (lf56): `kind` is the work kind = the node's estimate kind `code | plan | inert` (design §5.3 "the work kind"; SIZE-10's
+  `kind plan`), not the node kind; `estimate` its lines; `tier` ∈ S31 `Tier`; `class` ∈ `RiskClass`. Consumer-visible (PE-2):
+  `crossing.stage` [80, 100], `crossing.kind`, `crossing.tier`, `crossing.class`.
 
 #### LF5.T6 Main hints 80 %/100 % (SIZE-5 main, SIZE-6) `[ ] todo`
 - Files: `core/local/sizehints.ts` (new), `core/local/install.ts`; test `lf-size-hints` "SIZE-5 main", "SIZE-6".

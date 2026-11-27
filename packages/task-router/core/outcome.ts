@@ -40,6 +40,8 @@ const KEYS = [
   "target", "repoId", "class", "tier", "actualTier", "node",
   // the node and split lines (LF4.T6, TREE-11)
   "parent", "depth", "fanout", "children", "planLines",
+  // the crossing line (LF5.T5, SIZE-6): a size stage's lines, budget, estimate and when
+  "lines", "budget", "estimate", "turn", "call", "sinceStartMs",
   // NOT listed: `arms` (RND-6, S33) is added by log.ts after the builders, and is not clipped to MAX_ITEMS: the registry has 21
   // factors, so a line can carry 21 `id=level` items, one more than the cap.
 ];
@@ -146,7 +148,7 @@ export const planEvent = (i: PlanLogInput & { now: Date }) =>
   finish({ ...base("plan", i.now, i.slug), action: i.action, trigger: i.trigger, nTasks: i.nTasks, reviewId: i.reviewId, full: i.full });
 
 /** The events v2 added (local-first spec §2.4, LOG-2); a consumer reads the event list from here. */
-export const EVENTS_V2 = ["session", "profile", "node", "split"] as const;
+export const EVENTS_V2 = ["session", "profile", "node", "split", "crossing"] as const;
 /** The review line's `fallback` values. */
 export const FALLBACKS = ["budget", "error"] as const;
 export type Fallback = (typeof FALLBACKS)[number];
@@ -157,6 +159,12 @@ const PROFILE_BY = ["settings", "command"] as const;
 const NODE_KINDS = ["leaf", "plan", "integration", "fix"] as const;
 const NODE_OUTCOMES = ["started", "split", "merged", "blocked", "abandoned"] as const;
 const SPLIT_REASONS = ["estimate", "breaker", "check", "choice", "review"] as const;
+const STAGES = [80, 100] as const;
+/** A crossing's work kind: the node's estimate kind (spec §2.3); `plan` also for a split plan above `planLines` (SIZE-10). */
+const WORK_KINDS = ["code", "plan", "inert"] as const;
+/** A tier (S31 `Tier`): a session's drawn tier is one of the first three. */
+const TIERS = ["small", "standard", "large", "inert"] as const;
+const CLASSES = ["inert", "standard", "elevated"] as const;
 /** Every v2 enumerated field's values, by `"<event>.<field>"` (LOG-4); the lists only grow. */
 export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = {
   "session.profile": PROFILES,
@@ -167,6 +175,10 @@ export const ENUMS_V2: Readonly<Record<string, readonly (string | number)[]>> = 
   "node.kind": NODE_KINDS,
   "node.outcome": NODE_OUTCOMES,
   "split.reason": SPLIT_REASONS,
+  "crossing.stage": STAGES,
+  "crossing.kind": WORK_KINDS,
+  "crossing.tier": TIERS,
+  "crossing.class": CLASSES,
 };
 export type SessionInput = { now: Date; sessionId: string; profile: (typeof PROFILES)[number]; mainModel: string; startSet: boolean;
   localMembers?: (typeof LOCAL_MEMBERS)[number]; routerVersion: string };
@@ -195,6 +207,15 @@ export type SplitLogInput = { now: Date; node: string; reason: SplitReason; chil
 /** A split (TREE-11, spec §2.4): `taskId` and `node` are the split node; never the plan's text, only its counts. */
 export const splitEvent = (i: SplitLogInput) =>
   finish({ ...base("split", i.now, i.node), node: i.node, reason: i.reason, children: i.children, depth: i.depth, planLines: i.planLines });
+
+export type CrossingInput = { now: Date; node: string; stage: (typeof STAGES)[number]; lines: number; budget: number; estimate: number;
+  tier: (typeof TIERS)[number]; class: (typeof CLASSES)[number]; depth: number; kind: (typeof WORK_KINDS)[number]; turn: number; call: number;
+  sinceStartMs: number };
+/** A size stage (SIZE-6, spec §2.4): `taskId` and `node` are the node; the changed lines against the drawn tier's budget, the
+ *  estimate (its lines) and its kind, the class and depth, and when (the turn, the call, the time since the node was first measured). */
+export const crossingEvent = (i: CrossingInput) =>
+  finish({ ...base("crossing", i.now, i.node), node: i.node, stage: i.stage, lines: i.lines, budget: i.budget, estimate: i.estimate, tier: i.tier,
+    class: i.class, depth: i.depth, kind: i.kind, turn: i.turn, call: i.call, sinceStartMs: i.sinceStartMs });
 
 export const serializeEvent = (e: OutcomeEvent): string => `${JSON.stringify(e)}\n`;
 
