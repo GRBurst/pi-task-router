@@ -129,8 +129,9 @@ child's session is done there, anything larger is split first.
   node's branch tip; the node id is `<parent>.<slug>` and the branch
   `<branchPrefix><id>`, at most `localFirst.tree.maxDepth` levels below the
   request. A node keeps the profile it started in: after a switch to
-  cloud-first its `request_merge` still runs the local-first gate, while new
-  nodes cannot start. The tree lives in the session as entries
+  cloud-first, while a local-first node is open, `request_merge` still runs
+  the local-first gate and the git guard stays on; new nodes cannot start.
+  The tree lives in the session as entries
   `task-router/tree` (one op per change: `add`, `state`, `split`, …); a
   reload replays them. The outcome log gets a `node` line per node change and a
   `split` line per split (`docs/outcome-log.md`).

@@ -12,6 +12,7 @@ import { parseSettings } from "../core/settings.ts";
 import { cardSection, localSection } from "../core/prompt.ts";
 import { activeSet } from "../core/local/mode.ts";
 import { LF, treeRig } from "./tree-rig.ts";
+import { MERGE_REASON } from "../core/local/gitcmd.ts";
 
 const PROFILES = ["cloud-first", "local-first"] as const;
 const SETTINGS: [Record<string, unknown>, string][] = [
@@ -269,4 +270,23 @@ test("PRO-6", async () => {
   assert.equal(s.h.router.tree.tree().nodes.tidy!.profile, "local-first");
   const m = await s.call("request_merge", {});
   assert.deepEqual([m.details.status, m.details.reason], ["refused", "plan-changed"]);
+});
+
+// Review m1 (PRO-6): after a switch to cloud-first the main's git guard follows the same predicate as request_merge: an open
+// local-first node keeps it, so an open parent (and the main branch) stays protected until the last such node closes.
+test("PRO-6 guard", async () => {
+  const s = treeRig();
+  const blocks = async (cwd: string) => (await Promise.all(s.h.f.fire("tool_call", { toolName: "bash", toolCallId: `t${Math.random()}`,
+    input: { command: "git commit -qm x" } }, { ...s.ctx, cwd }))).filter((x) => x !== undefined).map((x) => (x as { reason: string }).reason);
+  const root = (await s.start({ slug: "auth", goal: "add a login", check: "true", estimate: { kind: "plan", lines: 0 } })).details;
+  assert.equal(s.h.router.tree.apply({ op: "split", node: "auth", plan: { summary: "one", children: [
+    { slug: "form", goal: "the form", files: ["form.ts"], estimate: { lines: 2, kind: "code" }, check: "true" }] } }), undefined);
+  assert.equal((await s.start({ parent: "auth", child: "form" })).isError, undefined);
+  await s.h.f.commands.get("profile")!.handler("cloud-first", s.ctx);
+  assert.equal(s.h.router.profile.current(), "cloud-first");
+  assert.deepEqual(await blocks(root.worktree), [MERGE_REASON("lm/auth")]);
+  assert.deepEqual(await blocks(s.r.dir), [MERGE_REASON("main")]);
+  // no open local-first node left: cloud-first's own gate (off), the guard with it
+  for (const id of ["auth.form", "auth"]) assert.equal(s.h.router.tree.apply({ op: "state", node: id, state: "merged" }), undefined);
+  assert.deepEqual(await blocks(s.r.dir), []);
 });

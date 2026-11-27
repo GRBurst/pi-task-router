@@ -91,6 +91,9 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   const local = (): boolean => d.local?.() ?? isLocal(d.settings);
   /** The components on in the session's profile now (PRO-7). */
   const act = (): Active => activeSet(d.settings, local());
+  /** PRO-6 (review m1): the merge gate is on in the profile now, or an open local-first node keeps it (request_merge and the git
+   *  guard alike). */
+  const gateOn = (): boolean => act().mergeGate || (!!d.nodes && openIn(d.nodes.tree.tree(), "local-first"));
   const budget: Budget = { opusUsed: 0, steerUsed: 0 };
   /** The main session's cwd, the main checkout (LD14; L6 may take L5's repository root instead). */
   let base: string | undefined;
@@ -237,7 +240,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
       } catch { /* an event handler never throws */ }
     },
     // TREE-7 f: the open parents' branches are protected as the main branches are, read at each call (a child's guard too)
-    gitGuard: (cwd: string): Guard | undefined => (act().mergeGate
+    gitGuard: (cwd: string): Guard | undefined => (gateOn()
       ? (tool, input) => gitGuard([...d.settings.mergeGate.mainBranches, ...(d.nodes ? openParents(d.nodes.tree.tree()) : [])],
         (dir) => git.branchOf(dir), cwd)(tool, input)
       : undefined),
@@ -286,7 +289,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
       const gated = (): { plans?: PlanStore } => (lfNode() ? activeSet(s, true) : act()).plans ? { plans } : {};
       register(requestMergeTool((signal) => ({ git, run: d.run ?? runCheck, overseer, branches, approvals, settings: s,
         append: appendRef, tmp: redTmp, fixer: handle.fixer, log: (i) => d.log.merge(i), ...gated(),
-        exclusive, fixerGone, ...(d.nodes && { nodes: d.nodes }), ...(signal && { signal }) }), () => ready), () => act().mergeGate || (!!d.nodes && openIn(d.nodes.tree.tree(), "local-first")));
+        exclusive, fixerGone, ...(d.nodes && { nodes: d.nodes }), ...(signal && { signal }) }), () => ready), gateOn);
     }
     // plan_request and amend_plan (design §3.5.2, §3.5.4) while plans are active (D40); submit_plan is the plan author's child tool.
     if (x.plans) {
@@ -320,7 +323,7 @@ export function installLocal(pi: Pi, d: LocalDeps) {
   // closed for git only (LD8): a handler that throws on a command with a git token blocks it.
   const guardMain = (): void => {
     const verdict = (why: string | undefined) => (why === undefined ? undefined : { block: true, reason: why });
-    gated(() => act().mergeGate)("tool_call", (e, ctx) => {
+    gated(gateOn)("tool_call", (e, ctx) => {
       let child = false;
       try { child = d.isChild(ctx); } catch { /* the main session's */ }
       if (child) return undefined;
