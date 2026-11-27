@@ -143,7 +143,9 @@ child's session is done there, anything larger is split first.
   such as `lock` for `<node>.lock`, is refused; `start_branch` refuses such a
   branch name too), commits it as canonical JSON at
   `<plans.dir>/split/<node>.json` on the node's branch (never on the main
-  branch) and marks the node `split`. These split files are the router's
+  branch) and marks the node `split`. Only an active node splits, once; splits
+  run one at a time, so of a concurrent `split` and `submit_split` of a node
+  one is refused. These split files are the router's
   own: they never count as a scope violation. `start_branch({parent, child:
   slug})` starts one package of the recorded split, its goal, files, estimate
   and check taken from the plan; each slug starts once. `start_branch({parent,

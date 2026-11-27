@@ -53,8 +53,9 @@ test("TREE-3 replay", () => {
         unknown++;
         assert.deepEqual(r.tree, t, `an op on the unknown node ${target} leaves the tree unchanged`);
         assert.equal(typeof r.problem, "string", "one problem");
-      } else if ((o.op === "add" && Object.hasOwn(t.nodes, o.node.id)) || (o.op === "fit" && !t.nodes[o.node]!.split)) {
-        assert.deepEqual(r.tree, t, "a second add of an id, or a fit without a split, changes nothing");
+      } else if ((o.op === "add" && Object.hasOwn(t.nodes, o.node.id)) || (o.op === "fit" && !t.nodes[o.node]!.split)
+        || (o.op === "split" && (t.nodes[o.node]!.state !== "active" || t.nodes[o.node]!.split !== undefined))) {
+        assert.deepEqual(r.tree, t, "a second add of an id, a fit without a split, or a split of a split or inactive node, changes nothing");
         assert.equal(typeof r.problem, "string");
       } else {
         assert.equal(r.problem, undefined, JSON.stringify(o));
@@ -86,6 +87,17 @@ test("TREE-3 ops: started, merged, split, contacts, ladder, fit", () => {
   t = apply(t, { op: "state", node: "req.a", state: "merged" });
   assert.deepEqual(t.nodes.req!.merged, ["a"], "merged once");
   assert.equal(step(t, { op: "fit", node: "req.a", child: child("x") }).problem !== undefined, true, "fit needs a split");
+});
+
+test("TREE-3 split guard (review m4)", () => {
+  const t = replay([{ op: "add", node: node("req") }, { op: "split", node: "req", plan: { summary: "one", children: [child("a")] } },
+    { op: "add", node: node("done") }, { op: "state", node: "done", state: "merged" }]);
+  // a second split of a split node, a split of a node that is not active: refused, the tree unchanged
+  for (const id of ["req", "done"]) {
+    const r = step(t, { op: "split", node: id, plan: { summary: "two", children: [child("b")] } });
+    assert.deepEqual([typeof r.problem, r.tree], ["string", t], id);
+  }
+  assert.equal(t.nodes.req!.split!.summary, "one");
 });
 
 // LF4.T2 (spec TREE-2, S35): a split may not put a child below `maxDepth` (levels 1…maxDepth under the request's 0) nor give a

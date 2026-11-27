@@ -151,3 +151,20 @@ test("TREE-13", async () => {
   assert.equal(at.childTools, undefined);
   assert.ok(!at.briefAppend!.includes("Do or split") && !at.briefAppend!.includes("submit_split"), at.briefAppend);
 });
+
+// Review m4: the main's split and the child's submit_split of the same node at once: one commits and splits the node, the other
+// is refused; the tree's plan is the committed file's, one split op, one split line.
+test("TREE-13 concurrent splits", async () => {
+  const { s } = await packaged();
+  const r = accepted(await spawn(s.h, "p1", card({ package: "auth.form" } as never))) as Placed;
+  const kid = (slug: string) => ({ slug, goal: `the ${slug}`, files: [`src/form/${slug}.ts`], estimate: { lines: 20, kind: "code" }, check: "true" });
+  const before = s.ops().length;
+  const [main, child] = await Promise.all([s.call("split", { node: "auth.form", summary: "main's", children: [kid("a")] }),
+    r.childTools![0]!.execute({ summary: "child's", children: [kid("b"), kid("c")] })]);
+  assert.deepEqual([main.isError === true, child.isError === true].sort(), [false, true], `${main.content[0]!.text} | ${child.text}`);
+  const file = `${s.h.router.settings.plans.dir}/split/auth.form.json`;
+  const committed = JSON.parse(s.r.git(["show", `lm/auth.form:${file}`]));
+  assert.equal(s.h.router.tree.tree().nodes["auth.form"]!.split!.summary, committed.summary);
+  assert.deepEqual(s.ops().slice(before).map((o) => [o.op, o.node]), [["split", "auth.form"]]);
+  assert.equal(s.h.lines().filter((l) => l.event === "split" && l.taskId === "auth.form").length, 1);
+});

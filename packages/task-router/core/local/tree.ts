@@ -37,7 +37,8 @@ export const slugOf = (n: Pick<Node, "id" | "parent">): string => (n.parent === 
 const put = (t: Tree, ...ns: Node[]): Tree => ({ nodes: { ...t.nodes, ...Object.fromEntries(ns.map((n) => [n.id, n])) } });
 const add = (xs: readonly string[], x: string): string[] => (xs.includes(x) ? [...xs] : [...xs, x]);
 
-/** One op: the new tree, or the tree unchanged and the problem (an unknown node, a second add of an id, a fit without a split). */
+/** One op: the new tree, or the tree unchanged and the problem (an unknown node, a second add of an id, a fit without a split,
+ *  a split of a node that is split or not active). */
 export function step(t: Tree, o: TreeOp): { tree: Tree; problem?: string } {
   const keep = (problem: string) => ({ tree: t, problem });
   if (o.op === "add") {
@@ -54,7 +55,10 @@ export function step(t: Tree, o: TreeOp): { tree: Tree; problem?: string } {
       const next = { ...n, state: o.state };
       return { tree: p ? put(t, next, { ...p, merged: add(p.merged, slugOf(n)) }) : put(t, next) };
     }
-    case "split": return { tree: put(t, { ...n, state: "split", split: structuredClone(o.plan) }) };
+    case "split": { // review m4: only an active node that is not split yet splits (a second, concurrent split is refused)
+      if (n.state !== "active" || n.split) return keep(`tree: node ${n.id} is ${n.state}${n.split ? " (split already)" : ""}: no split`);
+      return { tree: put(t, { ...n, state: "split", split: structuredClone(o.plan) }) };
+    }
     case "contact": return { tree: put(t, { ...n, contacts: { ...n.contacts, [o.kind]: (n.contacts[o.kind] ?? 0) + 1 } }) };
     case "ladder": return { tree: put(t, { ...n, ladder: [...n.ladder, o.step] }) };
     case "fit": {

@@ -39,15 +39,26 @@ export const planLinesOf = (node: string, plan: SplitPlan): number => renderSpli
 /** The custom message a `submit_split` sends the main (TREE-13). */
 export const SPLIT_MESSAGE_TYPE = "task-router/split";
 type Split = { node: string; commit: string; file: string; children: string[] };
-/** One split of node `n` (S37): validated, committed in its worktree, the tree op, the `split` and `node` lines. */
-async function splitNode(d: SplitDeps, n: Node | undefined, p: Record<string, unknown>): Promise<Result<Split>> {
+/** Review m4: the splits of one tree run one at a time (the main's `split` and a child's `submit_split` share the store), so a
+ *  second split of a node validates against the first's result and never commits. */
+const queues = new WeakMap<object, Promise<unknown>>();
+function serial<T>(key: object, f: () => Promise<T>): Promise<T> {
+  const next = (queues.get(key) ?? Promise.resolve()).then(f, f);
+  queues.set(key, next.catch(() => undefined));
+  return next;
+}
+/** One split of node `id` (S37): validated, committed in its worktree, the tree op, the `split` and `node` lines. */
+const splitNode = (d: SplitDeps, id: string | undefined, p: Record<string, unknown>): Promise<Result<Split>> =>
+  serial(d.nodes.tree, () => splitNow(d, id === undefined ? undefined : nodeOf(d.nodes.tree.tree(), id), p));
+async function splitNow(d: SplitDeps, n: Node | undefined, p: Record<string, unknown>): Promise<Result<Split>> {
   const plan = { summary: p.summary, children: p.children };
   const why = validateSplit(plan, n, d.nodes.caps());
   if (why.length > 0) return { ok: false, errors: [why.join("; ")] };
   const norm = normalizeSplit(plan as SplitPlan);
   const c = await commitSplit(d.git, n!.worktree, d.settings.plans.dir, n!.id, norm);
   if (!c.ok) return c;
-  d.nodes.tree.apply({ op: "split", node: n!.id, plan: norm });
+  const problem = d.nodes.tree.apply({ op: "split", node: n!.id, plan: norm });
+  if (problem !== undefined) return { ok: false, errors: [`the split of ${n!.id} was committed at ${c.value.commit.slice(0, 7)} but not recorded: ${problem}`] };
   d.nodes.log.split({ node: n!.id, reason: "choice", children: norm.children.length, depth: n!.depth, planLines: planLinesOf(n!.id, norm) });
   d.nodes.log.node(nodeLine(nodeOf(d.nodes.tree.tree(), n!.id)!));
   return { ok: true, value: { node: n!.id, commit: c.value.commit, file: c.value.file, children: norm.children.map((x) => x.slug) } };
@@ -63,7 +74,7 @@ export function submitSplitTool(d: SplitDeps & { tell(text: string): void }, nod
       + "slug, goal, files, estimate and check. Commits the plan on your node's branch and ends your session; the main starts them.",
     parameters: SUBMIT_SPLIT_SCHEMA,
     async execute(input) {
-      const r = await splitNode(d, nodeOf(d.nodes.tree.tree(), node), record(input));
+      const r = await splitNode(d, node, record(input));
       if (!r.ok) return { text: r.errors.join("; "), isError: true };
       const v = r.value;
       d.tell(`Package ${v.node} split itself into ${v.children.length} packages (${v.children.join(", ")}), plan ${v.file} at ${v.commit.slice(0, 7)}: `
@@ -88,7 +99,7 @@ export function splitTool(d: SplitDeps, ready: () => Promise<void> = async () =>
       if (p.node !== undefined && typeof p.node !== "string") return errorReply("node must be a node id");
       const node = p.node === undefined ? activeRoot(t, d.branches) : nodeOf(t, p.node as string);
       if (p.node === undefined && !node) return errorReply("no active node: start the request node with start_branch, or give node");
-      const r = await splitNode(d, node, p);
+      const r = await splitNode(d, node?.id ?? (p.node as string | undefined), p);
       if (!r.ok) return errorReply(r.errors.join("; "));
       return { content: [{ type: "text", text: JSON.stringify(r.value) }], details: r.value };
     },
