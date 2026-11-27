@@ -9,6 +9,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createSizeStages, sizeBlock } from "../core/local/sizehints.ts";
 import { LF, treeRig } from "./tree-rig.ts";
+import { parseSettings } from "../core/settings.ts";
 import { card, provideSkills } from "./harness.ts";
 
 const NOW = new Date(Date.UTC(2026, 10, 2, 12, 0, 0));
@@ -40,8 +41,8 @@ test("builder", () => {
 
 /** The main session's active node `grow` (estimate 100 code lines, budget 150) in a real repository; `write(lines)` sets
  *  `lib/grow.ts` to that many lines and reports a write in the worktree, `next()` is the following result. */
-async function mainRig(settings: Record<string, unknown> = LF, estimate = { lines: 100, kind: "code" }) {
-  const s = treeRig(settings);
+async function mainRig(settings: Record<string, unknown> = LF, estimate = { lines: 100, kind: "code" }, o: Parameters<typeof treeRig>[2] = {}) {
+  const s = treeRig(settings, undefined, o);
   const r = await s.start({ slug: "grow", goal: "grow it", check: "true", estimate });
   const wt = (r.details as { worktree: string }).worktree;
   const calls: unknown[] = []; // every tool_call result: the guards never block on size
@@ -79,6 +80,24 @@ test("SIZE-5 main", async () => {
   const j = await mainRig();
   assert.deepEqual(await j.write(200), [sizeBlock(80, "Size: 200/150 changed lines (80 %). Finish or plan a split."),
     sizeBlock(100, "Size: 200/150 changed lines (100 %). The reviewer is now opus; consider a split.")]);
+});
+
+// LF14 review L2: the hint is the same in both arms of E3 (the worker never learns the draw) and true in both: where the level
+// decides the reviewer (a standard-class change of the standard tier) it names both, elsewhere the reviewer the size gives.
+test("SIZE-5 the 100 % text is the same and true in both E3 arms", async () => {
+  const hint100 = async (e3: number[], lines: number) => {
+    const raw = { ...LF, experiments: { cloudOnlyShare: 0, factors: { E2: { enabled: true, weights: [0, 1, 0] }, E3: { enabled: true, weights: e3 } } } };
+    const m = await mainRig(raw, { lines: 50, kind: "code" }, { extra: { settings: parseSettings(raw, "9.9.9").settings } });
+    return (await m.write(lines)).filter((t) => t.includes("(100 %)"));
+  };
+  // E2 small (budget 60), 100 changed lines: the standard tier, where E3 decides: neither arm is told the draw
+  const text = [sizeBlock(100, "Size: 100/60 changed lines (100 %). The reviewer is now opus or sonnet; consider a split.")];
+  assert.deepEqual(await hint100([1, 0], 100), text, "E3 opus");
+  assert.deepEqual(await hint100([0, 1], 100), text, "E3 sonnet");
+  // 60 lines is the small tier: Sonnet whatever E3 says, so it is named
+  const small = [sizeBlock(100, "Size: 60/60 changed lines (100 %). The reviewer is now sonnet; consider a split.")];
+  assert.deepEqual(await hint100([1, 0], 60), small);
+  assert.deepEqual(await hint100([0, 1], 60), small);
 });
 
 test("SIZE-6", async () => {

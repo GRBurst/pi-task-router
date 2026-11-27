@@ -1548,8 +1548,10 @@ end with `experiments.factors.<id>.enabled = true` in the test's settings, and t
   its unit's enabled factors); it decides the reviewer only for a standard-class review of an `actualTier: standard` change, so an analysis of E3
   filters on the line's `class` and `actualTier`. The review's `merge` line carries the session's arms only (its unit is the merge). A review
   that is not run (an inert class) has no line and no arm. The factor is not conditional like E13: its unit is the review itself.
-- decision (lf14): the 100 % size hint names the reviewer as `reviewer(...)` gives it for the session's arms, i.e. the default (Opus at the
-  standard tier): the draw needs the commit, which does not exist yet. Advisory text; left as is.
+- decision (lf14, review L2): the 100 % size hint names the reviewer the size gives, the same text in every arm (the worker never learns the
+  draw: it needs the commit, which does not exist yet): `reviewer(...)` is asked under every level of E3 and the distinct reviewers are
+  joined, so where E3 decides (a standard-class change of the standard tier) the text reads "opus or sonnet", elsewhere one reviewer
+  ("opus", "sonnet"). True in both arms (and when E3 is off, where it is Opus); S48's template is unchanged. The hint's `arms` hold no E3.
 - decision (lf14): a node that outlives a switch to cloud-first (PRO-6) still draws and obeys E3 at its gate, but its lines carry no arms (S33: `arms`
   iff the session is local-first now), session arms included. The unit is lost to the analysis, unbiased (whether a node outlives a switch
   does not depend on the review's draw). Pinned by `lf-arms-shell` "stage 1: a node open after a switch to

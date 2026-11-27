@@ -218,7 +218,8 @@ split files (`<plans.dir>/split/**`) never.
   a `code` estimate is measured after each write in its worktree and a package child's node on each
   of the child's turns. Each stage fires once per node: `Size: <n>/<b> changed
   lines (80 %). Finish or plan a split.` and `Size: <n>/<b> changed lines
-  (100 %). The reviewer is now <reviewer>; consider a split.` The main gets it
+  (100 %). The reviewer is now <reviewer>; consider a split.` (where E3's
+  draw decides the reviewer, `<reviewer>` is `opus or sonnet`, in both arms.) The main gets it
   as a `<router-hint size="80|100">` block on its next tool result, a child as
   a message from the router. A hint never blocks, kills or pauses. (The legacy
   local mode keeps its one-stage `over-size` hint.)
@@ -1067,8 +1068,9 @@ same commit are several lines with one draw: count units, `sessionId` +
 line; it is on every gate review whatever its class and size, but the level
 changes the reviewer only for a standard-class change of `actualTier:
 standard`, so an analysis of E3 keeps the lines with that `class` and
-`actualTier`. The 100 % size hint names the reviewer the defaults give (it
-is sent before the commit that E3's draw needs). A node that is still open
+`actualTier`. The 100 % size hint names no draw (it is sent before the
+commit that E3's draw needs, and the worker is never told it): where E3
+decides the reviewer it reads `opus or sonnet`, the same in both arms. A node that is still open
 after a switch to cloud-first keeps its gate and its E3 draw, but its lines
 carry no arms. Such a review is missing from the analysis, and that loss is
 unbiased: whether a node outlives a switch does not depend on its review's

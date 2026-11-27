@@ -5,6 +5,7 @@
 // child on its turns (`childtrips.ts`, D68).
 import { globMatch } from "../glob.ts";
 import type { CrossingInput } from "../outcome.ts";
+import { FACTORS } from "../strategy/arms.ts";
 import type { Arms, Strategy } from "../strategy/types.ts";
 import type { RouterSettings } from "../types.ts";
 import type { Git, Stat } from "./git.ts";
@@ -35,6 +36,12 @@ export function createSizeStages(): { observe(lines: number, budget: number): St
     },
   };
 }
+
+/** The reviewer the size gives, as the hint names it (review lf14 L2). The review's draw (E3) exists only at its gate, and the
+ *  worker is never told it, so the text is the same under every level: where the level decides the reviewer it names every
+ *  one the draw can give (true in each arm), elsewhere the one reviewer. The session's `arms` hold no review factor. */
+const reviewerText = (strategy: Strategy, i: Omit<Parameters<Strategy["reviewer"]>[0], "review">): string =>
+  [...new Set(FACTORS.E3.levels.map((e3) => strategy.reviewer({ ...i, review: { E3: e3 } }).reviewer))].join(" or ");
 
 export type SizeHintDeps = {
   settings: RouterSettings; strategy: Strategy; arms(): Arms; now(): number;
@@ -76,8 +83,7 @@ export function createSizeHints(d: SizeHintDeps): {
       return k.stages.observe(lines, budget).map((stage) => {
         d.log.crossing({ node: n.id, stage, lines, budget, estimate: n.estimate.lines, tier, class: cls, depth: n.depth, kind: n.estimate.kind,
           turn: at.turn, call: at.call, sinceStartMs: now - k.first });
-        const who = d.strategy.reviewer({ cls, actual: d.strategy.tierOfLines(lines), inertLike: c.inertLike, review: arms }).reviewer;
-        return { stage, text: sizeText(stage, lines, budget, who) };
+        return { stage, text: sizeText(stage, lines, budget, reviewerText(d.strategy, { cls, actual: d.strategy.tierOfLines(lines), inertLike: c.inertLike })) };
       });
     },
   };
