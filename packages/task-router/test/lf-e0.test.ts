@@ -408,3 +408,15 @@ test("MEAS-4 a re-spawn after a health fallback: planned is the same in both arm
   assert.equal(planned[0]![0], planned[1]![0], "the same fallback ran the first attempt");
   assert.deepEqual(planned[1], planned[0], "the same counterfactual for the re-spawn");
 });
+
+// R3A review M4 (a pin: it cannot be red before the change; its plant is a refuse path that writes a spawn line): a spawn refused at the
+// selection writes no spawn line, its counterfactual with it, even when it was triggered; the trigger counts omit such spawns.
+test("MEAS-4 a triggered spawn refused at the selection writes no spawn line", async () => {
+  const capped = { models: { haiku: { dailyCap: 0 }, sonnet: { dailyCap: 0 }, opus: { dailyCap: 0 } } }; // no cloud member can take it
+  const used = await placed(as(0, capped).h, "r1");
+  accepted(used.r);
+  assert.deepEqual(cf(used.line), ["qwen-local", true, true], "as used: placed on the local member, triggered");
+  const off = await placed(as(1, capped).h, "r1");
+  assert.ok("reject" in off.r && /no member for this leg/.test((off.r as { reject: string }).reject), JSON.stringify(off.r));
+  assert.equal(off.line, undefined, "cloud-only: refused at the selection, no spawn line");
+});

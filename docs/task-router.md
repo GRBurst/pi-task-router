@@ -1130,7 +1130,10 @@ random stream and the attempt state are what they were without the logging; a
 cloud-only session therefore also probes the local server (at most one probe per
 30 s) when a plan picks a local member. A re-spawn's counterfactual is a model of the other arm's attempt (that plan keeps its own lineage; in a cloud-only session an attempt
 whose local member was down is taken to have run where the real one ran), not a replay. When that second plan fails in a cloud-only session (it picked nothing), the line has
-`triggered: false` and no `planned`. A spawn the cloud-only plan refuses has no line. A ticket
+`triggered: false` and no `planned`. A spawn the cloud-only plan refuses has no line,
+nor has one refused at the selection after its counterfactual was computed (no member up or free within `queueMaxSec`; either arm can see
+it): the refusal has no line of its own, so counts of `triggered` spawns omit such spawns (rare with the default table, whose cloud
+members have no `health` or `slots`). A ticket
 child's and an unrouted line carry none.
 
 A session is in E0 only when it is a main session with an id, routing is on
