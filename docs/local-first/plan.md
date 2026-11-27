@@ -759,6 +759,8 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
 - Files: `core/outcome.ts`; test `lf-tree-log` (new) "builders".
 - RED: `nodeEvent`/`splitEvent` missing (import fails); then each field set ≠ spec §2.4 and `text-free` over both.
 - GREEN: `nodeEvent`, `splitEvent` per spec §2.4; `EVENTS_V2` += both; `ENUMS_V2` += `node.kind`, `node.outcome`, `split.reason`.
+- decision (lf56-fix, review m10): `nodeLine(n, tier)` takes the session's drawn tier (`sessionTier(arms)`, as `crossing` and
+  `merge` carry it); `inert` for an inert estimate. Test `lf-tree-log` "TREE-11 a node line's tier is the session's drawn tier".
 
 #### LF4.T7 `start_branch` with a parent (TREE-1) `[x] done`
 - Files: `core/local/worktree.ts`, `core/local/branchtool.ts`; test `lf-tree-git` (new).

@@ -103,11 +103,11 @@ export function rootOf(t: Tree, id: string): Node | undefined {
   for (let i = 0; n?.parent !== undefined && i < 64; i++) n = nodeOf(t, n.parent);
   return n;
 }
-/** TREE-11: the `node` line of `n` after a state change (`outcome`: its new state, `started` for `active`). `tier`: the session
- *  tier (SIZE-3) is `standard` until LF5 wires `sessionTier(arms)`; an inert node has no budget. */
-export const nodeLine = (n: Node): Omit<NodeLogInput, "now"> => ({
+/** TREE-11: the `node` line of `n` after a state change (`outcome`: its new state, `started` for `active`). `tier`: the session's
+ *  drawn tier (`sessionTier(arms)`, SIZE-3; review lf56 m10), `inert` for an inert estimate (no budget). */
+export const nodeLine = (n: Node, tier: string): Omit<NodeLogInput, "now"> => ({
   node: n.id, ...(n.parent !== undefined && { parent: n.parent }), depth: n.depth, kind: n.kind, fanout: n.split?.children.length ?? 0,
-  outcome: n.state === "active" ? "started" : n.state, tier: n.estimate.kind === "inert" ? "inert" : "standard", profile: n.profile,
+  outcome: n.state === "active" ? "started" : n.state, tier: n.estimate.kind === "inert" ? "inert" : tier, profile: n.profile,
 });
 /** A node still open: not merged, blocked or abandoned. */
 export const isOpen = (n: Node): boolean => n.state === "active" || n.state === "split";

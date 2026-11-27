@@ -108,7 +108,7 @@ export async function startNode(d: StartDeps, n: NodeDeps, input: unknown, cwd: 
       branch: res.value.branch, worktree: res.value.worktree, base: res.value.base, profile: "local-first", estimate, state: "active",
       started: [], merged: [], contacts: {}, ladder: [], effort: "medium" };
     n.tree.apply({ op: "add", node });
-    n.log.node(nodeLine(node));
+    n.log.node(nodeLine(node, n.strategy.sessionTier(n.arms())));
   }
   return { ok: true, value: { ...res.value, node: id, ...(pkg && { files: pkg.files }) } };
 }

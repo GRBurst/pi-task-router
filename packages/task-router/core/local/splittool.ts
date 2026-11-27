@@ -66,7 +66,7 @@ async function splitNow(d: SplitDeps, n: Node | undefined, p: Record<string, unk
   const lines = planLinesOf(n!.id, norm);
   d.nodes.log.split({ node: n!.id, reason: "choice", children: norm.children.length, depth: n!.depth, planLines: lines });
   if (lines > caps.planLines) d.crossing?.(n!, lines, caps.planLines); // SIZE-10: accepted, logged
-  d.nodes.log.node(nodeLine(nodeOf(d.nodes.tree.tree(), n!.id)!));
+  d.nodes.log.node(nodeLine(nodeOf(d.nodes.tree.tree(), n!.id)!, tier));
   return { ok: true, value: { node: n!.id, commit: c.value.commit, file: c.value.file, children: norm.children.map((x) => x.slug) } };
 }
 const record = (p: unknown): Record<string, unknown> => (typeof p === "object" && p !== null ? p : {}) as Record<string, unknown>;

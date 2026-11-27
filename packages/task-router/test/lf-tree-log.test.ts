@@ -73,3 +73,16 @@ test("TREE-11 text-free and closed", () => {
       assert.deepEqual(Object.keys(l).filter((k) => !allowed.has(k)), [], `${l.event} has extra fields`);
     }
 });
+
+test("TREE-11 a node line's tier is the session's drawn tier (review lf56 m10)", async () => {
+  const { nodeRig } = await import("./node-rig.ts");
+  const x = nodeRig();
+  x.nodes.arms = () => ({ E2: "small" });
+  const n = await x.node({ slug: "feat", estimate: { kind: "code", lines: 10 } });
+  x.r.commit("src/a.ts", "a\n", "a", n.worktree);
+  const r = await x.merge({ branch: n.branch });
+  assert.equal(r.status, "merged", r.detail);
+  await x.node({ slug: "docs", estimate: { kind: "inert", lines: 10 } });
+  assert.deepEqual(x.nodeLines.map((l) => [l.node, l.outcome, l.tier]),
+    [["feat", "started", "small"], ["feat", "merged", "small"], ["docs", "started", "inert"]]);
+});

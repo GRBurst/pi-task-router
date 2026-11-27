@@ -588,7 +588,7 @@ async function pipeline(p: MergePorts, input: Input, cwd: string, seen: Seen): P
   const node = p.nodes && nodeOfBranch(p.nodes.tree.tree(), branch);
   if (p.nodes && node && p.nodes.tree.apply({ op: "state", node: node.id, state: "merged" }) === undefined) {
     const now = nodeOf(p.nodes.tree.tree(), node.id);
-    if (now) p.nodes.log.node(nodeLine(now));
+    if (now) p.nodes.log.node(nodeLine(now, p.nodes.strategy.sessionTier(p.nodes.arms())));
   }
   // A branch the router made becomes `merged` and is cleaned up; one made by hand (D40, with or without a hand-made record of its
   // rejections) is left as it is (review F8).
