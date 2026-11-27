@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { nodeRig } from "./node-rig.ts";
 import { REVISE } from "./merge-rig.ts";
 import { rig as overseerRig, VALID } from "./overseer-rig.ts";
+import { isTransient } from "../core/local/overseer.ts";
 import type { PolicyGit } from "../core/local/policyfile.ts";
 import type { ReviewerChoice } from "../core/strategy/types.ts";
 import { APPROVAL_TYPE, createApprovals } from "../core/local/merge.ts";
@@ -306,4 +307,17 @@ test("REV-9 attempt numbers count the steps, then the retries (review lf56 nit)"
   o.on.each = async () => { await o.tool().execute(VALID); };
   assert.equal((await o.run()).ok, true);
   assert.deepEqual(o.reviews(), [[2, "sonnet", "approve", "error"]]);
+});
+
+test("REV-9 an Esc during a backoff ends the run at once; network errors are transient (review lf56 nit)", async () => {
+  const o = retryRig(), ac = new AbortController(), poll = o.d.sleep;
+  // the backoff never ends by itself: only the abort can end the run
+  o.d.sleep = async (ms) => { if (ms === 2000) return poll(ms); ac.abort(); await new Promise(() => undefined); };
+  let failed = false;
+  o.on.each = async () => { if (!failed) { failed = true; o.fail("read ECONNRESET")(1); } };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const out = await Promise.race([o.run({ choice: o.choice, retryTransient: true, signal: ac.signal }),
+    new Promise((r) => { timer = setTimeout(() => r("hung"), 3000); })]).finally(() => clearTimeout(timer));
+  assert.deepEqual(out, { ok: false, outcome: "aborted" });
+  for (const reason of ["read ECONNRESET", "TypeError: fetch failed", "socket hang up"]) assert.equal(isTransient(reason), true, reason);
 });

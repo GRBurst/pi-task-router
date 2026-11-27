@@ -287,10 +287,11 @@ and fallback member.
   for the main branch, `dirty` for a parent node) is refused before any
   check or review.
 - *Transient errors.* A review attempt ended by a transient provider error
-  (429, 503, an overload, a rate limit) is retried on the same member after
-  5 s, then 20 s; when both retries fail too, the review ends there (the last
-  retry's line has `fallback: transient`) with the gate's usual
-  `review-unavailable`.
+  (429, 503, an overload, a rate limit, a dropped connection) is retried on
+  the same member after 5 s, then 20 s; when both retries fail too, the
+  review ends there (the last retry's line has `fallback: transient`) with
+  the gate's usual `review-unavailable`. An Esc during a backoff ends the
+  review at once.
 - *Lines.* The `review` and `merge` lines carry `class`, `classBy`,
   `tier`, `actualTier` (and `reviewer`, `binding` on a review, `node` on
   a merge); see `docs/outcome-log.md`.

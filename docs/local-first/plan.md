@@ -1108,6 +1108,8 @@ router adds `routerVersion` to `session` lines here and `lqueue` lines in LF10. 
   A second attempt on another member (no choice) keeps `fallback: transient`. Test `lf-reviewer-gate` "REV-9 retry".
 - review lf56 nit (fixed): `attempt` = the step plus the retries so far, so a skipped step (a member without a model) keeps
   its number as before LF6.T13 (D59: legacy's fallback after a skipped first member is attempt 2). Test "REV-9 attempt numbers".
+- review lf56 nit (fixed): `isTransient` also reads a dropped connection (`ECONNRESET`, `fetch failed`, `socket hang up`); an Esc
+  ends a backoff at once (`pause` races the sleep with the signal). Test "REV-9 an Esc during a backoff".
 
 #### LF6.T14 Docs `[x] done`
 - Files: `docs/task-router.md` (classes, the policy file and its schema, reviewers), `docs/outcome-log.md`

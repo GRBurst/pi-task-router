@@ -151,9 +151,18 @@ const memberEffort = (s: RouterSettings, member: string): ThinkingLevel =>
   member === s.overseer.member ? s.overseer.effort : member === s.overseer.fallbackMember ? s.overseer.fallbackEffort
     : s.models[member]?.efforts.at(-1) ?? s.overseer.effort;
 
-/** REV-9 (LF6.T13): a provider error that passes (a rate limit, an overload, a 503); retried, never a closed gate. */
+/** REV-9 (LF6.T13): a provider error that passes (a rate limit, an overload, a 503, a dropped connection: review lf56 nit);
+ *  retried, never a closed gate. */
 export const isTransient = (text: string): boolean =>
-  /\b(?:429|502|503|504|529)\b|overloaded|rate[ _-]?limit|too many requests|service unavailable|temporarily unavailable/i.test(text);
+  /\b(?:429|502|503|504|529)\b|overloaded|rate[ _-]?limit|too many requests|service unavailable|temporarily unavailable|ECONNRESET|fetch failed|socket hang up/i.test(text);
+/** A backoff that an Esc (`signal`) ends at once (review lf56 nit). */
+const pause = (sleep: (ms: number) => Promise<void>, ms: number, signal?: AbortSignal): Promise<void> => {
+  if (!signal) return sleep(ms);
+  if (signal.aborted) return Promise.resolve();
+  let stop = (): void => undefined;
+  const abort = new Promise<void>((res) => { stop = res; signal.addEventListener("abort", stop, { once: true }); });
+  return Promise.race([sleep(ms), abort]).finally(() => signal.removeEventListener("abort", stop));
+};
 /** The backoffs before the retries of a transient error (REV-9: at most two retries). */
 export const RETRY_MS = [5000, 20000] as const;
 
@@ -360,7 +369,7 @@ export function createOverseer(d: OverseerDeps) {
           o = await once(p, model, step + retries, spent && ends); // the step, then the retries (a skipped step keeps its number)
           if (o.kind !== "error" || !o.transient || !backoff.length) break;
           if (spent) { gaveUp = true; break; }
-          await d.sleep(backoff[retries++]!);
+          await pause(d.sleep, backoff[retries++]!, r.signal);
           if (r.signal?.aborted) return { ok: false, outcome: "aborted" };
         }
         if (gaveUp && ends) return { ok: false, outcome: "error", ...(o.kind === "error" && o.why && { why: o.why }) };
