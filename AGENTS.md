@@ -93,7 +93,7 @@ install line (`readme-package` compares it with the root `package.json`), then `
   owner?}`, the component key `task-router` and the warn-once set
   `globalThis.__piEconomicsWarned_v1`. `test/runtime-guard.test.ts` speaks the
   protocol by hand; changing any of it is a change of both repositories.
-- The package checks (`checks/pi-package/`) run pi 1.4 offline and find loaded
+- The package checks (`checks/pi-package/`) run pi 1.6 offline and find loaded
   extensions by its `PI_TIMING=1` factory lines (undocumented, pinned to the
   locked pi).
 - README is checked by the module-eval cases `readme` (the Home Manager

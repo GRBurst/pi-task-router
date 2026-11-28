@@ -118,7 +118,7 @@ an older copy). Keep one: `pi remove <source>`, or switch it off in Nix.
 ## Requirements
 
 Home Manager on Linux (the checks run on `x86_64-linux`) and the pi coding
-agent: the package checks install and start it under pi 1.4 offline
+agent: the package checks install and start it under pi 1.6 offline
 (`checks/pi-package`), the extension declares `>=1.0.0`. Nothing is installed
 globally: the module links the extension into `<agentDir>/extensions` through
 pi-setup's registry.
