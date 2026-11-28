@@ -61,20 +61,52 @@
         "type": "github"
       }
     },
+    "nixpkgs-darwin-x64": {
+      "locked": {
+        "lastModified": 1788334797,
+        "narHash": "sha256-nskSa8kDimM7F0VFSP8IdoSNo4G0vKzOtxwvOFpoGDI=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "c19db427a1fdfc7591c0b0baeb4665dcef2c61da",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-26.05-darwin",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1788316716,
+        "narHash": "sha256-bc7rSpXIdn9QWGNqfWcPZWOhEVF8NoeAZkWq0XWnf/k=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "3ed67ec0a4d3c7ab4ae1f04f8ee8df07bfa506a2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "pi-actor-subagents": {
       "flake": false,
       "locked": {
-        "lastModified": 1793073635,
-        "narHash": "sha256-/NgrQvswfMIZRIl+FnWXmaEzt6Ipsyv5tjdiwFWZSbo=",
+        "lastModified": 1795787674,
+        "narHash": "sha256-P/pMz8WGiaOUP4MwzN6rF2YypiCnMlf4rdvlROq684E=",
         "owner": "fdietze",
         "repo": "pi-actor-subagents",
-        "rev": "e92099a7272e64105d5ab429d7856dc0f473b4e3",
+        "rev": "6fa47dad8e66bca3e5cf0fcb94fde771e3536637",
         "type": "github"
       },
       "original": {
         "owner": "fdietze",
         "repo": "pi-actor-subagents",
-        "rev": "e92099a7272e64105d5ab429d7856dc0f473b4e3",
+        "rev": "6fa47dad8e66bca3e5cf0fcb94fde771e3536637",
         "type": "github"
       }
     },
@@ -98,17 +130,17 @@
     "pi-question": {
       "flake": false,
       "locked": {
-        "lastModified": 1793071990,
-        "narHash": "sha256-BqDsEtoz4GJsI8NG9D/TH1gOPmJydta6q4QB7DT2p8U=",
+        "lastModified": 1794680217,
+        "narHash": "sha256-7KWULCNQ3EkFJBHNdrc4zG/rEitkGJ2bHtY1LQiHqJU=",
         "owner": "fdietze",
         "repo": "pi-question",
-        "rev": "1f5e8cdf9f2f7cb197181ef53b4bc64ee42e1a76",
+        "rev": "983cb2cd6566cf33a65b3d11f06529d886ae51e7",
         "type": "github"
       },
       "original": {
         "owner": "fdietze",
         "repo": "pi-question",
-        "rev": "1f5e8cdf9f2f7cb197181ef53b4bc64ee42e1a76",
+        "rev": "983cb2cd6566cf33a65b3d11f06529d886ae51e7",
         "type": "github"
       }
     },
@@ -141,19 +173,40 @@
         "pi-actor-subagents": "pi-actor-subagents",
         "pi-claude-auth": "pi-claude-auth",
         "pi-question": "pi-question",
-        "pi-session-name": "pi-session-name"
+        "pi-session-name": "pi-session-name",
+        "pi-upstream": "pi-upstream"
       },
       "locked": {
-        "lastModified": 1794656170,
-        "narHash": "sha256-sXmhqEARSLXBtL91PTL8gJWbqoZIJ49q+hzkc3Fl/t8=",
+        "lastModified": 1795872118,
+        "narHash": "sha256-REFavzhCkfwOpyWDO7jPGrdbtrits4ShSMBjllVhhKc=",
         "owner": "GRBurst",
         "repo": "pi-setup",
-        "rev": "502f1e5fa72e7b84830abb965315cef8162bab27",
+        "rev": "a07371866700f8c34a9ddcc003979e33ca3f3a91",
         "type": "github"
       },
       "original": {
         "owner": "GRBurst",
         "repo": "pi-setup",
+        "type": "github"
+      }
+    },
+    "pi-upstream": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_2",
+        "nixpkgs-darwin-x64": "nixpkgs-darwin-x64"
+      },
+      "locked": {
+        "lastModified": 1795797299,
+        "narHash": "sha256-EevNAo5UMNFm9PqKnBpShkbzw+qUtSgdmd5K+bY/EGc=",
+        "owner": "earendil-works",
+        "repo": "pi",
+        "rev": "fb0fe823539f6d04850f6e34748c01f01f212e1f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "earendil-works",
+        "repo": "pi",
+        "rev": "fb0fe823539f6d04850f6e34748c01f01f212e1f",
         "type": "github"
       }
     },
